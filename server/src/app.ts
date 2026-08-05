@@ -1,0 +1,59 @@
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import path from "path";
+import { fileURLToPath } from "url";
+import { env } from "./config/env.js";
+import { errorHandler } from "./middleware/error.middleware.js";
+
+// Routes
+import authRoutes from "./modules/auth/auth.routes.js";
+import hostelRoutes from "./modules/hostel/hostel.routes.js";
+import userRoutes from "./modules/user/user.routes.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+
+// ============ MIDDLEWARE ============
+
+app.use(cors({
+  origin: env.CLIENT_URL,
+  credentials: true,
+}));
+
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Static files for uploads
+app.use("/uploads", express.static(path.join(__dirname, "..", env.UPLOAD_DIR)));
+
+// ============ ROUTES ============
+
+app.get("/api/v1/health", (_req, res) => {
+  res.json({
+    success: true,
+    message: "BMSCE Hostel Management API is running",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1", hostelRoutes);
+app.use("/api/v1", userRoutes);
+
+// ============ ERROR HANDLING ============
+
+app.use(errorHandler);
+
+// 404 handler
+app.use((_req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
+
+export default app;
