@@ -1,0 +1,478 @@
+// BMSCE Hostel Management System — Database Schema
+// PostgreSQL + Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  STUDENT
+  ADMIN
+  WARDEN
+  ACCOUNTANT
+  SECURITY
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum HostelType {
+  BOYS
+  GIRLS
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+  DORMITORY
+}
+
+enum RoomStatus {
+  AVAILABLE
+  PARTIALLY_OCCUPIED
+  FULL
+  MAINTENANCE
+  RESERVED
+}
+
+enum AllocationStatus {
+  ACTIVE
+  VACATED
+  TRANSFERRED
+}
+
+enum ReservationStatus {
+  PENDING
+  EXPIRED
+  CONVERTED
+}
+
+enum FeeType {
+  HOSTEL_FEE
+  MESS_FEE
+  DEPOSIT
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum LeaveType {
+  HOME_LEAVE
+  MEDICAL
+  EMERGENCY
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveLogAction {
+  EXIT
+  RETURN
+}
+
+enum ComplaintCategory {
+  ELECTRICAL
+  PLUMBING
+  FURNITURE
+  CLEANING
+  NETWORK
+  OTHER
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum VisitorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHECKED_IN
+  CHECKED_OUT
+}
+
+enum VerificationStatus {
+  VERIFIED
+  DENIED
+}
+
+enum SecurityLogType {
+  QR_SCAN
+  LEAVE_VERIFY
+  VISITOR_CHECK
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         Role      @default(STUDENT)
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  phone        String?
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  studentProfile     StudentProfile?
+  wardenHostels      Hostel[]           @relation("WardenHostels")
+  approvedLeaves     LeaveRequest[]     @relation("ApprovedLeaves")
+  leaveLogs          LeaveLog[]         @relation("SecurityLeaveLogs")
+  assignedComplaints Complaint[]        @relation("AssignedComplaints")
+  approvedVisitors   Visitor[]          @relation("ApprovedVisitors")
+  messVerifications  MessVerification[] @relation("VerifiedBy")
+  securityLogs       SecurityLog[]      @relation("SecurityLogs")
+  refreshTokens      RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model StudentProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  usn              String   @unique // University Serial Number
+  department       String
+  year             Int      // 1, 2, 3, 4
+  semester         Int
+  guardianName     String   @map("guardian_name")
+  guardianPhone    String   @map("guardian_phone")
+  permanentAddress String   @map("permanent_address")
+  bloodGroup       String?  @map("blood_group")
+  dateOfBirth      DateTime @map("date_of_birth")
+  gender           Gender
+  qrCodeToken      String   @unique @default(uuid()) @map("qr_code_token")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomAllocations   RoomAllocation[]
+  reservations      Reservation[]
+  fees              Fee[]
+  leaveRequests     LeaveRequest[]
+  complaints        Complaint[]
+  visitors          Visitor[]
+  messVerifications MessVerification[]
+
+  @@map("student_profiles")
+}
+
+model Hostel {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  type        HostelType
+  address     String?
+  description String?
+  wardenId    String?    @map("warden_id")
+  isActive    Boolean    @default(true) @map("is_active")
+  allowedYears Int[]     @default([]) @map("allowed_years") // e.g., [2, 3] means 2nd and 3rd year
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at") // Soft delete
+
+  // Relations
+  warden User?   @relation("WardenHostels", fields: [wardenId], references: [id])
+  blocks Block[]
+
+  @@map("hostels")
+}
+
+model Block {
+  id          String   @id @default(uuid())
+  hostelId    String   @map("hostel_id")
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  hostel Hostel  @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  floors Floor[]
+
+  @@unique([hostelId, name])
+  @@map("blocks")
+}
+
+model Floor {
+  id          String   @id @default(uuid())
+  blockId     String   @map("block_id")
+  floorNumber Int      @map("floor_number")
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  block Block  @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  rooms Room[]
+
+  @@unique([blockId, floorNumber])
+  @@map("floors")
+}
+
+model Room {
+  id              String     @id @default(uuid())
+  floorId         String     @map("floor_id")
+  roomNumber      String     @map("room_number")
+  capacity        Int
+  occupiedBeds    Int        @default(0) @map("occupied_beds")
+  type            RoomType   @default(DOUBLE)
+  status          RoomStatus @default(AVAILABLE)
+  feePerSemester  Decimal    @default(0) @map("fee_per_semester") @db.Decimal(10, 2)
+  amenities       String?    // JSON string array
+  isActive        Boolean    @default(true) @map("is_active")
+  version         Int        @default(0) // Optimistic locking
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  floor        Floor            @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  allocations  RoomAllocation[]
+  reservations Reservation[]
+
+  @@unique([floorId, roomNumber])
+  @@map("rooms")
+}
+
+model RoomAllocation {
+  id            String           @id @default(uuid())
+  studentId     String           @map("student_id")
+  roomId        String           @map("room_id")
+  bedNumber     Int              @map("bed_number")
+  status        AllocationStatus @default(ACTIVE)
+  allocatedFrom DateTime         @map("allocated_from")
+  allocatedTo   DateTime?        @map("allocated_to")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  student StudentProfile @relation(fields: [studentId], references: [id])
+  room    Room           @relation(fields: [roomId], references: [id])
+  fees    Fee[]
+
+  @@map("room_allocations")
+}
+
+model Reservation {
+  id        String            @id @default(uuid())
+  studentId String            @map("student_id")
+  roomId    String            @map("room_id")
+  status    ReservationStatus @default(PENDING)
+  expiresAt DateTime          @map("expires_at")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  student StudentProfile @relation(fields: [studentId], references: [id])
+  room    Room           @relation(fields: [roomId], references: [id])
+
+  @@map("reservations")
+}
+
+model Fee {
+  id            String        @id @default(uuid())
+  studentId     String        @map("student_id")
+  allocationId  String?       @map("allocation_id")
+  amount        Decimal       @db.Decimal(10, 2)
+  type          FeeType       @default(HOSTEL_FEE)
+  status        PaymentStatus @default(PENDING)
+  transactionId String?       @map("transaction_id")
+  paymentMethod String?       @map("payment_method")
+  receiptNumber String?       @unique @map("receipt_number")
+  screenshotUrl String?       @map("screenshot_url") // Payment screenshot
+  paidAt        DateTime?     @map("paid_at")
+  dueDate       DateTime      @map("due_date")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  student    StudentProfile  @relation(fields: [studentId], references: [id])
+  allocation RoomAllocation? @relation(fields: [allocationId], references: [id])
+
+  @@map("fees")
+}
+
+model LeaveRequest {
+  id              String      @id @default(uuid())
+  studentId       String      @map("student_id")
+  type            LeaveType   @default(HOME_LEAVE)
+  reason          String
+  fromDate        DateTime    @map("from_date")
+  toDate          DateTime    @map("to_date")
+  status          LeaveStatus @default(PENDING)
+  approvedBy      String?     @map("approved_by")
+  rejectionReason String?     @map("rejection_reason")
+  approvedAt      DateTime?   @map("approved_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  student  StudentProfile @relation(fields: [studentId], references: [id])
+  approver User?          @relation("ApprovedLeaves", fields: [approvedBy], references: [id])
+  logs     LeaveLog[]
+
+  @@map("leave_requests")
+}
+
+model LeaveLog {
+  id             String         @id @default(uuid())
+  leaveRequestId String         @map("leave_request_id")
+  securityId     String         @map("security_id")
+  action         LeaveLogAction
+  timestamp      DateTime       @default(now())
+  remarks        String?
+
+  // Relations
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id])
+  security     User         @relation("SecurityLeaveLogs", fields: [securityId], references: [id])
+
+  @@map("leave_logs")
+}
+
+model Complaint {
+  id          String            @id @default(uuid())
+  studentId   String            @map("student_id")
+  title       String
+  description String
+  category    ComplaintCategory @default(OTHER)
+  priority    ComplaintPriority @default(MEDIUM)
+  status      ComplaintStatus   @default(OPEN)
+  assignedTo  String?           @map("assigned_to")
+  resolution  String?
+  resolvedAt  DateTime?         @map("resolved_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  student  StudentProfile   @relation(fields: [studentId], references: [id])
+  assignee User?            @relation("AssignedComplaints", fields: [assignedTo], references: [id])
+  images   ComplaintImage[]
+
+  @@map("complaints")
+}
+
+model ComplaintImage {
+  id          String   @id @default(uuid())
+  complaintId String   @map("complaint_id")
+  imageUrl    String   @map("image_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+
+  @@map("complaint_images")
+}
+
+model Visitor {
+  id            String        @id @default(uuid())
+  studentId     String        @map("student_id")
+  visitorName   String        @map("visitor_name")
+  visitorPhone  String        @map("visitor_phone")
+  relationship  String
+  purpose       String
+  idProofType   String?       @map("id_proof_type")
+  idProofNumber String?       @map("id_proof_number")
+  status        VisitorStatus @default(PENDING)
+  approvedBy    String?       @map("approved_by")
+  checkInTime   DateTime?     @map("check_in_time")
+  checkOutTime  DateTime?     @map("check_out_time")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  student  StudentProfile @relation(fields: [studentId], references: [id])
+  approver User?          @relation("ApprovedVisitors", fields: [approvedBy], references: [id])
+
+  @@map("visitors")
+}
+
+model MessVerification {
+  id         String             @id @default(uuid())
+  studentId  String             @map("student_id")
+  verifiedBy String             @map("verified_by")
+  status     VerificationStatus @default(VERIFIED)
+  reason     String?
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  // Relations
+  student  StudentProfile @relation(fields: [studentId], references: [id])
+  verifier User           @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+
+  @@map("mess_verifications")
+}
+
+model SecurityLog {
+  id         String          @id @default(uuid())
+  securityId String          @map("security_id")
+  studentId  String?         @map("student_id")
+  type       SecurityLogType
+  details    String?
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  security User @relation("SecurityLogs", fields: [securityId], references: [id])
+
+  @@map("security_logs")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
