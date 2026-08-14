@@ -12,7 +12,7 @@ export const registerSchema = z.object({
         firstName: z.string().min(1, "First name is required"),
         lastName: z.string().min(1, "Last name is required"),
         phone: z.string().optional(),
-        role: z.enum(["STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT", "SECURITY"]).optional(),
+        role: z.enum(["STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT", "SECURITY"]).default("STUDENT"),
     }),
 });
 export const resetPasswordSchema = z.object({

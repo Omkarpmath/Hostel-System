@@ -3,7 +3,6 @@ import { hashPassword, comparePassword } from "../../utils/hash.js";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { LoginInput, RegisterInput, ResetPasswordInput } from "./auth.schema.js";
-import { Role } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 
 export class AuthService {
@@ -80,7 +79,7 @@ export class AuthService {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
-        role: (data.role as Role) || Role.STUDENT,
+        role: data.role,
       },
     });
 

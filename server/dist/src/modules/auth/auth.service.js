@@ -2,7 +2,6 @@ import { prisma } from "../../config/db.js";
 import { hashPassword, comparePassword } from "../../utils/hash.js";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { Role } from "@prisma/client";
 export class AuthService {
     async login(data) {
         const user = await prisma.user.findUnique({
@@ -63,7 +62,7 @@ export class AuthService {
                 firstName: data.firstName,
                 lastName: data.lastName,
                 phone: data.phone,
-                role: data.role || Role.STUDENT,
+                role: data.role,
             },
         });
         const { passwordHash: _, ...userWithoutPassword } = user;

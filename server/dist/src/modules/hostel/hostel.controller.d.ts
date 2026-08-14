@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { AuthRequest } from "../../middleware/auth.middleware.js";
 export declare class HostelController {
     createHostel(req: Request, res: Response, next: NextFunction): Promise<void>;
     getHostels(req: Request, res: Response, next: NextFunction): Promise<void>;
@@ -11,7 +12,7 @@ export declare class HostelController {
     getFloors(req: Request, res: Response, next: NextFunction): Promise<void>;
     createRoom(req: Request, res: Response, next: NextFunction): Promise<void>;
     getRooms(req: Request, res: Response, next: NextFunction): Promise<void>;
-    getAvailableRooms(req: Request, res: Response, next: NextFunction): Promise<void>;
+    getAvailableRooms(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     getRoomById(req: Request, res: Response, next: NextFunction): Promise<void>;
     updateRoom(req: Request, res: Response, next: NextFunction): Promise<void>;
     getDashboardStats(_req: Request, res: Response, next: NextFunction): Promise<void>;
