@@ -3,11 +3,22 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 export function validate(schema) {
     return (req, res, next) => {
         try {
-            schema.parse({
+            const parsed = schema.parse({
                 body: req.body,
                 query: req.query,
                 params: req.params,
             });
+            // Zod coercions (notably date strings) are part of the contract.  Use the
+            // parsed result instead of leaving the raw request values for Prisma.
+            if (parsed && typeof parsed === "object") {
+                const value = parsed;
+                if (value.body !== undefined)
+                    req.body = value.body;
+                if (value.query !== undefined)
+                    req.query = value.query;
+                if (value.params !== undefined)
+                    req.params = value.params;
+            }
             next();
         }
         catch (error) {

@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { hostelService } from "./hostel.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { AuthRequest } from "../../middleware/auth.middleware.js";
+import { prisma } from "../../config/db.js";
 
 export class HostelController {
   // ============ HOSTEL ============
@@ -101,9 +103,16 @@ export class HostelController {
     } catch (error) { next(error); }
   }
 
-  async getAvailableRooms(req: Request, res: Response, next: NextFunction) {
+  async getAvailableRooms(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const rooms = await hostelService.getAvailableRooms(String(req.query.hostelId || ""));
+      let eligibility: { year: number; gender: "MALE" | "FEMALE" | "OTHER" } | undefined;
+      if (req.user?.role === "STUDENT") {
+        const student = await prisma.studentProfile.findUnique({ where: { userId: req.user.userId }, select: { year: true, gender: true } });
+        // Accounts awaiting profile completion may still browse real availability;
+        // eligibility filtering is applied as soon as their profile exists.
+        if (student) eligibility = student;
+      }
+      const rooms = await hostelService.getAvailableRooms(String(req.query.hostelId || ""), eligibility);
       ApiResponse.success({ res, data: rooms });
     } catch (error) { next(error); }
   }

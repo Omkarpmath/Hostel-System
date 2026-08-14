@@ -388,7 +388,10 @@ export declare class HostelService {
             totalPages: number;
         };
     }>;
-    getAvailableRooms(hostelId?: string): Promise<({
+    getAvailableRooms(hostelId?: string, eligibility?: {
+        year: number;
+        gender: "MALE" | "FEMALE" | "OTHER";
+    }): Promise<({
         floor: {
             block: {
                 hostel: {
@@ -541,7 +544,6 @@ export declare class HostelService {
         totalStudents: number;
         totalHostels: number;
         totalRooms: number;
-        occupiedRooms: number;
         availableRooms: number;
         pendingLeaves: number;
         openComplaints: number;
@@ -618,6 +620,7 @@ export declare class HostelService {
             allocatedFrom: Date;
             allocatedTo: Date | null;
         })[];
+        occupiedRooms: number;
         occupancyRate: number;
     }>;
 }

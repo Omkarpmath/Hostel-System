@@ -272,25 +272,6 @@ body {
 .page-header { padding-bottom: 0.25rem; }
 .page-header h1 { letter-spacing: -0.035em; }
 
-.preview-note {
-  border: 1px solid rgba(59, 130, 246, 0.18);
-  background: linear-gradient(90deg, rgba(239, 246, 255, 0.85), rgba(240, 253, 250, 0.65));
-}
-.dark .preview-note { background: linear-gradient(90deg, rgba(30, 64, 175, 0.18), rgba(13, 148, 136, 0.12)); }
-
-@media (max-width: 639px) {
-  .demo-table { table-layout: fixed; }
-  .demo-table th,
-  .demo-table td {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-    white-space: normal !important;
-    overflow-wrap: anywhere;
-  }
-  .demo-table th:last-child,
-  .demo-table td:last-child { width: 3.25rem; }
-}
-
 .shimmer {
   background: linear-gradient(
     90deg,

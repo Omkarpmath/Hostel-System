@@ -212,7 +212,7 @@ export class HostelService {
             },
         };
     }
-    async getAvailableRooms(hostelId) {
+    async getAvailableRooms(hostelId, eligibility) {
         const where = {
             isActive: true,
             status: { in: ["AVAILABLE", "PARTIALLY_OCCUPIED"] },
@@ -224,7 +224,19 @@ export class HostelService {
                 },
             };
         }
-        return prisma.room.findMany({
+        if (eligibility) {
+            // This project only models boys/girls hostels; OTHER is not assigned until an
+            // administrator creates an explicitly supported workflow.
+            if (eligibility.gender === "OTHER")
+                return [];
+            const type = eligibility.gender === "MALE" ? "BOYS" : "GIRLS";
+            where.floor = {
+                block: {
+                    hostel: { type, allowedYears: { has: eligibility.year } },
+                },
+            };
+        }
+        const rooms = await prisma.room.findMany({
             where,
             include: {
                 floor: {
@@ -239,6 +251,7 @@ export class HostelService {
             },
             orderBy: { roomNumber: "asc" },
         });
+        return rooms.filter((room) => room.occupiedBeds < room.capacity);
     }
     async getRoomById(id) {
         const room = await prisma.room.findUnique({
@@ -272,6 +285,12 @@ export class HostelService {
         return room;
     }
     async updateRoom(id, data) {
+        const room = await prisma.room.findUnique({ where: { id }, select: { occupiedBeds: true } });
+        if (!room)
+            throw ApiError.notFound("Room not found");
+        if (data.capacity !== undefined && data.capacity < room.occupiedBeds) {
+            throw ApiError.badRequest("Room capacity cannot be lower than the number of occupied beds");
+        }
         const updateData = { ...data };
         if (data.amenities) {
             updateData.amenities = JSON.stringify(data.amenities);
@@ -287,7 +306,7 @@ export class HostelService {
             prisma.studentProfile.count(),
             prisma.hostel.count({ where: { deletedAt: null, isActive: true } }),
             prisma.room.count({ where: { isActive: true } }),
-            prisma.room.count({ where: { isActive: true, status: "FULL" } }),
+            prisma.room.aggregate({ where: { isActive: true }, _sum: { occupiedBeds: true } }),
             prisma.room.count({
                 where: { isActive: true, status: { in: ["AVAILABLE", "PARTIALLY_OCCUPIED"] } },
             }),
@@ -326,13 +345,13 @@ export class HostelService {
             totalStudents,
             totalHostels,
             totalRooms,
-            occupiedRooms,
             availableRooms,
             pendingLeaves,
             openComplaints,
             pendingFees,
             recentAllocations,
-            occupancyRate: totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0,
+            occupiedRooms: occupiedRooms._sum.occupiedBeds || 0,
+            occupancyRate: totalRooms > 0 ? Math.round(((occupiedRooms._sum.occupiedBeds || 0) / totalRooms) * 100) : 0,
         };
     }
 }

@@ -14,26 +14,12 @@ import {
   Moon,
   AlertCircle,
   Loader2,
-  GraduationCap,
-  Shield,
-  Calculator,
-  ShieldCheck,
-  UserCog,
 } from 'lucide-react';
-
-const roles = [
-  { value: 'ADMIN', label: 'Admin', icon: UserCog },
-  { value: 'STUDENT', label: 'Student', icon: GraduationCap },
-  { value: 'WARDEN', label: 'Warden', icon: Shield },
-  { value: 'ACCOUNTANT', label: 'Accountant', icon: Calculator },
-  { value: 'SECURITY', label: 'Security', icon: ShieldCheck },
-];
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, devSignIn } = useAuth();
+  const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [selectedRole, setSelectedRole] = useState('ADMIN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,8 +32,8 @@ export function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      navigate(getDashboardPath(selectedRole));
+      const loggedInUser = await login(email, password);
+      navigate(getDashboardPath(loggedInUser.role));
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
     } finally {
@@ -233,61 +219,6 @@ export function LoginPage() {
             </p>
           </div>
 
-          {/* Role selector */}
-          <div style={{ marginBottom: '1.75rem' }}>
-            <label style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', display: 'block', marginBottom: '0.75rem' }}>
-              Select your role
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
-              {roles.map((role) => {
-                const isSelected = selectedRole === role.value;
-                return (
-                  <button
-                    key={role.value}
-                    type="button"
-                    onClick={() => {
-                      setSelectedRole(role.value);
-                      devSignIn?.(role.value as any);
-                      navigate(getDashboardPath(role.value));
-                    }}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.875rem 0.5rem',
-                      borderRadius: '0.875rem',
-                      border: isSelected ? '2px solid #3b82f6' : '2px solid transparent',
-                      backgroundColor: isSelected ? (theme === 'dark' ? 'rgba(59,130,246,0.1)' : '#eff6ff') : 'var(--bg-card)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                    }}
-                  >
-                    <role.icon
-                      style={{
-                        width: '1.25rem',
-                        height: '1.25rem',
-                        color: isSelected ? '#3b82f6' : 'var(--text-muted)',
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: '0.625rem',
-                        fontWeight: 700,
-                        color: isSelected ? (theme === 'dark' ? '#93c5fd' : '#1d4ed8') : 'var(--text-secondary)',
-                      }}
-                    >
-                      {role.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Click a role above to open its local UI preview. Use email and password when the backend is configured.
-            </p>
-          </div>
 
           {/* Error */}
           {error && (
@@ -482,6 +413,10 @@ export function LoginPage() {
               )}
             </button>
           </form>
+
+          <p style={{ textAlign: 'center', fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '1.25rem' }}>
+            New here? <a href="/register" style={{ color: '#2563eb', fontWeight: 700, textDecoration: 'none' }}>Create an account</a>
+          </p>
 
           {/* Footer */}
           <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2.5rem', lineHeight: 1.6 }}>

@@ -28,13 +28,13 @@ export declare const registerSchema: z.ZodObject<{
         firstName: z.ZodString;
         lastName: z.ZodString;
         phone: z.ZodOptional<z.ZodString>;
-        role: z.ZodOptional<z.ZodEnum<["STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT", "SECURITY"]>>;
+        role: z.ZodDefault<z.ZodEnum<["STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT", "SECURITY"]>>;
     }, "strip", z.ZodTypeAny, {
         email: string;
+        role: "STUDENT" | "ADMIN" | "WARDEN" | "ACCOUNTANT" | "SECURITY";
         firstName: string;
         lastName: string;
         password: string;
-        role?: "STUDENT" | "ADMIN" | "WARDEN" | "ACCOUNTANT" | "SECURITY" | undefined;
         phone?: string | undefined;
     }, {
         email: string;
@@ -47,10 +47,10 @@ export declare const registerSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     body: {
         email: string;
+        role: "STUDENT" | "ADMIN" | "WARDEN" | "ACCOUNTANT" | "SECURITY";
         firstName: string;
         lastName: string;
         password: string;
-        role?: "STUDENT" | "ADMIN" | "WARDEN" | "ACCOUNTANT" | "SECURITY" | undefined;
         phone?: string | undefined;
     };
 }, {

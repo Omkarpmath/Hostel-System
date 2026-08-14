@@ -2,6 +2,25 @@ import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { hashPassword } from "../../utils/hash.js";
 export class UserService {
+    async createStudent(data) {
+        const passwordHash = await hashPassword(data.password);
+        return prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({ data: { email: data.email, passwordHash, firstName: data.firstName, lastName: data.lastName, phone: data.phone, role: "STUDENT" } });
+            return tx.studentProfile.create({ data: { userId: user.id, usn: data.usn, department: data.department, year: data.year, semester: data.semester, guardianName: data.guardianName, guardianPhone: data.guardianPhone, permanentAddress: data.permanentAddress, dateOfBirth: new Date(data.dateOfBirth), gender: data.gender }, include: { user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } } });
+        });
+    }
+    async getCurrentStudent(userId) {
+        const student = await prisma.studentProfile.findUnique({
+            where: { userId },
+            include: {
+                user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true } },
+                roomAllocations: { where: { status: "ACTIVE" }, include: { room: { include: { floor: { include: { block: { include: { hostel: true } } } } } } } },
+            },
+        });
+        if (!student)
+            throw ApiError.notFound("Student profile has not been created yet");
+        return student;
+    }
     async getUsers(filters) {
         const page = filters?.page || 1;
         const limit = filters?.limit || 20;
@@ -157,47 +176,44 @@ export class UserService {
             },
         });
     }
-    async getStudents(filters) {
+    async getStudents(filters, wardenId) {
         const page = filters?.page || 1;
         const limit = filters?.limit || 20;
         const skip = (page - 1) * limit;
-        const where = {};
+        // Query User, not StudentProfile: accounts can exist before an administrator
+        // completes their profile, and must not disappear from the admin roster.
+        const where = { role: "STUDENT" };
         if (filters?.department)
-            where.department = filters.department;
+            where.studentProfile = { department: filters.department };
         if (filters?.year)
-            where.year = filters.year;
+            where.studentProfile = { year: filters.year };
+        if (wardenId)
+            where.studentProfile = { roomAllocations: { some: { status: "ACTIVE", room: { floor: { block: { hostel: { wardenId } } } } } } };
         if (filters?.search) {
             where.OR = [
-                { usn: { contains: filters.search, mode: "insensitive" } },
-                { user: { firstName: { contains: filters.search, mode: "insensitive" } } },
-                { user: { lastName: { contains: filters.search, mode: "insensitive" } } },
-                { user: { email: { contains: filters.search, mode: "insensitive" } } },
+                { firstName: { contains: filters.search, mode: "insensitive" } },
+                { lastName: { contains: filters.search, mode: "insensitive" } },
+                { email: { contains: filters.search, mode: "insensitive" } },
+                { studentProfile: { usn: { contains: filters.search, mode: "insensitive" } } },
             ];
         }
-        const [students, total] = await Promise.all([
-            prisma.studentProfile.findMany({
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
                 where,
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            email: true,
-                            phone: true,
-                            avatarUrl: true,
-                            isActive: true,
-                        },
-                    },
-                    roomAllocations: {
-                        where: { status: "ACTIVE" },
+                select: {
+                    id: true, firstName: true, lastName: true, email: true, phone: true,
+                    avatarUrl: true, isActive: true, createdAt: true,
+                    studentProfile: {
                         include: {
-                            room: {
+                            roomAllocations: {
+                                where: { status: "ACTIVE" },
                                 include: {
-                                    floor: {
+                                    room: {
                                         include: {
-                                            block: {
-                                                include: { hostel: { select: { name: true } } },
+                                            floor: {
+                                                include: {
+                                                    block: { include: { hostel: { select: { name: true } } } },
+                                                },
                                             },
                                         },
                                     },
@@ -210,8 +226,18 @@ export class UserService {
                 take: limit,
                 orderBy: { createdAt: "desc" },
             }),
-            prisma.studentProfile.count({ where }),
+            prisma.user.count({ where }),
         ]);
+        const students = users.map(({ studentProfile, ...user }) => ({
+            id: studentProfile?.id ?? user.id,
+            user,
+            usn: studentProfile?.usn ?? null,
+            department: studentProfile?.department ?? null,
+            year: studentProfile?.year ?? null,
+            semester: studentProfile?.semester ?? null,
+            roomAllocations: studentProfile?.roomAllocations ?? [],
+            profileComplete: Boolean(studentProfile),
+        }));
         return {
             students,
             meta: { page, limit, total, totalPages: Math.ceil(total / limit) },

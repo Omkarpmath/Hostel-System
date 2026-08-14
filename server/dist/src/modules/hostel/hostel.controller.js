@@ -1,5 +1,6 @@
 import { hostelService } from "./hostel.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { prisma } from "../../config/db.js";
 export class HostelController {
     // ============ HOSTEL ============
     async createHostel(req, res, next) {
@@ -119,7 +120,15 @@ export class HostelController {
     }
     async getAvailableRooms(req, res, next) {
         try {
-            const rooms = await hostelService.getAvailableRooms(String(req.query.hostelId || ""));
+            let eligibility;
+            if (req.user?.role === "STUDENT") {
+                const student = await prisma.studentProfile.findUnique({ where: { userId: req.user.userId }, select: { year: true, gender: true } });
+                // Accounts awaiting profile completion may still browse real availability;
+                // eligibility filtering is applied as soon as their profile exists.
+                if (student)
+                    eligibility = student;
+            }
+            const rooms = await hostelService.getAvailableRooms(String(req.query.hostelId || ""), eligibility);
             ApiResponse.success({ res, data: rooms });
         }
         catch (error) {

@@ -19,7 +19,6 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { formatDate } from '@/lib/utils';
-import { useAuth } from '@/providers/AuthProvider';
 import {
   Users,
   Building2,
@@ -35,11 +34,9 @@ import type { DashboardStats, ApiResponse } from '@/types';
 const CHART_COLORS = ['#1e40af', '#3b82f6', '#60a5fa', '#93c5fd', '#0d9488', '#14b8a6'];
 
 export function AdminDashboard() {
-  const { isPreviewMode } = useAuth();
   const { data, isLoading } = useQuery<ApiResponse<DashboardStats>>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => (await hostelApi.getDashboardStats()).data,
-    enabled: !isPreviewMode,
   });
 
   if (isLoading) return <PageSkeleton />;
@@ -73,14 +70,6 @@ export function AdminDashboard() {
         breadcrumbs={[{ label: 'Dashboard' }]}
       />
 
-      {isPreviewMode && (
-        <div
-          className="preview-note rounded-2xl px-5 py-3.5 text-sm"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          Local UI preview is active. Connect the backend to view live hostel data.
-        </div>
-      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
