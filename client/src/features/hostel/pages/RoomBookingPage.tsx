@@ -1,19 +1,223 @@
 import { useQuery } from '@tanstack/react-query';
-import { BedDouble } from 'lucide-react';
+import { BedDouble, CheckCircle2, Building2, Users, MapPin } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { hostelApi } from '@/api/hostel.api';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
+import { hostelApi } from '@/api/hostel.api';
+import { authApi } from '@/api/auth.api';
+import { useAuth } from '@/providers/AuthProvider';
+import { useTheme } from '@/providers/ThemeProvider';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { motion } from 'framer-motion';
 
 export function RoomBookingPage() {
-  const { data, isLoading } = useQuery({ queryKey: ['available-rooms'], queryFn: () => hostelApi.getAvailableRooms() });
-  if (isLoading) return <PageSkeleton />;
+  const { user } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const isStudent = user?.role === 'STUDENT';
+
+  // If student, check if they already have a room allocation
+  const { data: profileData } = useQuery({
+    queryKey: ['profile'],
+    queryFn: () => authApi.getProfile(),
+    enabled: isStudent,
+  });
+
+  const profile = (profileData?.data as any)?.data;
+  const activeAllocation = profile?.studentProfile?.roomAllocations?.find(
+    (a: any) => a.status === 'ACTIVE'
+  );
+
+  // Fetch available rooms
+  const { data, isLoading } = useQuery({
+    queryKey: ['available-rooms'],
+    queryFn: () => hostelApi.getAvailableRooms(),
+  });
   const rooms: any[] = (data?.data as any)?.data || [];
 
+  // Also fetch all rooms for admin view
+  const { data: allRoomsData } = useQuery({
+    queryKey: ['all-rooms'],
+    queryFn: () => hostelApi.getRooms(),
+    enabled: user?.role === 'ADMIN',
+  });
+  const allRooms: any[] = (allRoomsData?.data as any)?.data || [];
+
+  const displayRooms = user?.role === 'ADMIN' ? (rooms.length > 0 ? rooms : allRooms) : rooms;
+
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: 'var(--bg-card)',
+    border: '1px solid var(--border-primary)',
+    borderRadius: '1rem',
+    padding: '1.25rem',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  };
+
+  // If student already has a room, show that
+  if (isStudent && activeAllocation) {
+    const room = activeAllocation.room;
+    const hostelName = room?.floor?.block?.hostel?.name || 'Unknown Hostel';
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <PageHeader
+          title="My Room"
+          description="Your current room allocation details"
+          breadcrumbs={[{ label: 'Dashboard', href: '/student/dashboard' }, { label: 'My Room' }]}
+        />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          style={{
+            ...cardStyle,
+            padding: '2rem',
+            background: isDark
+              ? 'linear-gradient(135deg, rgba(30,64,175,0.15), rgba(13,148,136,0.1))'
+              : 'linear-gradient(135deg, #eff6ff, #f0fdfa)',
+            border: `1px solid ${isDark ? 'rgba(59,130,246,0.3)' : '#bfdbfe'}`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <CheckCircle2 style={{ width: '1.5rem', height: '1.5rem', color: '#16a34a' }} />
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              You are allocated to a room
+            </h3>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
+            {[
+              { label: 'Room Number', value: room?.roomNumber || 'N/A', icon: BedDouble },
+              { label: 'Hostel', value: hostelName, icon: Building2 },
+              { label: 'Capacity', value: `${room?.occupiedBeds || 0}/${room?.capacity || 0} beds`, icon: Users },
+              { label: 'Fee/Semester', value: room?.feePerSemester ? `₹${room.feePerSemester.toLocaleString('en-IN')}` : 'N/A', icon: MapPin },
+            ].map((item) => (
+              <div key={item.label}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.375rem' }}>
+                  <item.icon style={{ width: '0.875rem', height: '0.875rem', color: 'var(--text-muted)' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {item.label}
+                  </span>
+                </div>
+                <p style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <PageHeader title="Available Rooms" description="Loading..." breadcrumbs={[{ label: 'Dashboard' }, { label: 'Browse Rooms' }]} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} style={{ ...cardStyle, height: '10rem', animation: 'pulse 2s ease-in-out infinite', opacity: 0.5 }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
-      <PageHeader title="Available Rooms" description="Availability is updated from current database allocations. Contact the administrator to request allocation." breadcrumbs={[{ label: 'Dashboard' }, { label: 'Browse Rooms' }]} />
-      {rooms.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{rooms.map((room) => <section key={room.id} className="glass-card p-5"><BedDouble className="h-5 w-5 text-primary-600" /><h2 className="mt-3 font-semibold">Room {room.roomNumber}</h2><p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>{room.floor?.block?.hostel?.name}</p><p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>Capacity: {room.capacity} · Available: {room.capacity - room.occupiedBeds}</p></section>)}</div> : <EmptyState icon={BedDouble} title="No rooms available" description="There are no eligible rooms with open capacity at the moment." />}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <PageHeader
+        title={isStudent ? 'Available Rooms' : 'Room Management'}
+        description={isStudent
+          ? 'Browse available rooms. Contact the administrator to request allocation.'
+          : `Showing ${displayRooms.length} room(s) from the database. Add rooms via Hostels → Block → Floor → Room.`
+        }
+        breadcrumbs={[
+          { label: 'Dashboard', href: isStudent ? '/student/dashboard' : '/admin/dashboard' },
+          { label: isStudent ? 'Browse Rooms' : 'Rooms' },
+        ]}
+      />
+
+      {displayRooms.length === 0 ? (
+        <EmptyState
+          icon={BedDouble}
+          title="No rooms available"
+          description={isStudent
+            ? 'There are no rooms with open capacity at the moment. Please check again later.'
+            : 'No rooms found. Add rooms by going to Hostels → expand a hostel → add Block → Floor → Room.'
+          }
+        />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          {displayRooms.map((room: any, i: number) => {
+            const hostelName = room.floor?.block?.hostel?.name || 'Unknown';
+            const hostelType = room.floor?.block?.hostel?.type;
+            const available = room.capacity - room.occupiedBeds;
+            const blockName = room.floor?.block?.name || '';
+            const floorName = room.floor?.name || '';
+
+            return (
+              <motion.div
+                key={room.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05, duration: 0.3 }}
+                style={cardStyle}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  <div style={{
+                    padding: '0.5rem', borderRadius: '0.625rem',
+                    backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff',
+                  }}>
+                    <BedDouble style={{ width: '1.25rem', height: '1.25rem', color: isDark ? '#60a5fa' : '#2563eb' }} />
+                  </div>
+                  <StatusBadge status={room.status || 'AVAILABLE'} />
+                </div>
+
+                <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                  Room {room.roomNumber}
+                </h3>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                  {hostelName}
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                  {blockName && <span>{blockName} · {floorName}</span>}
+                  <span>Type: {room.type || 'N/A'} · Capacity: {room.capacity}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                    <span style={{
+                      fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 0.5rem', borderRadius: '9999px',
+                      backgroundColor: available > 0
+                        ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
+                        : (isDark ? 'rgba(220,38,38,0.15)' : '#fee2e2'),
+                      color: available > 0
+                        ? (isDark ? '#4ade80' : '#15803d')
+                        : (isDark ? '#fca5a5' : '#dc2626'),
+                    }}>
+                      {available > 0 ? `${available} bed${available > 1 ? 's' : ''} available` : 'Full'}
+                    </span>
+                    {room.feePerSemester && (
+                      <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        ₹{room.feePerSemester.toLocaleString('en-IN')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {hostelType && (
+                  <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-primary)' }}>
+                    <span style={{
+                      fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5rem', borderRadius: '9999px',
+                      backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#dbeafe',
+                      color: isDark ? '#93c5fd' : '#1d4ed8',
+                    }}>{hostelType}</span>
+                    {room.floor?.block?.hostel?.allowedYears?.length > 0 && (
+                      <span style={{
+                        marginLeft: '0.5rem',
+                        fontSize: '0.6875rem', fontWeight: 600, padding: '0.125rem 0.5rem', borderRadius: '9999px',
+                        backgroundColor: isDark ? 'rgba(20,184,166,0.15)' : '#ccfbf1',
+                        color: isDark ? '#2dd4bf' : '#0f766e',
+                      }}>Year {room.floor.block.hostel.allowedYears.join(', ')}</span>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
