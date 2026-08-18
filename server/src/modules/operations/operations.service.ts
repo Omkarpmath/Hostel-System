@@ -46,6 +46,8 @@ export class OperationsService {
       if (current) throw ApiError.conflict("This student already has an active room allocation");
       if (["MAINTENANCE", "RESERVED"].includes(room.status)) throw ApiError.badRequest("This room is not available for allocation");
       if (room.occupiedBeds >= room.capacity) throw ApiError.conflict("This room is already full");
+      const pendingReservations = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
+      if (room.occupiedBeds + pendingReservations >= room.capacity) throw ApiError.conflict("The remaining bed is temporarily reserved by a student completing payment");
       const active = await tx.roomAllocation.findMany({ where: { roomId, status: "ACTIVE" }, select: { bedNumber: true } });
       const bedNumber = requestedBed || Array.from({ length: room.capacity }, (_, i) => i + 1).find((n) => !active.some((a) => a.bedNumber === n));
       if (!bedNumber || active.some((a) => a.bedNumber === bedNumber) || bedNumber > room.capacity) throw ApiError.conflict("Selected bed is not available");

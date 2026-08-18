@@ -22,7 +22,7 @@ export function LeavesPage() {
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error } = useQuery<any>({
+  const { data, isError, error } = useQuery<any>({
     queryKey: ['leaves'],
     queryFn: operationsApi.leaves,
     retry: 1,

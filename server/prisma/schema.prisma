@@ -311,6 +311,7 @@ model Reservation {
   roomId    String            @map("room_id")
   status    ReservationStatus @default(PENDING)
   expiresAt DateTime          @map("expires_at")
+  razorpayOrderId String?     @map("razorpay_order_id")
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @updatedAt @map("updated_at")
 

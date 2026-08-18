@@ -239,6 +239,7 @@ export class HostelService {
         const rooms = await prisma.room.findMany({
             where,
             include: {
+                reservations: { where: { status: "PENDING", expiresAt: { gt: new Date() } }, select: { id: true } },
                 floor: {
                     include: {
                         block: {
@@ -251,7 +252,9 @@ export class HostelService {
             },
             orderBy: { roomNumber: "asc" },
         });
-        return rooms.filter((room) => room.occupiedBeds < room.capacity);
+        return rooms
+            .filter((room) => room.occupiedBeds + room.reservations.length < room.capacity)
+            .map(({ reservations, ...room }) => ({ ...room, occupiedBeds: room.occupiedBeds + reservations.length }));
     }
     async getRoomById(id) {
         const room = await prisma.room.findUnique({

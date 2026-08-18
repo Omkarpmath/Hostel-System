@@ -10,6 +10,7 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import hostelRoutes from "./modules/hostel/hostel.routes.js";
 import userRoutes from "./modules/user/user.routes.js";
 import operationsRoutes from "./modules/operations/operations.routes.js";
+import bookingRoutes from "./modules/booking/booking.routes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", hostelRoutes);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", operationsRoutes);
+app.use("/api/v1/booking", bookingRoutes);
 // ============ ERROR HANDLING ============
 app.use(errorHandler);
 // 404 handler

@@ -13,4 +13,6 @@ export const env = {
   CLIENT_URL: process.env.CLIENT_URL || "http://localhost:5173",
   UPLOAD_DIR: process.env.UPLOAD_DIR || "uploads",
   MAX_FILE_SIZE: parseInt(process.env.MAX_FILE_SIZE || "5242880", 10),
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "",
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "",
 } as const;
