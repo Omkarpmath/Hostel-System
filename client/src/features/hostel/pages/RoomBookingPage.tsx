@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BedDouble, CheckCircle2, Building2, Users, MapPin } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -8,12 +9,16 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { motion } from 'framer-motion';
+import { bookingApi } from '@/api/booking.api';
 
 export function RoomBookingPage() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const isStudent = user?.role === 'STUDENT';
+  const queryClient = useQueryClient();
+  const [message, setMessage] = useState('');
+  const [orderInfo, setOrderInfo] = useState<{ orderId: string; reused?: boolean } | null>(null);
 
   // If student, check if they already have a room allocation
   const { data: profileData } = useQuery({
@@ -27,12 +32,66 @@ export function RoomBookingPage() {
     (a: any) => a.status === 'ACTIVE'
   );
 
+  const { data: hostelsData } = useQuery({
+    queryKey: ['hostels-for-room-eligibility'],
+    queryFn: () => hostelApi.getAll(),
+    enabled: isStudent && Boolean(profile?.studentProfile),
+  });
+  const studentProfile = profile?.studentProfile;
+  const compatibleHostelExists = !studentProfile || (hostelsData?.data as any)?.data?.some((hostel: any) =>
+    hostel.isActive !== false
+    && hostel.allowedYears?.includes(studentProfile.year)
+    && ((studentProfile.gender === 'MALE' && hostel.type === 'BOYS') || (studentProfile.gender === 'FEMALE' && hostel.type === 'GIRLS'))
+  );
+
   // Fetch available rooms
   const { data, isLoading } = useQuery({
     queryKey: ['available-rooms'],
     queryFn: () => hostelApi.getAvailableRooms(),
   });
   const rooms: any[] = (data?.data as any)?.data || [];
+
+  const { data: reservationData } = useQuery({ queryKey: ['my-reservation'], queryFn: bookingApi.active, enabled: isStudent });
+  const reservation: any = (reservationData?.data as any)?.data;
+  const reserve = useMutation({ mutationFn: bookingApi.reserve, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['my-reservation'] }); queryClient.invalidateQueries({ queryKey: ['available-rooms'] }); }, onError: (error: any) => setMessage(error.response?.data?.message || 'Unable to reserve this room.') });
+  const cancel = useMutation({
+    mutationFn: bookingApi.cancel,
+    onSuccess: async () => {
+      queryClient.setQueryData(['my-reservation'], (old: any) => old ? { ...old, data: { ...old.data, data: null } } : old);
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['my-reservation'] }),
+        queryClient.refetchQueries({ queryKey: ['available-rooms'] }),
+      ]);
+      setOrderInfo(null);
+      setMessage('Reservation cancelled. Available rooms have been refreshed.');
+    },
+    onError: (error: any) => setMessage(error.response?.data?.message || 'Unable to cancel the reservation.'),
+  });
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
+  useEffect(() => { if (!reservation?.expiresAt) return; const tick = () => setSecondsRemaining(Math.max(0, Math.ceil((new Date(reservation.expiresAt).getTime() - Date.now()) / 1000))); tick(); const interval = window.setInterval(tick, 1000); return () => window.clearInterval(interval); }, [reservation?.expiresAt]);
+
+  const pay = async () => {
+    try {
+      setMessage('');
+      const order = (await bookingApi.createOrder(reservation.id)).data.data;
+      if (!order) throw new Error('Payment order could not be created.');
+      setOrderInfo({ orderId: order.orderId, reused: (order as any).reused });
+      if (!(window as any).Razorpay) throw new Error('Razorpay Checkout has not loaded. Refresh and try again.');
+      const checkout = new (window as any).Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'BMSCE Hostel',
+        description: `Room ${reservation.room.roomNumber} hostel fee`,
+        order_id: order.orderId,
+        prefill: { name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(), email: user?.email },
+        modal: { ondismiss: () => setMessage('Payment window closed. You can retry the same payment order before the reservation expires.') },
+        handler: async (response: any) => { try { await bookingApi.verify({ razorpayOrderId: response.razorpay_order_id, razorpayPaymentId: response.razorpay_payment_id, razorpaySignature: response.razorpay_signature }); queryClient.invalidateQueries({ queryKey: ['profile'] }); queryClient.invalidateQueries({ queryKey: ['available-rooms'] }); queryClient.invalidateQueries({ queryKey: ['my-reservation'] }); setMessage('Payment verified. Your room has been allocated.'); } catch (error: any) { setMessage(error.response?.data?.message || 'Payment was received but room allocation could not be completed.'); } },
+      });
+      checkout.on('payment.failed', () => setMessage('Payment failed. Click Pay again to reopen the same order before your reservation expires.'));
+      checkout.open();
+    } catch (error: any) { setMessage(error.response?.data?.message || error.message || 'Unable to start Razorpay payment.'); }
+  };
 
   // Also fetch all rooms for admin view
   const { data: allRoomsData } = useQuery({
@@ -116,6 +175,11 @@ export function RoomBookingPage() {
     );
   }
 
+  if (isStudent && reservation) {
+    const fee = Number(reservation.room?.feePerSemester || 0);
+    return <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}><PageHeader title="Complete Room Booking" description="Your selected room is held temporarily while you complete payment." breadcrumbs={[{ label: 'Dashboard', href: '/student/dashboard' }, { label: 'Browse Rooms' }]} />{message && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p>}<section style={cardStyle}><h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>Room {reservation.room?.roomNumber} reserved</h2><p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>{reservation.room?.floor?.block?.hostel?.name} · {reservation.room?.floor?.block?.name} · {reservation.room?.floor?.name}</p><p style={{ marginTop: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Hostel fee: ₹{fee.toLocaleString('en-IN')}</p><p style={{ marginTop: '0.5rem', color: secondsRemaining > 0 ? '#15803d' : '#dc2626', fontWeight: 700 }}>Reservation expires in {Math.floor(secondsRemaining / 60).toString().padStart(2, '0')}:{(secondsRemaining % 60).toString().padStart(2, '0')}</p>{orderInfo && <p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>Payment order: <code>{orderInfo.orderId}</code>{orderInfo.reused ? ' · reopened for retry' : ''}</p>}<div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}><button disabled={secondsRemaining === 0} onClick={pay} className="rounded-xl px-5 py-3 text-sm font-bold text-white gradient-bg disabled:opacity-50">{orderInfo ? 'Retry payment' : `Pay ₹${fee.toLocaleString('en-IN')}`}</button><button onClick={() => cancel.mutate(reservation.id)} className="rounded-xl border px-5 py-3 text-sm font-bold" style={{ borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}>Cancel reservation</button></div></section></div>;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <PageHeader
@@ -135,11 +199,14 @@ export function RoomBookingPage() {
           icon={BedDouble}
           title="No rooms available"
           description={isStudent
-            ? 'There are no rooms with open capacity at the moment. Please check again later.'
+            ? compatibleHostelExists
+              ? 'There are no eligible rooms with open capacity at the moment. Please check again later.'
+              : `No hostel is currently configured for your ${studentProfile?.gender === 'MALE' ? 'male' : studentProfile?.gender === 'FEMALE' ? 'female' : ''} Year ${studentProfile?.year} profile. Ask an administrator to update the hostel allowed years.`
             : 'No rooms found. Add rooms by going to Hostels → expand a hostel → add Block → Floor → Room.'
           }
         />
       ) : (
+        <>{message && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
           {displayRooms.map((room: any, i: number) => {
             const hostelName = room.floor?.block?.hostel?.name || 'Unknown';
@@ -213,10 +280,11 @@ export function RoomBookingPage() {
                     )}
                   </div>
                 )}
+                {isStudent && <button disabled={reserve.isPending || available <= 0} onClick={() => reserve.mutate(room.id)} className="mt-4 w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white gradient-bg disabled:opacity-50">{reserve.isPending ? 'Reserving…' : 'Select room'}</button>}
               </motion.div>
             );
           })}
-        </div>
+        </div></>
       )}
     </div>
   );

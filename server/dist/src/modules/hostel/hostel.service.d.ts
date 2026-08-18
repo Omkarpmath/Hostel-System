@@ -391,7 +391,8 @@ export declare class HostelService {
     getAvailableRooms(hostelId?: string, eligibility?: {
         year: number;
         gender: "MALE" | "FEMALE" | "OTHER";
-    }): Promise<({
+    }): Promise<{
+        occupiedBeds: number;
         floor: {
             block: {
                 hostel: {
@@ -417,7 +418,6 @@ export declare class HostelService {
             blockId: string;
             floorNumber: number;
         };
-    } & {
         id: string;
         isActive: boolean;
         createdAt: Date;
@@ -427,11 +427,10 @@ export declare class HostelService {
         floorId: string;
         roomNumber: string;
         capacity: number;
-        occupiedBeds: number;
         feePerSemester: Prisma.Decimal;
         amenities: string | null;
         version: number;
-    })[]>;
+    }[]>;
     getRoomById(id: string): Promise<{
         floor: {
             block: {

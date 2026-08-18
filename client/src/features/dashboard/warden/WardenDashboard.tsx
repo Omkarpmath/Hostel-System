@@ -17,7 +17,7 @@ export function WardenDashboard() {
   const isDark = theme === 'dark';
 
   // Fetch dashboard stats from backend
-  const { data: statsData, isLoading: statsLoading } = useQuery({
+  const { data: statsData } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => hostelApi.getDashboardStats(),
     retry: 1,

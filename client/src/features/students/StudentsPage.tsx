@@ -16,7 +16,6 @@ export function StudentsPage() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -47,10 +46,6 @@ export function StudentsPage() {
   });
 
   const canAdd = user?.role === 'ADMIN';
-  const completeProfile = useMutation({
-    mutationFn: ({ userId, data }: { userId: string; data: any }) => userApi.createStudentProfile(userId, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['students'] }); setProfileUserId(null); },
-  });
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: 'var(--bg-card)',

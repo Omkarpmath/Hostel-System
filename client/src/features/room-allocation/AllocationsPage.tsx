@@ -20,7 +20,6 @@ export function AllocationsPage() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
