@@ -234,7 +234,12 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
     queryKey: ['students'],
     queryFn: () => userApi.getStudents({ limit: '1000' }),
   });
-  const students: any[] = (studentsData?.data as any)?.data?.students || [];
+  const students: any[] = (() => {
+    const d = (studentsData?.data as any)?.data;
+    if (Array.isArray(d)) return d;
+    if (d?.students && Array.isArray(d.students)) return d.students;
+    return [];
+  })();
 
   const { data: roomsData } = useQuery({
     queryKey: ['available-rooms'],
@@ -276,7 +281,7 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
             <label style={labelStyle}>Select Student</label>
             <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={inputStyle}>
               <option value="">Choose a student...</option>
-              {students.filter((s) => s.usn).map((s) => (
+              {students.filter((s) => s.usn && !(s.roomAllocations?.some((a: any) => a.status === 'ACTIVE'))).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.usn} — {s.user?.firstName} {s.user?.lastName}
                 </option>
