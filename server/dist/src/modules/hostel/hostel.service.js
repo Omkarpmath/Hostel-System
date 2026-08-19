@@ -1,6 +1,34 @@
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
 export class HostelService {
+    async getEligibleHostels(eligibility) {
+        if (eligibility.gender === "OTHER")
+            return [];
+        const type = eligibility.gender === "MALE" ? "BOYS" : "GIRLS";
+        const hostels = await prisma.hostel.findMany({
+            where: { deletedAt: null, isActive: true, type, allowedYears: { has: eligibility.year } },
+            include: {
+                blocks: {
+                    include: {
+                        floors: {
+                            include: {
+                                rooms: {
+                                    where: { isActive: true, status: { in: ["AVAILABLE", "PARTIALLY_OCCUPIED"] } },
+                                    include: { reservations: { where: { status: "PENDING", expiresAt: { gt: new Date() } }, select: { id: true } } },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: { name: "asc" },
+        });
+        return hostels.map(({ blocks, ...hostel }) => ({
+            ...hostel,
+            availableRoomCount: blocks.flatMap((block) => block.floors).flatMap((floor) => floor.rooms)
+                .filter((room) => room.occupiedBeds + room.reservations.length < room.capacity).length,
+        }));
+    }
     // ============ HOSTEL ============
     async createHostel(data) {
         return prisma.hostel.create({
@@ -217,13 +245,6 @@ export class HostelService {
             isActive: true,
             status: { in: ["AVAILABLE", "PARTIALLY_OCCUPIED"] },
         };
-        if (hostelId) {
-            where.floor = {
-                block: {
-                    hostelId,
-                },
-            };
-        }
         if (eligibility) {
             // This project only models boys/girls hostels; OTHER is not assigned until an
             // administrator creates an explicitly supported workflow.
@@ -232,8 +253,13 @@ export class HostelService {
             const type = eligibility.gender === "MALE" ? "BOYS" : "GIRLS";
             where.floor = {
                 block: {
-                    hostel: { type, allowedYears: { has: eligibility.year } },
+                    hostel: { ...(hostelId ? { id: hostelId } : {}), type, allowedYears: { has: eligibility.year } },
                 },
+            };
+        }
+        else if (hostelId) {
+            where.floor = {
+                block: { hostelId },
             };
         }
         const rooms = await prisma.room.findMany({
