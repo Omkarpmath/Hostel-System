@@ -22,6 +22,7 @@ import { LeavesPage } from '@/features/leave/LeavesPage';
 import { ComplaintsPage } from '@/features/complaints/ComplaintsPage';
 import { StudentsPage } from '@/features/students/StudentsPage';
 import { AllocationsPage } from '@/features/room-allocation/AllocationsPage';
+import { FeesPage } from '@/features/fees/FeesPage';
 
 export const router = createBrowserRouter([
   {
@@ -49,7 +50,7 @@ export const router = createBrowserRouter([
       { path: 'rooms', element: <RoomBookingPage /> },
       { path: 'students', element: <StudentsPage /> },
       { path: 'allocations', element: <AllocationsPage /> },
-      { path: 'fees', element: <OperationsPage kind="fees" /> },
+      { path: 'fees', element: <FeesPage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
       { path: 'visitors', element: <OperationsPage kind="visitors" /> },
@@ -69,7 +70,7 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <StudentDashboard /> },
       { path: 'profile', element: <OperationsPage kind="profile" /> },
       { path: 'rooms', element: <RoomBookingPage /> },
-      { path: 'fees', element: <OperationsPage kind="fees" /> },
+      { path: 'fees', element: <FeesPage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
     ],
@@ -104,8 +105,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <AccountantDashboard /> },
-      { path: 'fees', element: <OperationsPage kind="fees" /> },
-      { path: 'receipts', element: <OperationsPage kind="fees" /> },
+      { path: 'fees', element: <FeesPage /> },
+      { path: 'receipts', element: <FeesPage /> },
     ],
   },
 

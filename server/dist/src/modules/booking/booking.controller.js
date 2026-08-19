@@ -4,7 +4,7 @@ export class BookingController {
     userId(req) { if (!req.user)
         throw new Error("Authentication required"); return req.user.userId; }
     async reserve(req, res, next) { try {
-        ApiResponse.created({ res, message: "Room reserved for 10 minutes", data: await bookingService.reserve(this.userId(req), req.body.roomId) });
+        ApiResponse.created({ res, message: "Room reserved for 10 minutes", data: await bookingService.reserve(this.userId(req), req.body.hostelId, req.body.roomId) });
     }
     catch (error) {
         next(error);

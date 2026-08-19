@@ -3,6 +3,7 @@ import { AuthRequest } from "../../middleware/auth.middleware.js";
 export declare class HostelController {
     createHostel(req: Request, res: Response, next: NextFunction): Promise<void>;
     getHostels(req: Request, res: Response, next: NextFunction): Promise<void>;
+    getEligibleHostels(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     getHostelById(req: Request, res: Response, next: NextFunction): Promise<void>;
     updateHostel(req: Request, res: Response, next: NextFunction): Promise<void>;
     deleteHostel(req: Request, res: Response, next: NextFunction): Promise<void>;

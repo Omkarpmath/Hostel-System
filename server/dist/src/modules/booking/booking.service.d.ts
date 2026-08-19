@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 export declare class BookingService {
     private studentId;
     private expireReservations;
-    reserve(userId: string, roomId: string): Promise<{
+    reserve(userId: string, hostelId: string, roomId: string): Promise<{
         room: {
             floor: {
                 block: {

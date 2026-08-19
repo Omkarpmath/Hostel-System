@@ -207,84 +207,84 @@ export function RoomBookingPage() {
         />
       ) : (
         <>{message && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-          {displayRooms.map((room: any, i: number) => {
-            const hostelName = room.floor?.block?.hostel?.name || 'Unknown';
-            const hostelType = room.floor?.block?.hostel?.type;
-            const available = room.capacity - room.occupiedBeds;
-            const blockName = room.floor?.block?.name || '';
-            const floorName = room.floor?.name || '';
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+            {displayRooms.map((room: any, i: number) => {
+              const hostelName = room.floor?.block?.hostel?.name || 'Unknown';
+              const hostelType = room.floor?.block?.hostel?.type;
+              const available = room.capacity - room.occupiedBeds;
+              const blockName = room.floor?.block?.name || '';
+              const floorName = room.floor?.name || '';
 
-            return (
-              <motion.div
-                key={room.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05, duration: 0.3 }}
-                style={cardStyle}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                  <div style={{
-                    padding: '0.5rem', borderRadius: '0.625rem',
-                    backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff',
-                  }}>
-                    <BedDouble style={{ width: '1.25rem', height: '1.25rem', color: isDark ? '#60a5fa' : '#2563eb' }} />
-                  </div>
-                  <StatusBadge status={room.status || 'AVAILABLE'} />
-                </div>
-
-                <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                  Room {room.roomNumber}
-                </h3>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                  {hostelName}
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                  {blockName && <span>{blockName} · {floorName}</span>}
-                  <span>Type: {room.type || 'N/A'} · Capacity: {room.capacity}</span>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                    <span style={{
-                      fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 0.5rem', borderRadius: '9999px',
-                      backgroundColor: available > 0
-                        ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
-                        : (isDark ? 'rgba(220,38,38,0.15)' : '#fee2e2'),
-                      color: available > 0
-                        ? (isDark ? '#4ade80' : '#15803d')
-                        : (isDark ? '#fca5a5' : '#dc2626'),
+              return (
+                <motion.div
+                  key={room.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05, duration: 0.3 }}
+                  style={cardStyle}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                    <div style={{
+                      padding: '0.5rem', borderRadius: '0.625rem',
+                      backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff',
                     }}>
-                      {available > 0 ? `${available} bed${available > 1 ? 's' : ''} available` : 'Full'}
-                    </span>
-                    {room.feePerSemester && (
-                      <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        ₹{room.feePerSemester.toLocaleString('en-IN')}
-                      </span>
-                    )}
+                      <BedDouble style={{ width: '1.25rem', height: '1.25rem', color: isDark ? '#60a5fa' : '#2563eb' }} />
+                    </div>
+                    <StatusBadge status={room.status || 'AVAILABLE'} />
                   </div>
-                </div>
 
-                {hostelType && (
-                  <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-primary)' }}>
-                    <span style={{
-                      fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5rem', borderRadius: '9999px',
-                      backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#dbeafe',
-                      color: isDark ? '#93c5fd' : '#1d4ed8',
-                    }}>{hostelType}</span>
-                    {room.floor?.block?.hostel?.allowedYears?.length > 0 && (
+                  <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                    Room {room.roomNumber}
+                  </h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                    {hostelName}
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                    {blockName && <span>{blockName} · {floorName}</span>}
+                    <span>Type: {room.type || 'N/A'} · Capacity: {room.capacity}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
                       <span style={{
-                        marginLeft: '0.5rem',
-                        fontSize: '0.6875rem', fontWeight: 600, padding: '0.125rem 0.5rem', borderRadius: '9999px',
-                        backgroundColor: isDark ? 'rgba(20,184,166,0.15)' : '#ccfbf1',
-                        color: isDark ? '#2dd4bf' : '#0f766e',
-                      }}>Year {room.floor.block.hostel.allowedYears.join(', ')}</span>
-                    )}
+                        fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 0.5rem', borderRadius: '9999px',
+                        backgroundColor: available > 0
+                          ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
+                          : (isDark ? 'rgba(220,38,38,0.15)' : '#fee2e2'),
+                        color: available > 0
+                          ? (isDark ? '#4ade80' : '#15803d')
+                          : (isDark ? '#fca5a5' : '#dc2626'),
+                      }}>
+                        {available > 0 ? `${available} bed${available > 1 ? 's' : ''} available` : 'Full'}
+                      </span>
+                      {room.feePerSemester && (
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          ₹{room.feePerSemester.toLocaleString('en-IN')}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-                {isStudent && <button disabled={reserve.isPending || available <= 0} onClick={() => reserve.mutate(room.id)} className="mt-4 w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white gradient-bg disabled:opacity-50">{reserve.isPending ? 'Reserving…' : 'Select room'}</button>}
-              </motion.div>
-            );
-          })}
-        </div></>
+
+                  {hostelType && (
+                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-primary)' }}>
+                      <span style={{
+                        fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5rem', borderRadius: '9999px',
+                        backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#dbeafe',
+                        color: isDark ? '#93c5fd' : '#1d4ed8',
+                      }}>{hostelType}</span>
+                      {room.floor?.block?.hostel?.allowedYears?.length > 0 && (
+                        <span style={{
+                          marginLeft: '0.5rem',
+                          fontSize: '0.6875rem', fontWeight: 600, padding: '0.125rem 0.5rem', borderRadius: '9999px',
+                          backgroundColor: isDark ? 'rgba(20,184,166,0.15)' : '#ccfbf1',
+                          color: isDark ? '#2dd4bf' : '#0f766e',
+                        }}>Year {room.floor.block.hostel.allowedYears.join(', ')}</span>
+                      )}
+                    </div>
+                  )}
+                  {isStudent && <button disabled={reserve.isPending || available <= 0} onClick={() => reserve.mutate(room.id)} className="mt-4 w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white gradient-bg disabled:opacity-50">{reserve.isPending ? 'Reserving…' : 'Select room'}</button>}
+                </motion.div>
+              );
+            })}
+          </div></>
       )}
     </div>
   );
