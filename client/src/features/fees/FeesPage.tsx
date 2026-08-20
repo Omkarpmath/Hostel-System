@@ -24,6 +24,7 @@ export function FeesPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'HOSTEL_FEE' | 'MESS_FEE'>('HOSTEL_FEE');
 
   const isStudent = user?.role === 'STUDENT';
 
@@ -32,7 +33,10 @@ export function FeesPage() {
     queryFn: operationsApi.fees,
     retry: 1,
   });
-  const fees: any[] = (data?.data as any)?.data || [];
+  const allFees: any[] = (data?.data as any)?.data || [];
+
+  // Filter fees by active tab (for admin/accountant/warden)
+  const fees = isStudent ? allFees : allFees.filter((f) => f.type === activeTab);
 
   const totalPaid = fees.filter((f) => f.status === 'PAID').reduce((s, f) => s + parseFloat(f.amount || 0), 0);
   const totalPending = fees.filter((f) => f.status === 'PENDING').reduce((s, f) => s + parseFloat(f.amount || 0), 0);
@@ -63,6 +67,40 @@ export function FeesPage() {
         description={`${fees.length} record${fees.length !== 1 ? 's' : ''} found`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Fees' }]}
       />
+
+      {/* Tab Bar — Admin/Accountant/Warden only */}
+      {!isStudent && (
+        <div style={{ display: 'flex', gap: '0.25rem', padding: '0.25rem', borderRadius: '0.75rem', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', width: 'fit-content' }}>
+          {([
+            { key: 'HOSTEL_FEE' as const, label: 'Hostel Fees' },
+            { key: 'MESS_FEE' as const, label: 'Mess Fees' },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setExpandedId(null); }}
+              style={{
+                padding: '0.625rem 1.25rem',
+                borderRadius: '0.625rem',
+                border: 'none',
+                fontFamily: 'inherit',
+                fontSize: '0.875rem',
+                fontWeight: activeTab === tab.key ? 700 : 500,
+                cursor: 'pointer',
+                backgroundColor: activeTab === tab.key
+                  ? (isDark ? 'rgba(59,130,246,0.2)' : 'white')
+                  : 'transparent',
+                color: activeTab === tab.key
+                  ? (isDark ? '#60a5fa' : '#1d4ed8')
+                  : 'var(--text-secondary)',
+                boxShadow: activeTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.2s',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Summary Cards */}
       {fees.length > 0 && (

@@ -23,6 +23,7 @@ import { ComplaintsPage } from '@/features/complaints/ComplaintsPage';
 import { StudentsPage } from '@/features/students/StudentsPage';
 import { AllocationsPage } from '@/features/room-allocation/AllocationsPage';
 import { FeesPage } from '@/features/fees/FeesPage';
+import { MessFeePage } from '@/features/mess-fee/MessFeePage';
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { path: 'students', element: <StudentsPage /> },
       { path: 'allocations', element: <AllocationsPage /> },
       { path: 'fees', element: <FeesPage /> },
+      { path: 'mess-fee-settings', element: <MessFeePage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
       { path: 'visitors', element: <OperationsPage kind="visitors" /> },
@@ -71,6 +73,7 @@ export const router = createBrowserRouter([
       { path: 'profile', element: <OperationsPage kind="profile" /> },
       { path: 'rooms', element: <RoomBookingPage /> },
       { path: 'fees', element: <FeesPage /> },
+      { path: 'mess-fees', element: <MessFeePage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
     ],
