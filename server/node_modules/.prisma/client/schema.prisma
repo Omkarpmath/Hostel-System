@@ -323,20 +323,21 @@ model Reservation {
 }
 
 model Fee {
-  id            String        @id @default(uuid())
-  studentId     String        @map("student_id")
-  allocationId  String?       @map("allocation_id")
-  amount        Decimal       @db.Decimal(10, 2)
-  type          FeeType       @default(HOSTEL_FEE)
-  status        PaymentStatus @default(PENDING)
-  transactionId String?       @map("transaction_id")
-  paymentMethod String?       @map("payment_method")
-  receiptNumber String?       @unique @map("receipt_number")
-  screenshotUrl String?       @map("screenshot_url") // Payment screenshot
-  paidAt        DateTime?     @map("paid_at")
-  dueDate       DateTime      @map("due_date")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id              String        @id @default(uuid())
+  studentId       String        @map("student_id")
+  allocationId    String?       @map("allocation_id")
+  amount          Decimal       @db.Decimal(10, 2)
+  type            FeeType       @default(HOSTEL_FEE)
+  status          PaymentStatus @default(PENDING)
+  razorpayOrderId String?       @unique @map("razorpay_order_id")
+  transactionId   String?       @map("transaction_id")
+  paymentMethod   String?       @map("payment_method")
+  receiptNumber   String?       @unique @map("receipt_number")
+  screenshotUrl   String?       @map("screenshot_url") // Payment screenshot
+  paidAt          DateTime?     @map("paid_at")
+  dueDate         DateTime      @map("due_date")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   // Relations
   student    StudentProfile  @relation(fields: [studentId], references: [id])
