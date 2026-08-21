@@ -10,6 +10,8 @@ export default defineConfig({
     },
   },
   server: {
+    // Allow a phone on the same Wi-Fi network to reach the local development app.
+    host: true,
     port: 5173,
     proxy: {
       '/api': {

@@ -12,7 +12,6 @@ router.get("/dashboard/stats", authorize("ADMIN", "WARDEN", "ACCOUNTANT"), hoste
 // Hostel CRUD
 router.post("/hostels", authorize("ADMIN"), validate(createHostelSchema), hostelController.createHostel);
 router.get("/hostels", hostelController.getHostels);
-router.get("/hostels/eligible", authorize("STUDENT"), hostelController.getEligibleHostels);
 router.get("/hostels/:id", hostelController.getHostelById);
 router.patch("/hostels/:id", authorize("ADMIN"), validate(updateHostelSchema), hostelController.updateHostel);
 router.delete("/hostels/:id", authorize("ADMIN"), hostelController.deleteHostel);

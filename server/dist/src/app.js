@@ -11,6 +11,8 @@ import hostelRoutes from "./modules/hostel/hostel.routes.js";
 import userRoutes from "./modules/user/user.routes.js";
 import operationsRoutes from "./modules/operations/operations.routes.js";
 import bookingRoutes from "./modules/booking/booking.routes.js";
+import messFeeRoutes from "./modules/mess-fee/mess-fee.routes.js";
+import verifyRoutes from "./modules/verify/verify.routes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
@@ -33,10 +35,15 @@ app.get("/api/v1/health", (_req, res) => {
     });
 });
 app.use("/api/v1/auth", authRoutes);
+// This endpoint is intentionally public: security/warden staff scan a student's
+// QR code without signing in. It must be registered before the routers mounted
+// at `/api/v1`, whose authentication middleware otherwise intercepts it.
+app.use("/api/v1/verify", verifyRoutes);
 app.use("/api/v1", hostelRoutes);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", operationsRoutes);
 app.use("/api/v1/booking", bookingRoutes);
+app.use("/api/v1/mess-fee", messFeeRoutes);
 // ============ ERROR HANDLING ============
 app.use(errorHandler);
 // 404 handler

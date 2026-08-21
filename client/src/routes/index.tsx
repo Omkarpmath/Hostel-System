@@ -24,6 +24,7 @@ import { StudentsPage } from '@/features/students/StudentsPage';
 import { AllocationsPage } from '@/features/room-allocation/AllocationsPage';
 import { FeesPage } from '@/features/fees/FeesPage';
 import { MessFeePage } from '@/features/mess-fee/MessFeePage';
+import { StudentVerifyPage } from '@/features/verify/StudentVerifyPage';
 
 export const router = createBrowserRouter([
   {
@@ -130,6 +131,9 @@ export const router = createBrowserRouter([
       { path: 'logs', element: <SecurityDashboard /> },
     ],
   },
+
+  // Public verification (QR scan — no auth required)
+  { path: '/verify/student/:token', element: <StudentVerifyPage /> },
 
   // Root redirect
   { path: '/', element: <Navigate to="/login" replace /> },
