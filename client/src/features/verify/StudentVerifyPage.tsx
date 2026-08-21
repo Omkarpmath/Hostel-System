@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { apiBaseUrl } from '@/api/axios';
 import {
   User, Building2, BedDouble, CreditCard, UtensilsCrossed,
   CheckCircle2, XCircle, Shield, Calendar, Heart, AlertTriangle,
@@ -45,7 +46,7 @@ export function StudentVerifyPage() {
 
   useEffect(() => {
     if (!token) { setError('No QR token provided'); setLoading(false); return; }
-    fetch(`/api/v1/verify/student/${token}`)
+    fetch(`${apiBaseUrl}/verify/student/${encodeURIComponent(token)}`)
       .then(async (res) => {
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.message || 'Invalid QR code');
