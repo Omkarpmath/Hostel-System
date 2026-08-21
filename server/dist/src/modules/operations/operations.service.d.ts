@@ -88,6 +88,7 @@ export declare class OperationsService {
             type: import("@prisma/client").$Enums.FeeType;
             studentId: string;
             status: import("@prisma/client").$Enums.PaymentStatus;
+            razorpayOrderId: string | null;
             allocationId: string | null;
             amount: Prisma.Decimal;
             transactionId: string | null;
@@ -711,6 +712,7 @@ export declare class OperationsService {
         type: import("@prisma/client").$Enums.FeeType;
         studentId: string;
         status: import("@prisma/client").$Enums.PaymentStatus;
+        razorpayOrderId: string | null;
         allocationId: string | null;
         amount: Prisma.Decimal;
         transactionId: string | null;

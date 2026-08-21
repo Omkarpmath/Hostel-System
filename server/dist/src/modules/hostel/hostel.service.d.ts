@@ -1,22 +1,5 @@
 import { Prisma } from "@prisma/client";
 export declare class HostelService {
-    getEligibleHostels(eligibility: {
-        year: number;
-        gender: "MALE" | "FEMALE" | "OTHER";
-    }): Promise<{
-        availableRoomCount: number;
-        name: string;
-        id: string;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        type: import("@prisma/client").$Enums.HostelType;
-        address: string | null;
-        description: string | null;
-        wardenId: string | null;
-        allowedYears: number[];
-        deletedAt: Date | null;
-    }[]>;
     createHostel(data: {
         name: string;
         type: "BOYS" | "GIRLS";

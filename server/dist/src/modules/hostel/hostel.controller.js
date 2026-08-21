@@ -25,17 +25,6 @@ export class HostelController {
             next(error);
         }
     }
-    async getEligibleHostels(req, res, next) {
-        try {
-            const student = await prisma.studentProfile.findUnique({ where: { userId: req.user.userId }, select: { year: true, gender: true } });
-            if (!student)
-                throw new Error("Complete your student profile before browsing hostels");
-            ApiResponse.success({ res, data: await hostelService.getEligibleHostels(student) });
-        }
-        catch (error) {
-            next(error);
-        }
-    }
     async getHostelById(req, res, next) {
         try {
             const hostel = await hostelService.getHostelById(String(req.params.id));

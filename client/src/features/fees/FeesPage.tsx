@@ -28,7 +28,7 @@ export function FeesPage() {
 
   const isStudent = user?.role === 'STUDENT';
 
-  const { data, isLoading, isError, error } = useQuery<any>({
+  const { data, isError, error } = useQuery<any>({
     queryKey: ['fees'],
     queryFn: operationsApi.fees,
     retry: 1,

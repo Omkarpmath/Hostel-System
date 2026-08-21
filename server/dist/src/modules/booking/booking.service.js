@@ -15,17 +15,14 @@ export class BookingService {
     async expireReservations(studentId) {
         await prisma.reservation.updateMany({ where: { status: "PENDING", expiresAt: { lte: new Date() }, ...(studentId ? { studentId } : {}) }, data: { status: "EXPIRED" } });
     }
-    async reserve(userId, hostelId, roomId) {
-        const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true, year: true, gender: true } });
-        if (!student)
-            throw ApiError.badRequest("Complete your student profile before booking a room");
-        const studentId = student.id;
+    async reserve(userId, roomId) {
+        const studentId = await this.studentId(userId);
         await this.expireReservations(studentId);
         return prisma.$transaction(async (tx) => {
             const [allocation, existing, room] = await Promise.all([
                 tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } }),
                 tx.reservation.findFirst({ where: { studentId, status: "PENDING", expiresAt: { gt: new Date() } }, include: { room: { include: roomInclude } } }),
-                tx.room.findUnique({ where: { id: roomId }, include: { floor: { include: { block: { include: { hostel: true } } } } } }),
+                tx.room.findUnique({ where: { id: roomId }, include: roomInclude }),
             ]);
             if (allocation)
                 throw ApiError.conflict("You already have an active room allocation");
@@ -33,12 +30,6 @@ export class BookingService {
                 return existing;
             if (!room || !room.isActive || !["AVAILABLE", "PARTIALLY_OCCUPIED"].includes(room.status))
                 throw ApiError.badRequest("This room is not available");
-            const hostel = room.floor.block.hostel;
-            if (hostel.id !== hostelId)
-                throw ApiError.badRequest("The selected room does not belong to the selected hostel");
-            if (!hostel.isActive || hostel.deletedAt || student.gender === "OTHER" || (student.gender === "MALE" ? hostel.type !== "BOYS" : hostel.type !== "GIRLS") || !hostel.allowedYears.includes(student.year)) {
-                throw ApiError.forbidden("You are not eligible to book a room in this hostel");
-            }
             const held = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
             if (room.occupiedBeds + held >= room.capacity)
                 throw ApiError.conflict("This room has just been reserved by another student");

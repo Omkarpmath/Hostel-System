@@ -1,24 +1,19 @@
 import { z } from "zod";
 export declare const reserveSchema: z.ZodObject<{
     body: z.ZodObject<{
-        hostelId: z.ZodString;
         roomId: z.ZodString;
     }, "strip", z.ZodTypeAny, {
         roomId: string;
-        hostelId: string;
     }, {
         roomId: string;
-        hostelId: string;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         roomId: string;
-        hostelId: string;
     };
 }, {
     body: {
         roomId: string;
-        hostelId: string;
     };
 }>;
 export declare const orderSchema: z.ZodObject<{
