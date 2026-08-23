@@ -32,6 +32,7 @@ import {
 import type { DashboardStats, ApiResponse } from '@/types';
 
 const CHART_COLORS = ['#1e40af', '#3b82f6', '#60a5fa', '#93c5fd', '#0d9488', '#14b8a6'];
+const PIE_COLORS = ['#16a34a', '#f59e0b', '#dc2626']; // Available=green, Partial=amber, Full=red
 
 export function AdminDashboard() {
   const { data, isLoading } = useQuery<ApiResponse<DashboardStats>>({
@@ -41,13 +42,13 @@ export function AdminDashboard() {
 
   if (isLoading) return <PageSkeleton />;
 
-  const stats = data?.data;
+  const stats = data?.data as any;
 
   const occupancyData = stats
     ? [
-      { name: 'Occupied', value: stats.occupiedRooms },
-      { name: 'Available', value: stats.availableRooms },
-      { name: 'Under Maintenance', value: Math.max(0, stats.totalRooms - stats.occupiedRooms - stats.availableRooms) },
+      { name: 'Available', value: stats.availableRooms || 0 },
+      { name: 'Partially Occupied', value: stats.partiallyOccupiedRooms || 0 },
+      { name: 'Fully Occupied', value: stats.fullyOccupiedRooms || 0 },
     ]
     : [];
 
@@ -88,8 +89,8 @@ export function AdminDashboard() {
           delay={1}
         />
         <StatCard
-          title="Occupied Rooms"
-          value={stats?.occupiedRooms || 0}
+          title="Occupied Beds"
+          value={`${stats?.occupiedBeds || 0} / ${stats?.totalBeds || 0}`}
           icon={BedDouble}
           color="amber"
           delay={2}
@@ -192,12 +193,10 @@ export function AdminDashboard() {
                   outerRadius={110}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                  }
+                  label={({ name, value }) => `${name}: ${value}`}
                 >
                   {occupancyData.map((_, index) => (
-                    <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip

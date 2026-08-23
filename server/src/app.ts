@@ -44,6 +44,10 @@ app.get("/api/v1/health", (_req, res) => {
   });
 });
 
+app.get("/api/ping", (_req, res) => {
+  res.json({ status: "ok", message: "Hostel-System backend is running" });
+});
+
 app.use("/api/v1/auth", authRoutes);
 // This endpoint is intentionally public: security/warden staff scan a student's
 // QR code without signing in. It must be registered before the routers mounted
