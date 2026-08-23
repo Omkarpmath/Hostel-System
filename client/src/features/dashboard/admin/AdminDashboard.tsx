@@ -31,7 +31,6 @@ import {
 } from 'lucide-react';
 import type { DashboardStats, ApiResponse } from '@/types';
 
-const CHART_COLORS = ['#1e40af', '#3b82f6', '#60a5fa', '#93c5fd', '#0d9488', '#14b8a6'];
 const PIE_COLORS = ['#16a34a', '#f59e0b', '#dc2626']; // Available=green, Partial=amber, Full=red
 
 export function AdminDashboard() {
