@@ -25,6 +25,8 @@ import { AllocationsPage } from '@/features/room-allocation/AllocationsPage';
 import { FeesPage } from '@/features/fees/FeesPage';
 import { MessFeePage } from '@/features/mess-fee/MessFeePage';
 import { StudentVerifyPage } from '@/features/verify/StudentVerifyPage';
+import { NightAttendancePage } from '@/features/attendance/NightAttendancePage';
+import { AttendanceRegisterPage } from '@/features/attendance/AttendanceRegisterPage';
 
 export const router = createBrowserRouter([
   {
@@ -57,6 +59,7 @@ export const router = createBrowserRouter([
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
       { path: 'visitors', element: <OperationsPage kind="visitors" /> },
+      { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
   },
 
@@ -95,6 +98,7 @@ export const router = createBrowserRouter([
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
       { path: 'verify', element: <WardenDashboard /> },
+      { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
   },
 
@@ -129,6 +133,8 @@ export const router = createBrowserRouter([
       { path: 'leaves', element: <SecurityDashboard /> },
       { path: 'visitors', element: <OperationsPage kind="visitors" /> },
       { path: 'logs', element: <SecurityDashboard /> },
+      { path: 'attendance', element: <NightAttendancePage /> },
+      { path: 'attendance-log', element: <AttendanceRegisterPage /> },
     ],
   },
 

@@ -22,6 +22,7 @@ import {
   X,
   ChevronLeft,
   GraduationCap,
+  ScanLine,
   type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '@/types';
@@ -44,6 +45,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Leave Requests', icon: ClipboardList, href: '/admin/leaves' },
     { label: 'Complaints', icon: MessageSquareWarning, href: '/admin/complaints' },
     { label: 'Visitors', icon: Users, href: '/admin/visitors' },
+    { label: 'Attendance', icon: ScanLine, href: '/admin/attendance' },
   ],
   STUDENT: [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/student/dashboard' },
@@ -60,6 +62,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Leave Requests', icon: ClipboardList, href: '/warden/leaves' },
     { label: 'Complaints', icon: MessageSquareWarning, href: '/warden/complaints' },
     { label: 'QR Verify', icon: QrCode, href: '/warden/verify' },
+    { label: 'Attendance', icon: ScanLine, href: '/warden/attendance' },
   ],
   ACCOUNTANT: [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/accountant/dashboard' },
@@ -69,6 +72,8 @@ const navByRole: Record<Role, NavItem[]> = {
   SECURITY: [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/security/dashboard' },
     { label: 'QR Verify', icon: QrCode, href: '/security/verify' },
+    { label: 'Night Attendance', icon: ScanLine, href: '/security/attendance' },
+    { label: 'Attendance Log', icon: ClipboardList, href: '/security/attendance-log' },
     { label: 'Leave Verify', icon: ClipboardList, href: '/security/leaves' },
     { label: 'Visitors', icon: Users, href: '/security/visitors' },
     { label: 'Logs', icon: Shield, href: '/security/logs' },
