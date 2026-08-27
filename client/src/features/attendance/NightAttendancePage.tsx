@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { useTheme } from '@/providers/ThemeProvider';
 import {
   ScanLine, StopCircle, CheckCircle2, AlertTriangle,
-  XCircle, Clock, Users, UserCheck, CalendarOff, Shield,
+  XCircle, Users, UserCheck, CalendarOff, Shield,
 } from 'lucide-react';
 
 type ScanResult = {
@@ -144,9 +144,18 @@ export function NightAttendancePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const { Html5Qrcode } = await import('html5-qrcode');
-      const result = await Html5Qrcode.scanFile(file, /* showImage */ false);
+      let scanner = scannerRef.current;
+      let createdHere = false;
+      if (!scanner) {
+        const { Html5Qrcode } = await import('html5-qrcode');
+        scanner = new Html5Qrcode('qr-scanner-container');
+        createdHere = true;
+      }
+      const result = await scanner.scanFile(file, /* showImage */ false);
       handleQrResult(result);
+      if (createdHere) {
+        scanner.clear();
+      }
     } catch {
       setScanResult({ status: 'ERROR', message: 'Could not read QR from this image. Try again.' });
       setTimeout(() => setScanResult(null), 2500);
