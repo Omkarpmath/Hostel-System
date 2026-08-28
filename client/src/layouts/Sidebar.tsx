@@ -179,7 +179,10 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
           {navItems.map((item) => {
             const isActive =
               location.pathname === item.href ||
-              (item.href !== '/' && location.pathname.startsWith(item.href));
+              (item.href !== '/' &&
+                location.pathname.startsWith(item.href) &&
+                (location.pathname.length === item.href.length ||
+                  location.pathname[item.href.length] === '/'));
 
             return (
               <Link

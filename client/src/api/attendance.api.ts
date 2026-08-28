@@ -26,4 +26,8 @@ export const attendanceApi = {
   // Session history
   listSessions: (params?: { hostelId?: string; from?: string; to?: string }) =>
     api.get('/attendance/sessions', { params }),
+
+  // Student — own attendance history
+  getMyHistory: (year: number, month: number) =>
+    api.get('/attendance/my-history', { params: { year, month } }),
 };

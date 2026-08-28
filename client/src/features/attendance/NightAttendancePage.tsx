@@ -82,7 +82,8 @@ export function NightAttendancePage() {
     mutationFn: () => attendanceApi.endSession(),
     onSuccess: (res) => {
       const data = (res.data as any)?.data;
-      setSummaryData(data?.summary);
+      // data = { session, summary: { hostel, summary: { total, present, onLeave, absent }, register } }
+      setSummaryData(data?.summary?.summary);
       setShowSummary(true);
       setScanning(false);
       stopScanner();

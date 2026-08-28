@@ -27,6 +27,7 @@ import { MessFeePage } from '@/features/mess-fee/MessFeePage';
 import { StudentVerifyPage } from '@/features/verify/StudentVerifyPage';
 import { NightAttendancePage } from '@/features/attendance/NightAttendancePage';
 import { AttendanceRegisterPage } from '@/features/attendance/AttendanceRegisterPage';
+import { StudentProfilePage } from '@/features/profile/StudentProfilePage';
 
 export const router = createBrowserRouter([
   {
@@ -74,7 +75,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <StudentDashboard /> },
-      { path: 'profile', element: <OperationsPage kind="profile" /> },
+      { path: 'profile', element: <StudentProfilePage /> },
       { path: 'rooms', element: <RoomBookingPage /> },
       { path: 'fees', element: <FeesPage /> },
       { path: 'mess-fees', element: <MessFeePage /> },

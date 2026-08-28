@@ -23,4 +23,7 @@ router.post("/assign-security", authorize("ADMIN"), attendanceController.assignS
 router.post("/unassign-security", authorize("ADMIN"), attendanceController.unassignSecurity);
 router.get("/sessions", authorize("ADMIN", "WARDEN"), attendanceController.listSessions);
 
+// ─── Student endpoints ──────────────────────────────────────
+router.get("/my-history", authorize("STUDENT"), attendanceController.getMyHistory);
+
 export default router;

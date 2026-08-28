@@ -379,6 +379,115 @@ export class AttendanceService {
       orderBy: { date: "desc" },
     });
   }
+
+  // ─── STUDENT HISTORY ──────────────────────────────────────
+
+  /**
+   * Get a student's own attendance history for a given month.
+   * Returns one entry per day that had a session in their hostel.
+   */
+  async getStudentHistory(userId: string, year: number, month: number) {
+    // Find the student's profile
+    const student = await prisma.studentProfile.findUnique({
+      where: { userId },
+      include: {
+        roomAllocations: {
+          where: { status: "ACTIVE" },
+          take: 1,
+          include: {
+            room: {
+              include: {
+                floor: {
+                  include: {
+                    block: {
+                      include: { hostel: { select: { id: true, name: true } } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!student) throw ApiError.notFound("Student profile not found.");
+    const allocation = student.roomAllocations[0];
+    if (!allocation) return { hostel: null, days: [], summary: { total: 0, present: 0, onLeave: 0, absent: 0 } };
+
+    const hostelId = allocation.room.floor.block.hostelId;
+    const hostelName = allocation.room.floor.block.hostel.name;
+
+    // Date range for the month
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 0)); // last day of month
+
+    // All sessions in this hostel for this month
+    const sessions = await prisma.attendanceSession.findMany({
+      where: {
+        hostelId,
+        date: { gte: startDate, lte: endDate },
+        status: "COMPLETED",
+      },
+      include: {
+        records: {
+          where: { studentId: student.id },
+          select: { scannedAt: true },
+        },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    // Get all approved leaves for this student in this month
+    const leaves = await prisma.leaveRequest.findMany({
+      where: {
+        studentId: student.id,
+        status: "APPROVED",
+        fromDate: { lte: endDate },
+        toDate: { gte: startDate },
+      },
+      select: { fromDate: true, toDate: true },
+    });
+
+    // Build a set of leave dates
+    const leaveDates = new Set<string>();
+    for (const leave of leaves) {
+      const from = new Date(leave.fromDate);
+      const to = new Date(leave.toDate);
+      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+        leaveDates.add(d.toISOString().slice(0, 10));
+      }
+    }
+
+    // Build day entries
+    const days = sessions.map((s) => {
+      const dateStr = s.date.toISOString().slice(0, 10);
+      const wasScanned = s.records.length > 0;
+      const onLeave = leaveDates.has(dateStr);
+
+      let status: "PRESENT" | "ON_LEAVE" | "ABSENT";
+      if (wasScanned) status = "PRESENT";
+      else if (onLeave) status = "ON_LEAVE";
+      else status = "ABSENT";
+
+      return {
+        date: dateStr,
+        status,
+        scannedAt: wasScanned ? s.records[0].scannedAt : null,
+      };
+    });
+
+    const present = days.filter((d) => d.status === "PRESENT").length;
+    const onLeave = days.filter((d) => d.status === "ON_LEAVE").length;
+    const absent = days.filter((d) => d.status === "ABSENT").length;
+
+    return {
+      hostel: { id: hostelId, name: hostelName },
+      month: `${year}-${String(month).padStart(2, "0")}`,
+      days,
+      summary: { total: days.length, present, onLeave, absent },
+    };
+  }
 }
 
 export const attendanceService = new AttendanceService();

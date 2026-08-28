@@ -116,6 +116,15 @@ export class AttendanceController {
       ApiResponse.success({ res, data });
     } catch (error) { next(error); }
   }
+
+  async getMyHistory(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const year = parseInt(req.query.year as string) || new Date().getFullYear();
+      const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
+      const data = await attendanceService.getStudentHistory(req.user!.userId, year, month);
+      ApiResponse.success({ res, data });
+    } catch (error) { next(error); }
+  }
 }
 
 export const attendanceController = new AttendanceController();
