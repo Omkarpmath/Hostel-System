@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { attendanceApi } from '@/api/attendance.api';
@@ -24,6 +24,8 @@ export function AttendanceRegisterPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = user?.role === 'ADMIN';
+  const isSecurity = user?.role === 'SECURITY';
+  const isWarden = user?.role === 'WARDEN';
 
   const [selectedHostel, setSelectedHostel] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
@@ -35,13 +37,33 @@ export function AttendanceRegisterPage() {
   const [assignHostelId, setAssignHostelId] = useState('');
   const [assignSecurityId, setAssignSecurityId] = useState('');
 
-  // Fetch hostels
+  // Fetch all hostels (for admin and as fallback)
   const { data: hostelsData } = useQuery({
     queryKey: ['hostels'],
     queryFn: () => hostelApi.getAll(),
+    enabled: isAdmin, // Only admin needs all hostels
     retry: 1,
   });
-  const hostels: any[] = (hostelsData?.data as any)?.data || [];
+  const allHostels: any[] = (hostelsData?.data as any)?.data || [];
+
+  // Build the filtered hostel list based on role
+  const hostels = useMemo(() => {
+    if (isAdmin) return allHostels;
+    if (isSecurity && (user as any)?.assignedHostel) {
+      return [(user as any).assignedHostel]; // { id, name }
+    }
+    if (isWarden && (user as any)?.wardenHostels?.length) {
+      return (user as any).wardenHostels; // [{ id, name }]
+    }
+    return [];
+  }, [isAdmin, isSecurity, isWarden, user, allHostels]);
+
+  // Auto-select when there's exactly one hostel
+  useEffect(() => {
+    if (hostels.length === 1 && !selectedHostel) {
+      setSelectedHostel(hostels[0].id);
+    }
+  }, [hostels, selectedHostel]);
 
   // Fetch security users (admin only)
   const { data: securityData } = useQuery({

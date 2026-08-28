@@ -188,6 +188,15 @@ export class AuthService {
             },
           },
         },
+        // Security: include the hostel they are assigned to
+        assignedHostel: {
+          select: { id: true, name: true },
+        },
+        // Warden: include all hostels they manage
+        wardenHostels: {
+          where: { deletedAt: null },
+          select: { id: true, name: true },
+        },
       },
     });
 
