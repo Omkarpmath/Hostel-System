@@ -4,22 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { env } from "../config/env.js";
 import fs from "fs";
 
-// Ensure upload directory exists
-const uploadDir = path.resolve(env.UPLOAD_DIR);
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const filename = `${uuidv4()}${ext}`;
-    cb(null, filename);
-  },
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (
   _req: any,

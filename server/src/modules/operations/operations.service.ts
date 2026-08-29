@@ -88,7 +88,7 @@ export class OperationsService {
         await tx.complaintImage.createMany({
           data: files.map((f) => ({
             complaintId: complaint.id,
-            imageUrl: `/uploads/${f.filename}`,
+            imageUrl: `data:${f.mimetype};base64,${f.buffer.toString("base64")}`,
           })),
         });
         // Re-fetch to include images

@@ -15,7 +15,8 @@ import {
   Paperclip, Film, ExternalLink,
 } from 'lucide-react';
 
-const isVideoUrl = (url: string) => /\.(mp4|webm|mov|m4v)$/i.test(url);
+const isVideoUrl = (url: string) =>
+  url.startsWith('data:video/') || /\.(mp4|webm|mov|m4v)$/i.test(url);
 
 const categoryIcons: Record<string, any> = {
   ELECTRICAL: Zap, PLUMBING: Droplets, FURNITURE: Wrench,
