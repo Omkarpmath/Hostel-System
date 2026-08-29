@@ -32,11 +32,14 @@ const fileFilter = (
     "image/webp",
     "image/gif",
     "application/pdf",
+    "video/mp4",
+    "video/quicktime",
+    "video/webm",
   ];
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Invalid file type. Only images and PDFs are allowed."));
+    cb(new Error("Invalid file type. Only images, videos, and PDFs are allowed."));
   }
 };
 

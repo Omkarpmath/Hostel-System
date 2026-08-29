@@ -9,7 +9,20 @@ export const operationsApi = {
   createLeave: (data: Record<string, unknown>) => api.post<ApiResponse<LeaveRequest>>('/leaves', data),
   decideLeave: (id: string, data: Record<string, unknown>) => api.patch<ApiResponse<LeaveRequest>>(`/leaves/${id}`, data),
   complaints: () => api.get<ApiResponse<Complaint[]>>('/complaints'),
-  createComplaint: (data: Record<string, unknown>) => api.post<ApiResponse<Complaint>>('/complaints', data),
+  createComplaint: (data: FormData | Record<string, unknown>) => {
+    if (data instanceof FormData) {
+      return api.post<ApiResponse<Complaint>>('/complaints', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+    const form = new FormData();
+    Object.entries(data).forEach(([key, val]) => {
+      if (val !== undefined && val !== null) form.append(key, String(val));
+    });
+    return api.post<ApiResponse<Complaint>>('/complaints', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   updateComplaint: (id: string, data: Record<string, unknown>) => api.patch<ApiResponse<Complaint>>(`/complaints/${id}`, data),
   visitors: () => api.get<ApiResponse<Visitor[]>>('/visitors'),
   createVisitor: (data: Record<string, unknown>) => api.post<ApiResponse<Visitor>>('/visitors', data),

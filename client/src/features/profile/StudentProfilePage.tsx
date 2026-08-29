@@ -297,12 +297,17 @@ export function StudentProfilePage() {
         {/* Calendar Grid */}
         <div style={{ padding: '1.25rem 1.5rem' }}>
           {/* Day headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.25rem', marginBottom: '0.5rem' }}>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
+            borderRadius: '0.5rem 0.5rem 0 0', overflow: 'hidden',
+            backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.08)',
+          }}>
             {DAYS.map((d) => (
               <div key={d} style={{
-                textAlign: 'center', fontSize: '0.6875rem', fontWeight: 700,
-                color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em',
-                padding: '0.375rem',
+                textAlign: 'center', fontSize: '0.75rem', fontWeight: 700,
+                color: isDark ? '#93c5fd' : '#2563eb',
+                padding: '0.625rem 0.25rem',
+                letterSpacing: '0.04em',
               }}>
                 {d}
               </div>
@@ -310,10 +315,21 @@ export function StudentProfilePage() {
           </div>
 
           {/* Calendar cells */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.25rem' }}>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
+            border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}`,
+            borderTop: 'none', borderRadius: '0 0 0.5rem 0.5rem', overflow: 'hidden',
+          }}>
             {calendarDays.map((cell, idx) => {
               if (cell.day === null) {
-                return <div key={`empty-${idx}`} />;
+                return (
+                  <div key={`empty-${idx}`} style={{
+                    height: '3.25rem',
+                    borderRight: `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
+                    borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)',
+                  }} />
+                );
               }
 
               const isToday = cell.day === now.getDate() && calMonth === now.getMonth() + 1 && calYear === now.getFullYear();
@@ -324,27 +340,33 @@ export function StudentProfilePage() {
                   key={cell.day}
                   title={cell.status ? `${statusColors[cell.status as keyof typeof statusColors]?.label}${cell.scannedAt ? ` — ${new Date(cell.scannedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : ''}` : undefined}
                   style={{
-                    position: 'relative',
-                    aspectRatio: '1',
+                    height: '3.25rem',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                    borderRadius: '0.5rem',
+                    borderRight: `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
+                    borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'}`,
                     fontSize: '0.8125rem', fontWeight: isToday ? 800 : 600,
                     color: statusConfig ? statusConfig.text : 'var(--text-primary)',
                     backgroundColor: statusConfig
                       ? statusConfig.bg
                       : isToday
-                        ? (isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.1)')
-                        : 'transparent',
-                    border: isToday ? '2px solid #3b82f6' : '1px solid transparent',
-                    cursor: statusConfig ? 'default' : 'default',
-                    transition: 'all 0.15s',
+                        ? (isDark ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.08)')
+                        : isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.005)',
+                    position: 'relative',
+                    transition: 'background-color 0.15s',
                   }}
                 >
-                  {cell.day}
+                  {isToday && (
+                    <div style={{
+                      position: 'absolute', top: '0.1875rem', right: '0.1875rem',
+                      width: '0.375rem', height: '0.375rem', borderRadius: '50%',
+                      backgroundColor: '#3b82f6',
+                    }} />
+                  )}
+                  <span>{cell.day}</span>
                   {statusConfig && (
-                    <div style={{ fontSize: '0.5rem', fontWeight: 700, marginTop: '0.0625rem', opacity: 0.9 }}>
-                      {cell.status === 'PRESENT' ? '✓' : cell.status === 'ON_LEAVE' ? '✧' : '✕'}
-                    </div>
+                    <span style={{ fontSize: '0.5625rem', fontWeight: 700, opacity: 0.9, lineHeight: 1, marginTop: '0.0625rem' }}>
+                      {cell.status === 'PRESENT' ? '✓' : cell.status === 'ON_LEAVE' ? 'Leave' : '✕'}
+                    </span>
                   )}
                 </div>
               );
@@ -352,13 +374,17 @@ export function StudentProfilePage() {
           </div>
 
           {/* Legend */}
-          <div style={{ display: 'flex', gap: '1.25rem', marginTop: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             {Object.entries(statusColors).map(([key, val]) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                 <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '0.25rem', backgroundColor: val.bg }} />
                 <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{val.label}</span>
               </div>
             ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+              <div style={{ width: '0.375rem', height: '0.375rem', borderRadius: '50%', backgroundColor: '#3b82f6' }} />
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Today</span>
+            </div>
           </div>
 
           {/* No data message */}

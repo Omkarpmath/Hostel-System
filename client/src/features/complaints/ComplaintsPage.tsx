@@ -11,7 +11,15 @@ import {
   MessageSquareWarning, Plus, X, Loader2, AlertCircle,
   User, Tag, Flag, ChevronRight, ArrowRight,
   Wrench, Zap, Droplets, Wifi, Trash2, HelpCircle,
+  Paperclip, Film, ExternalLink,
 } from 'lucide-react';
+
+const isVideoUrl = (url: string) => /\.(mp4|webm|mov|m4v)$/i.test(url);
+const getMediaUrl = (url: string) => {
+  if (url.startsWith('http')) return url;
+  const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || '';
+  return `${baseUrl}${url}`;
+};
 
 const categoryIcons: Record<string, any> = {
   ELECTRICAL: Zap, PLUMBING: Droplets, FURNITURE: Wrench,
@@ -34,6 +42,7 @@ export function ComplaintsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<{ url: string; isVideo: boolean } | null>(null);
 
   const { data, isError, error } = useQuery<any>({
     queryKey: ['complaints'],
@@ -167,6 +176,12 @@ export function ComplaintsPage() {
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <Tag style={{ width: '0.75rem', height: '0.75rem' }} />{complaint.category?.replace('_', ' ')}
                       </span>
+                      {complaint.images && complaint.images.length > 0 && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#3b82f6', fontWeight: 600 }}>
+                          <Paperclip style={{ width: '0.75rem', height: '0.75rem' }} />
+                          {complaint.images.length} attachment{complaint.images.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -191,12 +206,62 @@ export function ComplaintsPage() {
                           </div>
                         )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
                           <InfoBlock label="Category" value={complaint.category?.replace('_', ' ') || '—'} icon={Tag} />
                           <InfoBlock label="Priority" value={complaint.priority || '—'} icon={Flag} />
                           <InfoBlock label="Status" value={complaint.status?.replace('_', ' ') || '—'} icon={MessageSquareWarning} />
                           {complaint.resolution && <InfoBlock label="Resolution" value={complaint.resolution} icon={Wrench} />}
                         </div>
+
+                        {/* Attachments Section */}
+                        {complaint.images && complaint.images.length > 0 && (
+                          <div style={{ marginBottom: '1.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.625rem' }}>
+                              <Paperclip style={{ width: '0.875rem', height: '0.875rem', color: 'var(--text-muted)' }} />
+                              <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Attachments / Proofs ({complaint.images.length})
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                              {complaint.images.map((img: any, imgIdx: number) => {
+                                const url = getMediaUrl(img.imageUrl);
+                                const isVideo = isVideoUrl(img.imageUrl);
+                                return (
+                                  <div
+                                    key={img.id || imgIdx}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedMedia({ url, isVideo });
+                                    }}
+                                    style={{
+                                      position: 'relative',
+                                      width: '5.5rem',
+                                      height: '5.5rem',
+                                      borderRadius: '0.75rem',
+                                      overflow: 'hidden',
+                                      border: '1px solid var(--border-primary)',
+                                      backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : '#f8fafc',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}
+                                    title="Click to view"
+                                  >
+                                    {isVideo ? (
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                                        <Film style={{ width: '1.5rem', height: '1.5rem', color: '#3b82f6' }} />
+                                        <span style={{ fontSize: '0.5625rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Video</span>
+                                      </div>
+                                    ) : (
+                                      <img src={url} alt="Attachment proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Warden/Admin action */}
                         {canUpdate && nextStatus && (
@@ -232,6 +297,91 @@ export function ComplaintsPage() {
       <AnimatePresence>
         {showForm && <ComplaintFormModal onClose={() => setShowForm(false)} />}
       </AnimatePresence>
+
+      {/* Media Lightbox Modal */}
+      <AnimatePresence>
+        {selectedMedia && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedMedia(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 90,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.5rem',
+              backgroundColor: 'rgba(0,0,0,0.85)',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'relative',
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.75rem',
+              }}
+            >
+              <button
+                onClick={() => setSelectedMedia(null)}
+                style={{
+                  position: 'absolute',
+                  top: '-2.5rem',
+                  right: 0,
+                  background: 'none',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                }}
+              >
+                <X style={{ width: '1.5rem', height: '1.5rem' }} />
+              </button>
+
+              {selectedMedia.isVideo ? (
+                <video
+                  src={selectedMedia.url}
+                  controls
+                  autoPlay
+                  style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '0.75rem' }}
+                />
+              ) : (
+                <img
+                  src={selectedMedia.url}
+                  alt="Attachment preview"
+                  style={{ maxWidth: '85vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: '0.75rem' }}
+                />
+              )}
+
+              <a
+                href={selectedMedia.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  color: 'white',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  opacity: 0.85,
+                }}
+              >
+                <ExternalLink style={{ width: '0.875rem', height: '0.875rem' }} /> Open original in new tab
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -253,15 +403,51 @@ function ComplaintFormModal({ onClose }: { onClose: () => void }) {
   const isDark = theme === 'dark';
   const qc = useQueryClient();
   const [error, setError] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
 
   const mutation = useMutation({
-    mutationFn: (form: FormData) => {
-      const body = Object.fromEntries(form.entries());
-      return operationsApi.createComplaint(body);
-    },
+    mutationFn: (formData: FormData) => operationsApi.createComplaint(formData),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['complaints'] }); onClose(); },
     onError: (e: any) => setError(e.response?.data?.message || 'Failed to file complaint.'),
   });
+
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    if (files.length + selected.length > 5) {
+      setError('Maximum 5 attachments allowed.');
+      return;
+    }
+    setFiles((prev) => [...prev, ...selected]);
+    // Generate previews
+    selected.forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => setPreviews((prev) => [...prev, reader.result as string]);
+        reader.readAsDataURL(file);
+      } else {
+        setPreviews((prev) => [...prev, '']); // placeholder for non-image
+      }
+    });
+    e.target.value = ''; // reset so same file can be selected again
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const raw = new FormData(e.currentTarget);
+    const formData = new FormData();
+    formData.append('title', raw.get('title') as string);
+    formData.append('category', raw.get('category') as string);
+    formData.append('priority', raw.get('priority') as string);
+    formData.append('description', raw.get('description') as string);
+    files.forEach((file) => formData.append('attachments', file));
+    mutation.mutate(formData);
+  };
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
@@ -290,7 +476,7 @@ function ComplaintFormModal({ onClose }: { onClose: () => void }) {
             <X style={{ width: '1.25rem', height: '1.25rem', color: 'var(--text-muted)' }} />
           </button>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(new FormData(e.currentTarget)); }}
+        <form onSubmit={handleSubmit}
           style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
         >
           {error && (
@@ -322,6 +508,73 @@ function ComplaintFormModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div><label style={labelStyle}>Description</label><textarea name="description" rows={4} placeholder="Describe the issue in detail..." style={{ ...inputStyle, resize: 'none' }} required /></div>
+
+          {/* File Upload */}
+          <div>
+            <label style={labelStyle}>Attachments <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(photos/videos, max 5)</span></label>
+            <label
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                padding: '1rem', borderRadius: '0.75rem',
+                border: `2px dashed ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}`,
+                backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+                cursor: 'pointer', transition: 'border-color 0.15s',
+                fontSize: '0.8125rem', color: 'var(--text-secondary)', fontFamily: 'inherit',
+              }}
+            >
+              <Plus style={{ width: '1rem', height: '1rem' }} />
+              <span>Click to add photos or videos</span>
+              <input
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                onChange={handleFiles}
+                style={{ display: 'none' }}
+              />
+            </label>
+
+            {/* File Previews */}
+            {files.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                {files.map((file, i) => (
+                  <div key={i} style={{
+                    position: 'relative', width: '4.5rem', height: '4.5rem',
+                    borderRadius: '0.5rem', overflow: 'hidden',
+                    border: '1px solid var(--border-primary)',
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                  }}>
+                    {previews[i] ? (
+                      <img src={previews[i]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '100%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.625rem', fontWeight: 600, color: 'var(--text-muted)',
+                        textAlign: 'center', padding: '0.25rem',
+                      }}>
+                        {file.type.startsWith('video/') ? '🎬 Video' : '📎 File'}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      style={{
+                        position: 'absolute', top: '0.125rem', right: '0.125rem',
+                        width: '1.25rem', height: '1.25rem', borderRadius: '50%',
+                        backgroundColor: 'rgba(220,38,38,0.9)', border: 'none',
+                        color: 'white', fontSize: '0.625rem', fontWeight: 800,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem' }}>
             <button type="button" onClick={onClose} style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: '1px solid var(--border-primary)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
             <button type="submit" disabled={mutation.isPending} style={{
