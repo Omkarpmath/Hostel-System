@@ -7,6 +7,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { getMediaUrl } from '@/api/axios';
 import {
   MessageSquareWarning, Plus, X, Loader2, AlertCircle,
   User, Tag, Flag, ChevronRight, ArrowRight,
@@ -15,11 +16,6 @@ import {
 } from 'lucide-react';
 
 const isVideoUrl = (url: string) => /\.(mp4|webm|mov|m4v)$/i.test(url);
-const getMediaUrl = (url: string) => {
-  if (url.startsWith('http')) return url;
-  const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || '';
-  return `${baseUrl}${url}`;
-};
 
 const categoryIcons: Record<string, any> = {
   ELECTRICAL: Zap, PLUMBING: Droplets, FURNITURE: Wrench,

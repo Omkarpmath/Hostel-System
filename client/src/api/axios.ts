@@ -3,6 +3,19 @@ import axios from 'axios';
 const configuredApiUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, '');
 export const apiBaseUrl = configuredApiUrl ? `${configuredApiUrl}/api/v1` : '/api/v1';
 
+export const getMediaUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+  if (configuredApiUrl) {
+    const serverOrigin = configuredApiUrl.replace(/\/api(\/v1)?\/?$/, '');
+    return `${serverOrigin}${cleanUrl}`;
+  }
+  return cleanUrl;
+};
+
 const api = axios.create({
   baseURL: apiBaseUrl,
   headers: {

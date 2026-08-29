@@ -33,7 +33,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Static files for uploads
-app.use("/uploads", express.static(path.join(__dirname, "..", env.UPLOAD_DIR)));
+const uploadDir = path.resolve(env.UPLOAD_DIR);
+app.use("/uploads", express.static(uploadDir));
+app.use("/api/v1/uploads", express.static(uploadDir));
 
 // ============ ROUTES ============
 
