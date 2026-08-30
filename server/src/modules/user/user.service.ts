@@ -24,7 +24,30 @@ export class UserService {
         roomAllocations: { where: { status: "ACTIVE" }, include: { room: { include: { floor: { include: { block: { include: { hostel: true } } } } } } } },
       },
     });
-    if (!student) throw ApiError.notFound("Student profile has not been created yet");
+    if (!student) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true },
+      });
+      if (!user) throw ApiError.notFound("User not found");
+      return {
+        id: null,
+        userId: user.id,
+        user,
+        usn: "",
+        department: "",
+        year: 1,
+        semester: 1,
+        guardianName: "",
+        guardianPhone: "",
+        permanentAddress: "",
+        bloodGroup: null,
+        gender: "MALE",
+        dateOfBirth: null,
+        roomAllocations: [],
+        isProfileIncomplete: true,
+      };
+    }
     return student;
   }
   async getUsers(filters?: {
@@ -215,6 +238,95 @@ export class UserService {
         },
       },
     });
+  }
+
+  async updateCurrentStudent(userId: string, data: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    avatarUrl?: string;
+    usn?: string;
+    department?: string;
+    year?: number;
+    semester?: number;
+    guardianName?: string;
+    guardianPhone?: string;
+    permanentAddress?: string;
+    bloodGroup?: string;
+    gender?: "MALE" | "FEMALE" | "OTHER";
+    dateOfBirth?: string | Date;
+  }) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        // 1. Update User info if provided
+        const userData: Prisma.UserUpdateInput = {};
+        if (data.firstName !== undefined && data.firstName.trim()) userData.firstName = data.firstName.trim();
+        if (data.lastName !== undefined && data.lastName.trim()) userData.lastName = data.lastName.trim();
+        if (data.phone !== undefined) userData.phone = data.phone.trim();
+        if (data.avatarUrl !== undefined) userData.avatarUrl = data.avatarUrl;
+
+        if (Object.keys(userData).length > 0) {
+          await tx.user.update({
+            where: { id: userId },
+            data: userData,
+          });
+        }
+
+        // 2. Check if student profile exists
+        const existingProfile = await tx.studentProfile.findUnique({ where: { userId } });
+
+        if (existingProfile) {
+          const profileData: Prisma.StudentProfileUpdateInput = {};
+          if (data.usn !== undefined && data.usn.trim()) profileData.usn = data.usn.trim().toUpperCase();
+          if (data.department !== undefined && data.department.trim()) profileData.department = data.department.trim();
+          if (data.year !== undefined && !isNaN(Number(data.year))) profileData.year = Number(data.year);
+          if (data.semester !== undefined && !isNaN(Number(data.semester))) profileData.semester = Number(data.semester);
+          if (data.guardianName !== undefined) profileData.guardianName = data.guardianName.trim();
+          if (data.guardianPhone !== undefined) profileData.guardianPhone = data.guardianPhone.trim();
+          if (data.permanentAddress !== undefined) profileData.permanentAddress = data.permanentAddress.trim();
+          if (data.bloodGroup !== undefined) profileData.bloodGroup = data.bloodGroup ? data.bloodGroup.trim() : null;
+          if (data.gender !== undefined) profileData.gender = data.gender;
+          if (data.dateOfBirth !== undefined && data.dateOfBirth) {
+            profileData.dateOfBirth = new Date(data.dateOfBirth);
+          }
+
+          return tx.studentProfile.update({
+            where: { userId },
+            data: profileData,
+            include: {
+              user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true } },
+              roomAllocations: { where: { status: "ACTIVE" }, include: { room: { include: { floor: { include: { block: { include: { hostel: true } } } } } } } },
+            },
+          });
+        } else {
+          const generatedUsn = data.usn?.trim() ? data.usn.trim().toUpperCase() : `1BM${new Date().getFullYear().toString().slice(-2)}CS${Math.floor(100 + Math.random() * 900)}`;
+          return tx.studentProfile.create({
+            data: {
+              userId,
+              usn: generatedUsn,
+              department: data.department?.trim() || "Computer Science",
+              year: Number(data.year) || 1,
+              semester: Number(data.semester) || 1,
+              guardianName: data.guardianName?.trim() || "Guardian",
+              guardianPhone: data.guardianPhone?.trim() || data.phone?.trim() || "0000000000",
+              permanentAddress: data.permanentAddress?.trim() || "Bangalore",
+              bloodGroup: data.bloodGroup?.trim() || null,
+              gender: data.gender || "MALE",
+              dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : new Date("2003-01-01"),
+            },
+            include: {
+              user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true } },
+              roomAllocations: { where: { status: "ACTIVE" }, include: { room: { include: { floor: { include: { block: { include: { hostel: true } } } } } } } },
+            },
+          });
+        }
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw ApiError.conflict("The provided USN is already registered to another student");
+      }
+      throw error;
+    }
   }
 
   async getStudents(filters?: {

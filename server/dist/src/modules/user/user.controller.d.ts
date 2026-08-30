@@ -4,6 +4,7 @@ export declare class UserController {
     getUsers(req: Request, res: Response, next: NextFunction): Promise<void>;
     getUserById(req: Request, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     getCurrentStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
+    updateCurrentStudent(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     createCurrentStudentProfile(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     createUser(req: Request, res: Response, next: NextFunction): Promise<void>;
     updateUser(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;

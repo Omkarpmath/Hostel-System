@@ -36,6 +36,14 @@ export class UserController {
     } catch (error) { next(error); }
   }
 
+  async updateCurrentStudent(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return ApiResponse.error(res, 401, "Authentication required");
+      const student = await userService.updateCurrentStudent(req.user.userId, req.body);
+      ApiResponse.success({ res, message: "Profile updated successfully", data: student });
+    } catch (error) { next(error); }
+  }
+
   async createCurrentStudentProfile(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       if (!req.user) return ApiResponse.error(res, 401, "Authentication required");

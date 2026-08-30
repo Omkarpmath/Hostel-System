@@ -543,7 +543,11 @@ export declare class HostelService {
         totalStudents: number;
         totalHostels: number;
         totalRooms: number;
+        totalBeds: number;
+        occupiedBeds: number;
         availableRooms: number;
+        partiallyOccupiedRooms: number;
+        fullyOccupiedRooms: number;
         pendingLeaves: number;
         openComplaints: number;
         pendingFees: number;
@@ -619,7 +623,6 @@ export declare class HostelService {
             allocatedFrom: Date;
             allocatedTo: Date | null;
         })[];
-        occupiedRooms: number;
         occupancyRate: number;
     }>;
 }

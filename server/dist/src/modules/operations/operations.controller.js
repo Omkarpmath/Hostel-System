@@ -53,7 +53,8 @@ export class OperationsController {
     } }
     async createComplaint(req, res, next) { try {
         const u = this.user(req);
-        ApiResponse.created({ res, message: "Complaint submitted", data: await operationsService.createComplaint(u.userId, req.body) });
+        const files = req.files;
+        ApiResponse.created({ res, message: "Complaint submitted", data: await operationsService.createComplaint(u.userId, req.body, files) });
     }
     catch (e) {
         next(e);

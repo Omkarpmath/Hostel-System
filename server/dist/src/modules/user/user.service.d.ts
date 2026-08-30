@@ -40,7 +40,7 @@ export declare class UserService {
         gender: import("@prisma/client").$Enums.Gender;
         qrCodeToken: string;
     }>;
-    getCurrentStudent(userId: string): Promise<{
+    getCurrentStudent(userId: string): Promise<({
         user: {
             id: string;
             email: string;
@@ -125,6 +125,29 @@ export declare class UserService {
         dateOfBirth: Date;
         gender: import("@prisma/client").$Enums.Gender;
         qrCodeToken: string;
+    }) | {
+        id: null;
+        userId: string;
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            phone: string | null;
+            avatarUrl: string | null;
+        };
+        usn: string;
+        department: string;
+        year: number;
+        semester: number;
+        guardianName: string;
+        guardianPhone: string;
+        permanentAddress: string;
+        bloodGroup: null;
+        gender: string;
+        dateOfBirth: null;
+        roomAllocations: never[];
+        isProfileIncomplete: boolean;
     }>;
     getUsers(filters?: {
         role?: string;
@@ -310,6 +333,107 @@ export declare class UserService {
             firstName: string;
             lastName: string;
         };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        usn: string;
+        department: string;
+        year: number;
+        semester: number;
+        guardianName: string;
+        guardianPhone: string;
+        permanentAddress: string;
+        bloodGroup: string | null;
+        dateOfBirth: Date;
+        gender: import("@prisma/client").$Enums.Gender;
+        qrCodeToken: string;
+    }>;
+    updateCurrentStudent(userId: string, data: {
+        firstName?: string;
+        lastName?: string;
+        phone?: string;
+        avatarUrl?: string;
+        usn?: string;
+        department?: string;
+        year?: number;
+        semester?: number;
+        guardianName?: string;
+        guardianPhone?: string;
+        permanentAddress?: string;
+        bloodGroup?: string;
+        gender?: "MALE" | "FEMALE" | "OTHER";
+        dateOfBirth?: string | Date;
+    }): Promise<{
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            phone: string | null;
+            avatarUrl: string | null;
+        };
+        roomAllocations: ({
+            room: {
+                floor: {
+                    block: {
+                        hostel: {
+                            name: string;
+                            id: string;
+                            isActive: boolean;
+                            createdAt: Date;
+                            updatedAt: Date;
+                            type: import("@prisma/client").$Enums.HostelType;
+                            address: string | null;
+                            description: string | null;
+                            wardenId: string | null;
+                            allowedYears: number[];
+                            deletedAt: Date | null;
+                        };
+                    } & {
+                        name: string;
+                        id: string;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        description: string | null;
+                        hostelId: string;
+                    };
+                } & {
+                    name: string;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    blockId: string;
+                    floorNumber: number;
+                };
+            } & {
+                id: string;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                type: import("@prisma/client").$Enums.RoomType;
+                status: import("@prisma/client").$Enums.RoomStatus;
+                floorId: string;
+                roomNumber: string;
+                capacity: number;
+                occupiedBeds: number;
+                feePerSemester: Prisma.Decimal;
+                amenities: string | null;
+                version: number;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            studentId: string;
+            status: import("@prisma/client").$Enums.AllocationStatus;
+            roomId: string;
+            bedNumber: number;
+            allocatedFrom: Date;
+            allocatedTo: Date | null;
+        })[];
     } & {
         id: string;
         createdAt: Date;

@@ -306,14 +306,10 @@ export class HostelService {
     }
     // ============ DASHBOARD STATS ============
     async getDashboardStats() {
-        const [totalStudents, totalHostels, totalRooms, occupiedRooms, availableRooms, pendingLeaves, openComplaints, pendingFees, recentAllocations,] = await Promise.all([
+        const [totalStudents, totalHostels, rooms, pendingLeaves, openComplaints, pendingFees, recentAllocations,] = await Promise.all([
             prisma.studentProfile.count(),
             prisma.hostel.count({ where: { deletedAt: null, isActive: true } }),
-            prisma.room.count({ where: { isActive: true } }),
-            prisma.room.aggregate({ where: { isActive: true }, _sum: { occupiedBeds: true } }),
-            prisma.room.count({
-                where: { isActive: true, status: { in: ["AVAILABLE", "PARTIALLY_OCCUPIED"] } },
-            }),
+            prisma.room.findMany({ where: { isActive: true }, select: { capacity: true, occupiedBeds: true, status: true } }),
             prisma.leaveRequest.count({ where: { status: "PENDING" } }),
             prisma.complaint.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
             prisma.fee.count({ where: { status: "PENDING" } }),
@@ -345,17 +341,27 @@ export class HostelService {
                 },
             }),
         ]);
+        const totalRooms = rooms.length;
+        const totalBeds = rooms.reduce((sum, r) => sum + r.capacity, 0);
+        const occupiedBeds = rooms.reduce((sum, r) => sum + r.occupiedBeds, 0);
+        // Room status counts for pie chart
+        const availableRooms = rooms.filter((r) => r.occupiedBeds === 0).length;
+        const partiallyOccupiedRooms = rooms.filter((r) => r.occupiedBeds > 0 && r.occupiedBeds < r.capacity).length;
+        const fullyOccupiedRooms = rooms.filter((r) => r.occupiedBeds >= r.capacity).length;
         return {
             totalStudents,
             totalHostels,
             totalRooms,
+            totalBeds,
+            occupiedBeds,
             availableRooms,
+            partiallyOccupiedRooms,
+            fullyOccupiedRooms,
             pendingLeaves,
             openComplaints,
             pendingFees,
             recentAllocations,
-            occupiedRooms: occupiedRooms._sum.occupiedBeds || 0,
-            occupancyRate: totalRooms > 0 ? Math.round(((occupiedRooms._sum.occupiedBeds || 0) / totalRooms) * 100) : 0,
+            occupancyRate: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
         };
     }
 }

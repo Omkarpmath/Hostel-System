@@ -10,6 +10,7 @@ export const userApi = {
   getStudents: (params?: Record<string, string>) =>
     api.get<ApiResponse<StudentProfile[]>>('/students', { params }),
   getCurrentStudent: () => api.get<ApiResponse<StudentProfile>>('/students/me'),
+  updateCurrentStudent: (data: Record<string, unknown>) => api.patch<ApiResponse<StudentProfile>>('/students/me', data),
   createCurrentStudentProfile: (data: Partial<StudentProfile>) => api.post<ApiResponse<StudentProfile>>('/students/me/profile', data),
   createStudentProfile: (userId: string, data: Partial<StudentProfile>) =>
     api.post<ApiResponse<StudentProfile>>(`/students/${userId}/profile`, data),

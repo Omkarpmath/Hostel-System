@@ -2,8 +2,9 @@ import { Router } from "express";
 import { authenticate } from "../../middleware/auth.middleware.js";
 import { authorize } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
+import { upload } from "../../middleware/upload.middleware.js";
 import { operationsController as c } from "./operations.controller.js";
-import { allocationSchema, complaintSchema, complaintStatusSchema, leaveSchema, leaveStatusSchema, visitorSchema } from "./operations.schema.js";
+import { allocationSchema, complaintStatusSchema, leaveSchema, leaveStatusSchema, visitorSchema } from "./operations.schema.js";
 const router = Router();
 router.use(authenticate);
 // Controller methods use instance helpers, so bind them before Express invokes them.
@@ -14,7 +15,7 @@ router.get("/leaves", authorize("STUDENT", "ADMIN", "WARDEN"), c.leaves.bind(c))
 router.post("/leaves", authorize("STUDENT"), validate(leaveSchema), c.createLeave.bind(c));
 router.patch("/leaves/:id", authorize("WARDEN"), validate(leaveStatusSchema), c.decideLeave.bind(c));
 router.get("/complaints", authorize("STUDENT", "ADMIN", "WARDEN"), c.complaints.bind(c));
-router.post("/complaints", authorize("STUDENT"), validate(complaintSchema), c.createComplaint.bind(c));
+router.post("/complaints", authorize("STUDENT"), upload.array("attachments", 5), c.createComplaint.bind(c));
 router.patch("/complaints/:id", authorize("WARDEN"), validate(complaintStatusSchema), c.updateComplaint.bind(c));
 router.get("/visitors", authorize("STUDENT", "ADMIN", "WARDEN", "SECURITY"), c.visitors.bind(c));
 router.post("/visitors", authorize("STUDENT"), validate(visitorSchema), c.createVisitor.bind(c));

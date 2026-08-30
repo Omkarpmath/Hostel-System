@@ -76,12 +76,35 @@ export class OperationsService {
         const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : role === "WARDEN" ? { student: this.wardenStudents(userId) } : {};
         return prisma.complaint.findMany({ where, include: { ...studentInclude, images: true }, orderBy: { createdAt: "desc" } });
     }
-    async createComplaint(userId, data) { return prisma.complaint.create({ data: { studentId: await this.studentId(userId), ...data }, include: studentInclude }); }
+    async createComplaint(userId, data, files) {
+        const studentId = await this.studentId(userId);
+        const { title, description, category, priority } = data;
+        return prisma.$transaction(async (tx) => {
+            const complaint = await tx.complaint.create({
+                data: { studentId, title, description, category, priority },
+                include: { ...studentInclude, images: true },
+            });
+            if (files && files.length > 0) {
+                await tx.complaintImage.createMany({
+                    data: files.map((f) => ({
+                        complaintId: complaint.id,
+                        imageUrl: `data:${f.mimetype};base64,${f.buffer.toString("base64")}`,
+                    })),
+                });
+                // Re-fetch to include images
+                return tx.complaint.findUnique({
+                    where: { id: complaint.id },
+                    include: { ...studentInclude, images: true },
+                });
+            }
+            return complaint;
+        });
+    }
     async updateComplaint(id, wardenId, data) {
         const complaint = await prisma.complaint.findFirst({ where: { id, student: this.wardenStudents(wardenId) }, select: { id: true } });
         if (!complaint)
             throw ApiError.notFound("Complaint not found in your hostel scope");
-        return prisma.complaint.update({ where: { id }, data: { ...data, resolvedAt: ["RESOLVED", "CLOSED"].includes(data.status) ? new Date() : undefined }, include: studentInclude });
+        return prisma.complaint.update({ where: { id }, data: { ...data, resolvedAt: ["RESOLVED", "CLOSED"].includes(data.status) ? new Date() : undefined }, include: { ...studentInclude, images: true } });
     }
     async listVisitors(userId, role) {
         const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : role === "WARDEN" ? { student: this.wardenStudents(userId) } : {};

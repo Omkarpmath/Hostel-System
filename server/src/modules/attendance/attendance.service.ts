@@ -411,7 +411,7 @@ export class AttendanceService {
       },
     });
 
-    if (!student) throw ApiError.notFound("Student profile not found.");
+    if (!student) return { hostel: null, days: [], summary: { total: 0, present: 0, onLeave: 0, absent: 0 } };
     const allocation = student.roomAllocations[0];
     if (!allocation) return { hostel: null, days: [], summary: { total: 0, present: 0, onLeave: 0, absent: 0 } };
 

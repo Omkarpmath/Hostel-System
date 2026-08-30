@@ -463,7 +463,7 @@ export declare class OperationsService {
         resolution: string | null;
         resolvedAt: Date | null;
     })[]>;
-    createComplaint(userId: string, data: any): Promise<{
+    createComplaint(userId: string, data: any, files?: Express.Multer.File[]): Promise<({
         student: {
             user: {
                 id: string;
@@ -489,6 +489,12 @@ export declare class OperationsService {
             gender: import("@prisma/client").$Enums.Gender;
             qrCodeToken: string;
         };
+        images: {
+            id: string;
+            createdAt: Date;
+            complaintId: string;
+            imageUrl: string;
+        }[];
     } & {
         id: string;
         createdAt: Date;
@@ -502,7 +508,7 @@ export declare class OperationsService {
         assignedTo: string | null;
         resolution: string | null;
         resolvedAt: Date | null;
-    }>;
+    }) | null>;
     updateComplaint(id: string, wardenId: string, data: any): Promise<{
         student: {
             user: {
@@ -529,6 +535,12 @@ export declare class OperationsService {
             gender: import("@prisma/client").$Enums.Gender;
             qrCodeToken: string;
         };
+        images: {
+            id: string;
+            createdAt: Date;
+            complaintId: string;
+            imageUrl: string;
+        }[];
     } & {
         id: string;
         createdAt: Date;

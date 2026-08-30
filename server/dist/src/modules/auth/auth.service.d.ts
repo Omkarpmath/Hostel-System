@@ -30,6 +30,7 @@ export declare class AuthService {
             lastLoginAt: Date | null;
             createdAt: Date;
             updatedAt: Date;
+            assignedHostelId: string | null;
         };
         accessToken: string;
         refreshToken: string;
@@ -46,6 +47,7 @@ export declare class AuthService {
         lastLoginAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
+        assignedHostelId: string | null;
     }>;
     refreshToken(token: string): Promise<{
         accessToken: string;
@@ -134,6 +136,14 @@ export declare class AuthService {
             gender: import("@prisma/client").$Enums.Gender;
             qrCodeToken: string;
         }) | null;
+        wardenHostels: {
+            name: string;
+            id: string;
+        }[];
+        assignedHostel: {
+            name: string;
+            id: string;
+        } | null;
         id: string;
         email: string;
         role: import("@prisma/client").$Enums.Role;
@@ -145,6 +155,7 @@ export declare class AuthService {
         lastLoginAt: Date | null;
         createdAt: Date;
         updatedAt: Date;
+        assignedHostelId: string | null;
     }>;
 }
 export declare const authService: AuthService;
