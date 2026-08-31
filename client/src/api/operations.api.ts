@@ -28,4 +28,5 @@ export const operationsApi = {
   createVisitor: (data: Record<string, unknown>) => api.post<ApiResponse<Visitor>>('/visitors', data),
   hostelStudents: (params?: { hostelId?: string }) => api.get<ApiResponse<any[]>>('/visitors/students', { params }),
   fees: () => api.get<ApiResponse<Fee[]>>('/fees'),
+  downloadReceipt: (feeId: string) => api.get(`/fees/${feeId}/receipt`, { responseType: 'blob' }),
 };

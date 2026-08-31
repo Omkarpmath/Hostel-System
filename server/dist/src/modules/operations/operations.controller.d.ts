@@ -15,6 +15,7 @@ export declare class OperationsController {
     createVisitor(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     hostelStudents(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     fees(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    downloadReceipt(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
 }
 export declare const operationsController: OperationsController;
 //# sourceMappingURL=operations.controller.d.ts.map

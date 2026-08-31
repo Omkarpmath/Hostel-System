@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import {
   CreditCard, ChevronRight, User, Calendar, Building2,
   BedDouble, Receipt, IndianRupee, Clock, CheckCircle2, XCircle, AlertCircle,
+  Download,
 } from 'lucide-react';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -25,8 +26,28 @@ export function FeesPage() {
   const isDark = theme === 'dark';
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'HOSTEL_FEE' | 'MESS_FEE'>('HOSTEL_FEE');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const isStudent = user?.role === 'STUDENT';
+
+  const handleDownloadReceipt = async (feeId: string, receiptNumber?: string) => {
+    try {
+      setDownloadingId(feeId);
+      const res = await operationsApi.downloadReceipt(feeId);
+      const blob = new Blob([res.data as any], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Hostel_Fee_Receipt_${receiptNumber || feeId}.pdf`;
+      a.target = '_blank';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      alert('Failed to download receipt PDF.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const { data, isError, error } = useQuery<any>({
     queryKey: ['fees'],
@@ -206,10 +227,41 @@ export function FeesPage() {
                     </div>
                   </div>
 
-                  <ChevronRight style={{
-                    width: '1.25rem', height: '1.25rem', color: 'var(--text-muted)',
-                    transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
-                  }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {isPaid && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadReceipt(fee.id, fee.receiptNumber);
+                        }}
+                        disabled={downloadingId === fee.id}
+                        title="Download Official Payment Receipt"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.375rem',
+                          padding: '0.375rem 0.75rem',
+                          borderRadius: '0.5rem',
+                          backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
+                          border: '1px solid rgba(59,130,246,0.3)',
+                          color: isDark ? '#93c5fd' : '#2563eb',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          cursor: downloadingId === fee.id ? 'wait' : 'pointer',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Download style={{ width: '0.75rem', height: '0.75rem' }} />
+                        <span>{downloadingId === fee.id ? '...' : 'Receipt'}</span>
+                      </button>
+                    )}
+
+                    <ChevronRight style={{
+                      width: '1.25rem', height: '1.25rem', color: 'var(--text-muted)',
+                      transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
+                    }} />
+                  </div>
                 </button>
 
                 <AnimatePresence>
@@ -280,6 +332,43 @@ export function FeesPage() {
                               {fee.transactionId ? `. Transaction: ${fee.transactionId}` : ''}
                               {!isStudent ? ` by ${studentName}` : ''}
                             </p>
+
+                            <div style={{
+                              marginTop: '0.75rem',
+                              paddingTop: '0.75rem',
+                              borderTop: `1px solid ${isDark ? 'rgba(22,163,74,0.2)' : '#dcfce7'}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '0.5rem',
+                            }}>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {fee.receiptNumber ? `Official Receipt: ${fee.receiptNumber}` : 'Official Electronic Receipt Verified'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadReceipt(fee.id, fee.receiptNumber)}
+                                disabled={downloadingId === fee.id}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.375rem',
+                                  padding: '0.375rem 0.875rem',
+                                  borderRadius: '0.5rem',
+                                  backgroundColor: '#16a34a',
+                                  color: 'white',
+                                  border: 'none',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  cursor: downloadingId === fee.id ? 'wait' : 'pointer',
+                                  boxShadow: '0 2px 6px rgba(22,163,74,0.3)',
+                                }}
+                              >
+                                <Download style={{ width: '0.75rem', height: '0.75rem' }} />
+                                <span>{downloadingId === fee.id ? 'Generating PDF...' : 'Download Receipt (PDF)'}</span>
+                              </button>
+                            </div>
                           </div>
                         )}
 

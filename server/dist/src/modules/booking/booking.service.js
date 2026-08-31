@@ -4,6 +4,7 @@ import { prisma } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { razorpayClient } from "../../config/razorpay.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { receiptService } from "../receipt/receipt.service.js";
 const roomInclude = { floor: { include: { block: { include: { hostel: { select: { id: true, name: true } } } } } } };
 export class BookingService {
     async studentId(userId) {
@@ -88,10 +89,10 @@ export class BookingService {
         return this.allocatePaidReservation(studentId, orderId, paymentId);
     }
     async allocatePaidReservation(studentId, orderId, paymentId) {
-        return prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             const paid = await tx.fee.findFirst({ where: { transactionId: paymentId }, include: { allocation: true } });
             if (paid?.allocation)
-                return paid.allocation;
+                return { allocation: paid.allocation, feeId: paid.id };
             const reservation = await tx.reservation.findFirst({ where: { studentId, razorpayOrderId: orderId, status: "PENDING", expiresAt: { gt: new Date() } } });
             if (!reservation)
                 throw ApiError.badRequest("Reservation is invalid or expired");
@@ -108,10 +109,17 @@ export class BookingService {
             const allocation = await tx.roomAllocation.create({ data: { studentId, roomId: room.id, bedNumber, allocatedFrom: new Date() } });
             const occupiedBeds = room.occupiedBeds + 1;
             await tx.room.update({ where: { id: room.id }, data: { occupiedBeds, status: occupiedBeds >= room.capacity ? "FULL" : "PARTIALLY_OCCUPIED", version: { increment: 1 } } });
-            await tx.fee.create({ data: { studentId, allocationId: allocation.id, amount: room.feePerSemester, status: "PAID", transactionId: paymentId, paymentMethod: "RAZORPAY", paidAt: new Date(), dueDate: new Date() } });
+            const fee = await tx.fee.create({ data: { studentId, allocationId: allocation.id, amount: room.feePerSemester, status: "PAID", transactionId: paymentId, paymentMethod: "RAZORPAY", paidAt: new Date(), dueDate: new Date() } });
             await tx.reservation.update({ where: { id: reservation.id }, data: { status: "CONVERTED" } });
-            return allocation;
+            return { allocation, feeId: fee.id };
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        // Trigger PDF generation and Resend email delivery (non-blocking, fail-safe)
+        if (result?.feeId) {
+            receiptService.processReceiptAndEmail(result.feeId, paymentId).catch((err) => {
+                console.error("[BookingService] Failed to send receipt email:", err);
+            });
+        }
+        return result.allocation;
     }
     async cancel(userId, reservationId) {
         const studentId = await this.studentId(userId);

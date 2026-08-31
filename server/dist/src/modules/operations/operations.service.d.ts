@@ -94,6 +94,10 @@ export declare class OperationsService {
             transactionId: string | null;
             paymentMethod: string | null;
             receiptNumber: string | null;
+            receiptEmail: string | null;
+            emailSent: boolean;
+            emailSentAt: Date | null;
+            emailError: string | null;
             screenshotUrl: string | null;
             paidAt: Date | null;
             dueDate: Date;
@@ -1010,6 +1014,10 @@ export declare class OperationsService {
         transactionId: string | null;
         paymentMethod: string | null;
         receiptNumber: string | null;
+        receiptEmail: string | null;
+        emailSent: boolean;
+        emailSentAt: Date | null;
+        emailError: string | null;
         screenshotUrl: string | null;
         paidAt: Date | null;
         dueDate: Date;

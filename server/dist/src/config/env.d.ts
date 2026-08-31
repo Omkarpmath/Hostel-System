@@ -12,5 +12,7 @@ export declare const env: {
     readonly MAX_FILE_SIZE: number;
     readonly RAZORPAY_KEY_ID: string;
     readonly RAZORPAY_KEY_SECRET: string;
+    readonly RESEND_API_KEY: string;
+    readonly RESEND_FROM_EMAIL: string;
 };
 //# sourceMappingURL=env.d.ts.map

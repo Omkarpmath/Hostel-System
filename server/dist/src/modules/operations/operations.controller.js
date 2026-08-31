@@ -1,5 +1,6 @@
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { operationsService } from "./operations.service.js";
+import { receiptService } from "../receipt/receipt.service.js";
 export class OperationsController {
     user(req) { if (!req.user)
         throw new Error("Unauthenticated request"); return req.user; }
@@ -104,6 +105,20 @@ export class OperationsController {
     catch (e) {
         next(e);
     } }
+    async downloadReceipt(req, res, next) {
+        try {
+            const u = this.user(req);
+            const feeId = String(req.params.id);
+            const { buffer, filename } = await receiptService.getReceiptPdfByFeeId(feeId, u.userId, u.role);
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+            res.setHeader("Content-Length", buffer.length);
+            res.send(buffer);
+        }
+        catch (e) {
+            next(e);
+        }
+    }
 }
 export const operationsController = new OperationsController();
 //# sourceMappingURL=operations.controller.js.map

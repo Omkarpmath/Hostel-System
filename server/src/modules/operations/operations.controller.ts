@@ -3,6 +3,8 @@ import { AuthRequest } from "../../middleware/auth.middleware.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { operationsService } from "./operations.service.js";
 
+import { receiptService } from "../receipt/receipt.service.js";
+
 export class OperationsController {
   private user(req: AuthRequest) { if (!req.user) throw new Error("Unauthenticated request"); return req.user; }
   async mine(req: AuthRequest, res: Response, next: NextFunction) { try { const user = this.user(req); ApiResponse.success({ res, data: await operationsService.getMyOverview(user.userId) }); } catch (e) { next(e); } }
@@ -37,5 +39,16 @@ export class OperationsController {
     } catch (e) { next(e); }
   }
   async fees(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, data: await operationsService.listFees(u.userId, u.role) }); } catch (e) { next(e); } }
+  async downloadReceipt(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const u = this.user(req);
+      const feeId = String(req.params.id);
+      const { buffer, filename } = await receiptService.getReceiptPdfByFeeId(feeId, u.userId, u.role);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+      res.send(buffer);
+    } catch (e: any) { next(e); }
+  }
 }
 export const operationsController = new OperationsController();

@@ -346,6 +346,10 @@ model Fee {
   transactionId   String?       @map("transaction_id")
   paymentMethod   String?       @map("payment_method")
   receiptNumber   String?       @unique @map("receipt_number")
+  receiptEmail    String?       @map("receipt_email")
+  emailSent       Boolean       @default(false) @map("email_sent")
+  emailSentAt     DateTime?     @map("email_sent_at")
+  emailError      String?       @map("email_error")
   screenshotUrl   String?       @map("screenshot_url") // Payment screenshot
   paidAt          DateTime?     @map("paid_at")
   dueDate         DateTime      @map("due_date")

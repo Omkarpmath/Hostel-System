@@ -5,9 +5,10 @@ import { messFeeApi } from '@/api/messFee.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { operationsApi } from '@/api/operations.api';
 import {
   UtensilsCrossed, CheckCircle2, Clock, IndianRupee,
-  CreditCard, Calendar, AlertCircle, Receipt,
+  CreditCard, Calendar, AlertCircle, Receipt, Download,
 } from 'lucide-react';
 
 const fmt = (d?: string | null) =>
@@ -26,6 +27,26 @@ export function MessFeePage() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('error');
   const [orderInfo, setOrderInfo] = useState<{ orderId: string; reused?: boolean } | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownloadReceipt = async (feeId: string, receiptNumber?: string) => {
+    try {
+      setDownloadingId(feeId);
+      const res = await operationsApi.downloadReceipt(feeId);
+      const blob = new Blob([res.data as any], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Mess_Fee_Receipt_${receiptNumber || feeId}.pdf`;
+      a.target = '_blank';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      alert('Failed to download receipt PDF.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const isAdmin = user?.role === 'ADMIN';
 
@@ -403,6 +424,51 @@ export function MessFeePage() {
             </button>
           </div>
         )}
+
+        {/* Download Receipt Button (when paid) */}
+        {isPaid && (
+          <div style={{
+            marginTop: '1.25rem',
+            paddingTop: '1rem',
+            borderTop: `1px solid ${isDark ? 'rgba(22,163,74,0.2)' : '#dcfce7'}`,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+              Official Electronic Receipt Generated & Verified
+            </span>
+            {history.find((f: any) => f.status === 'PAID') && (
+              <button
+                type="button"
+                onClick={() => {
+                  const paidFee = history.find((f: any) => f.status === 'PAID');
+                  if (paidFee) handleDownloadReceipt(paidFee.id, paidFee.receiptNumber);
+                }}
+                disabled={!!downloadingId}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1.125rem',
+                  borderRadius: '0.625rem',
+                  background: 'linear-gradient(135deg, #16a34a, #0d9488)',
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: '0.8125rem',
+                  border: 'none',
+                  cursor: downloadingId ? 'wait' : 'pointer',
+                  boxShadow: '0 2px 8px rgba(22,163,74,0.25)',
+                }}
+              >
+                <Download style={{ width: '0.875rem', height: '0.875rem' }} />
+                <span>{downloadingId ? 'Generating PDF...' : 'Download Official Receipt (PDF)'}</span>
+              </button>
+            )}
+          </div>
+        )}
       </motion.div>
 
       {/* Payment History */}
@@ -441,17 +507,43 @@ export function MessFeePage() {
                     {fmt(fee.createdAt)} {fee.transactionId ? `· ${fee.transactionId}` : ''}
                   </p>
                 </div>
-                <span style={{
-                  fontSize: '0.6875rem', fontWeight: 700, padding: '0.25rem 0.625rem', borderRadius: '9999px',
-                  backgroundColor: fee.status === 'PAID'
-                    ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
-                    : (isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7'),
-                  color: fee.status === 'PAID'
-                    ? (isDark ? '#4ade80' : '#15803d')
-                    : (isDark ? '#fbbf24' : '#b45309'),
-                }}>
-                  {fee.status}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {fee.status === 'PAID' && (
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadReceipt(fee.id, fee.receiptNumber)}
+                      disabled={downloadingId === fee.id}
+                      title="Download Receipt"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                        padding: '0.25rem 0.625rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
+                        border: '1px solid rgba(59,130,246,0.25)',
+                        color: isDark ? '#93c5fd' : '#2563eb',
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        cursor: downloadingId === fee.id ? 'wait' : 'pointer',
+                      }}
+                    >
+                      <Download style={{ width: '0.6875rem', height: '0.6875rem' }} />
+                      <span>Receipt</span>
+                    </button>
+                  )}
+                  <span style={{
+                    fontSize: '0.6875rem', fontWeight: 700, padding: '0.25rem 0.625rem', borderRadius: '9999px',
+                    backgroundColor: fee.status === 'PAID'
+                      ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
+                      : (isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7'),
+                    color: fee.status === 'PAID'
+                      ? (isDark ? '#4ade80' : '#15803d')
+                      : (isDark ? '#fbbf24' : '#b45309'),
+                  }}>
+                    {fee.status}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

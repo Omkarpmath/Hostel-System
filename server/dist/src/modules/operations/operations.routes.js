@@ -21,5 +21,6 @@ router.get("/visitors", authorize("STUDENT", "ADMIN", "WARDEN", "SECURITY"), c.v
 router.post("/visitors", authorize("STUDENT", "SECURITY", "ADMIN", "WARDEN"), validate(visitorSchema), c.createVisitor.bind(c));
 router.get("/visitors/students", authorize("ADMIN", "WARDEN", "SECURITY"), c.hostelStudents.bind(c));
 router.get("/fees", authorize("STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT"), c.fees.bind(c));
+router.get("/fees/:id/receipt", authorize("STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT"), c.downloadReceipt.bind(c));
 export default router;
 //# sourceMappingURL=operations.routes.js.map

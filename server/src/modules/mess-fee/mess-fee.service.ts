@@ -4,6 +4,8 @@ import { razorpayClient } from "../../config/razorpay.js";
 import { env } from "../../config/env.js";
 import { ApiError } from "../../utils/ApiError.js";
 
+import { receiptService } from "../receipt/receipt.service.js";
+
 const CONFIG_KEY = "annual_mess_fee";
 const DEFAULT_AMOUNT = 78000;
 
@@ -155,7 +157,7 @@ export class MessFeeService {
     if (alreadyPaid) throw ApiError.conflict("Mess fee has already been paid");
 
     // Mark as paid
-    return prisma.fee.update({
+    const updatedFee = await prisma.fee.update({
       where: { id: fee.id },
       data: {
         status: "PAID",
@@ -164,6 +166,13 @@ export class MessFeeService {
         paidAt: new Date(),
       },
     });
+
+    // Trigger PDF generation and Resend email delivery (non-blocking, fail-safe)
+    receiptService.processReceiptAndEmail(updatedFee.id, paymentId).catch((err) => {
+      console.error("[MessFeeService] Failed to send receipt email:", err);
+    });
+
+    return updatedFee;
   }
 }
 
