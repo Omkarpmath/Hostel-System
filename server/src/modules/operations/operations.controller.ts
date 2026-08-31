@@ -14,8 +14,28 @@ export class OperationsController {
   async complaints(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, data: await operationsService.listComplaints(u.userId, u.role) }); } catch (e) { next(e); } }
   async createComplaint(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); const files = req.files as Express.Multer.File[] | undefined; ApiResponse.created({ res, message: "Complaint submitted", data: await operationsService.createComplaint(u.userId, req.body, files) }); } catch (e) { next(e); } }
   async updateComplaint(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, message: "Complaint updated", data: await operationsService.updateComplaint(String(req.params.id), u.userId, req.body) }); } catch (e) { next(e); } }
-  async visitors(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, data: await operationsService.listVisitors(u.userId, u.role) }); } catch (e) { next(e); } }
-  async createVisitor(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.created({ res, message: "Visitor submitted", data: await operationsService.createVisitor(u.userId, req.body) }); } catch (e) { next(e); } }
+  async visitors(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const u = this.user(req);
+      const filters = {
+        hostelId: req.query.hostelId as string | undefined,
+        date: req.query.date as string | undefined,
+      };
+      ApiResponse.success({ res, data: await operationsService.listVisitors(u.userId, u.role, filters) });
+    } catch (e) { next(e); }
+  }
+  async createVisitor(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const u = this.user(req);
+      ApiResponse.created({ res, message: "Visitor registered successfully", data: await operationsService.createVisitor(u.userId, u.role, req.body) });
+    } catch (e) { next(e); }
+  }
+  async hostelStudents(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const u = this.user(req);
+      ApiResponse.success({ res, data: await operationsService.listHostelStudents(u.userId, u.role, req.query.hostelId as string | undefined) });
+    } catch (e) { next(e); }
+  }
   async fees(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, data: await operationsService.listFees(u.userId, u.role) }); } catch (e) { next(e); } }
 }
 export const operationsController = new OperationsController();

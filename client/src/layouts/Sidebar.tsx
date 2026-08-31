@@ -59,6 +59,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Students', icon: GraduationCap, href: '/warden/students' },
     { label: 'Leave Requests', icon: ClipboardList, href: '/warden/leaves' },
     { label: 'Complaints', icon: MessageSquareWarning, href: '/warden/complaints' },
+    { label: 'Visitors', icon: Users, href: '/warden/visitors' },
     { label: 'Attendance', icon: ScanLine, href: '/warden/attendance' },
   ],
   ACCOUNTANT: [

@@ -5,5 +5,15 @@ export const leaveStatusSchema = z.object({ body: z.object({ status: z.enum(["AP
         ctx.addIssue({ code: "custom", message: "A rejection reason is required", path: ["rejectionReason"] }); }) });
 export const complaintSchema = z.object({ body: z.object({ title: z.string().min(3), description: z.string().min(5), category: z.enum(["ELECTRICAL", "PLUMBING", "FURNITURE", "CLEANING", "NETWORK", "OTHER"]).optional(), priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional() }) });
 export const complaintStatusSchema = z.object({ body: z.object({ status: z.enum(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]), resolution: z.string().min(3).optional() }) });
-export const visitorSchema = z.object({ body: z.object({ visitorName: z.string().min(2), visitorPhone: z.string().min(6), relationship: z.string().min(2), purpose: z.string().min(3), idProofType: z.string().optional(), idProofNumber: z.string().optional() }) });
+export const visitorSchema = z.object({
+    body: z.object({
+        visitorName: z.string().min(2, "Visitor name is required"),
+        relationship: z.string().min(2, "Relationship is required"),
+        studentId: z.string().uuid().optional(),
+        visitorPhone: z.string().optional(),
+        purpose: z.string().optional(),
+        idProofType: z.string().optional(),
+        idProofNumber: z.string().optional(),
+    }),
+});
 //# sourceMappingURL=operations.schema.js.map

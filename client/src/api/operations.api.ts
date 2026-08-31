@@ -24,7 +24,8 @@ export const operationsApi = {
     });
   },
   updateComplaint: (id: string, data: Record<string, unknown>) => api.patch<ApiResponse<Complaint>>(`/complaints/${id}`, data),
-  visitors: () => api.get<ApiResponse<Visitor[]>>('/visitors'),
+  visitors: (params?: { hostelId?: string; date?: string }) => api.get<ApiResponse<Visitor[]>>('/visitors', { params }),
   createVisitor: (data: Record<string, unknown>) => api.post<ApiResponse<Visitor>>('/visitors', data),
+  hostelStudents: (params?: { hostelId?: string }) => api.get<ApiResponse<any[]>>('/visitors/students', { params }),
   fees: () => api.get<ApiResponse<Fee[]>>('/fees'),
 };

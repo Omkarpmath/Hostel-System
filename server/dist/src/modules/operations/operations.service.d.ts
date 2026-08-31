@@ -126,7 +126,91 @@ export declare class OperationsService {
             resolution: string | null;
             resolvedAt: Date | null;
         }[];
-        visitors: {
+        visitors: ({
+            student: {
+                user: {
+                    id: string;
+                    email: string;
+                    firstName: string;
+                    lastName: string;
+                    phone: string | null;
+                };
+                roomAllocations: ({
+                    room: {
+                        floor: {
+                            block: {
+                                hostel: {
+                                    name: string;
+                                    id: string;
+                                    type: import("@prisma/client").$Enums.HostelType;
+                                };
+                            } & {
+                                name: string;
+                                id: string;
+                                isActive: boolean;
+                                createdAt: Date;
+                                updatedAt: Date;
+                                description: string | null;
+                                hostelId: string;
+                            };
+                        } & {
+                            name: string;
+                            id: string;
+                            createdAt: Date;
+                            updatedAt: Date;
+                            blockId: string;
+                            floorNumber: number;
+                        };
+                    } & {
+                        id: string;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        type: import("@prisma/client").$Enums.RoomType;
+                        status: import("@prisma/client").$Enums.RoomStatus;
+                        floorId: string;
+                        roomNumber: string;
+                        capacity: number;
+                        occupiedBeds: number;
+                        feePerSemester: Prisma.Decimal;
+                        amenities: string | null;
+                        version: number;
+                    };
+                } & {
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    studentId: string;
+                    status: import("@prisma/client").$Enums.AllocationStatus;
+                    roomId: string;
+                    bedNumber: number;
+                    allocatedFrom: Date;
+                    allocatedTo: Date | null;
+                })[];
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: string;
+                usn: string;
+                department: string;
+                year: number;
+                semester: number;
+                guardianName: string;
+                guardianPhone: string;
+                permanentAddress: string;
+                bloodGroup: string | null;
+                dateOfBirth: Date;
+                gender: import("@prisma/client").$Enums.Gender;
+                qrCodeToken: string;
+            };
+            approver: {
+                id: string;
+                role: import("@prisma/client").$Enums.Role;
+                firstName: string;
+                lastName: string;
+            } | null;
+        } & {
             id: string;
             createdAt: Date;
             updatedAt: Date;
@@ -141,7 +225,7 @@ export declare class OperationsService {
             idProofNumber: string | null;
             checkInTime: Date | null;
             checkOutTime: Date | null;
-        }[];
+        })[];
     }>;
     listAllocations(): Promise<({
         student: {
@@ -555,7 +639,10 @@ export declare class OperationsService {
         resolution: string | null;
         resolvedAt: Date | null;
     }>;
-    listVisitors(userId: string, role: string): Promise<({
+    listVisitors(userId: string, role: string, filters?: {
+        hostelId?: string;
+        date?: string;
+    }): Promise<({
         student: {
             user: {
                 id: string;
@@ -564,6 +651,58 @@ export declare class OperationsService {
                 lastName: string;
                 phone: string | null;
             };
+            roomAllocations: ({
+                room: {
+                    floor: {
+                        block: {
+                            hostel: {
+                                name: string;
+                                id: string;
+                                type: import("@prisma/client").$Enums.HostelType;
+                            };
+                        } & {
+                            name: string;
+                            id: string;
+                            isActive: boolean;
+                            createdAt: Date;
+                            updatedAt: Date;
+                            description: string | null;
+                            hostelId: string;
+                        };
+                    } & {
+                        name: string;
+                        id: string;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        blockId: string;
+                        floorNumber: number;
+                    };
+                } & {
+                    id: string;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    type: import("@prisma/client").$Enums.RoomType;
+                    status: import("@prisma/client").$Enums.RoomStatus;
+                    floorId: string;
+                    roomNumber: string;
+                    capacity: number;
+                    occupiedBeds: number;
+                    feePerSemester: Prisma.Decimal;
+                    amenities: string | null;
+                    version: number;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                studentId: string;
+                status: import("@prisma/client").$Enums.AllocationStatus;
+                roomId: string;
+                bedNumber: number;
+                allocatedFrom: Date;
+                allocatedTo: Date | null;
+            })[];
         } & {
             id: string;
             createdAt: Date;
@@ -581,6 +720,12 @@ export declare class OperationsService {
             gender: import("@prisma/client").$Enums.Gender;
             qrCodeToken: string;
         };
+        approver: {
+            id: string;
+            role: import("@prisma/client").$Enums.Role;
+            firstName: string;
+            lastName: string;
+        } | null;
     } & {
         id: string;
         createdAt: Date;
@@ -597,7 +742,7 @@ export declare class OperationsService {
         checkInTime: Date | null;
         checkOutTime: Date | null;
     })[]>;
-    createVisitor(userId: string, data: any): Promise<{
+    createVisitor(userId: string, role: string, data: any): Promise<{
         student: {
             user: {
                 id: string;
@@ -606,6 +751,58 @@ export declare class OperationsService {
                 lastName: string;
                 phone: string | null;
             };
+            roomAllocations: ({
+                room: {
+                    floor: {
+                        block: {
+                            hostel: {
+                                name: string;
+                                id: string;
+                                type: import("@prisma/client").$Enums.HostelType;
+                            };
+                        } & {
+                            name: string;
+                            id: string;
+                            isActive: boolean;
+                            createdAt: Date;
+                            updatedAt: Date;
+                            description: string | null;
+                            hostelId: string;
+                        };
+                    } & {
+                        name: string;
+                        id: string;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        blockId: string;
+                        floorNumber: number;
+                    };
+                } & {
+                    id: string;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    type: import("@prisma/client").$Enums.RoomType;
+                    status: import("@prisma/client").$Enums.RoomStatus;
+                    floorId: string;
+                    roomNumber: string;
+                    capacity: number;
+                    occupiedBeds: number;
+                    feePerSemester: Prisma.Decimal;
+                    amenities: string | null;
+                    version: number;
+                };
+            } & {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                studentId: string;
+                status: import("@prisma/client").$Enums.AllocationStatus;
+                roomId: string;
+                bedNumber: number;
+                allocatedFrom: Date;
+                allocatedTo: Date | null;
+            })[];
         } & {
             id: string;
             createdAt: Date;
@@ -623,6 +820,12 @@ export declare class OperationsService {
             gender: import("@prisma/client").$Enums.Gender;
             qrCodeToken: string;
         };
+        approver: {
+            id: string;
+            role: import("@prisma/client").$Enums.Role;
+            firstName: string;
+            lastName: string;
+        } | null;
     } & {
         id: string;
         createdAt: Date;
@@ -639,6 +842,83 @@ export declare class OperationsService {
         checkInTime: Date | null;
         checkOutTime: Date | null;
     }>;
+    listHostelStudents(userId: string, role: string, queryHostelId?: string): Promise<({
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            phone: string | null;
+        };
+        roomAllocations: ({
+            room: {
+                floor: {
+                    block: {
+                        hostel: {
+                            name: string;
+                            id: string;
+                            type: import("@prisma/client").$Enums.HostelType;
+                        };
+                    } & {
+                        name: string;
+                        id: string;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        description: string | null;
+                        hostelId: string;
+                    };
+                } & {
+                    name: string;
+                    id: string;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    blockId: string;
+                    floorNumber: number;
+                };
+            } & {
+                id: string;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                type: import("@prisma/client").$Enums.RoomType;
+                status: import("@prisma/client").$Enums.RoomStatus;
+                floorId: string;
+                roomNumber: string;
+                capacity: number;
+                occupiedBeds: number;
+                feePerSemester: Prisma.Decimal;
+                amenities: string | null;
+                version: number;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            studentId: string;
+            status: import("@prisma/client").$Enums.AllocationStatus;
+            roomId: string;
+            bedNumber: number;
+            allocatedFrom: Date;
+            allocatedTo: Date | null;
+        })[];
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        userId: string;
+        usn: string;
+        department: string;
+        year: number;
+        semester: number;
+        guardianName: string;
+        guardianPhone: string;
+        permanentAddress: string;
+        bloodGroup: string | null;
+        dateOfBirth: Date;
+        gender: import("@prisma/client").$Enums.Gender;
+        qrCodeToken: string;
+    })[]>;
     listFees(userId: string, role: string): Promise<({
         student: {
             user: {

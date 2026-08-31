@@ -13,6 +13,7 @@ export declare class OperationsController {
     updateComplaint(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     visitors(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     createVisitor(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    hostelStudents(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     fees(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
 }
 export declare const operationsController: OperationsController;

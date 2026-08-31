@@ -18,7 +18,8 @@ router.get("/complaints", authorize("STUDENT", "ADMIN", "WARDEN"), c.complaints.
 router.post("/complaints", authorize("STUDENT"), upload.array("attachments", 5), c.createComplaint.bind(c));
 router.patch("/complaints/:id", authorize("WARDEN"), validate(complaintStatusSchema), c.updateComplaint.bind(c));
 router.get("/visitors", authorize("STUDENT", "ADMIN", "WARDEN", "SECURITY"), c.visitors.bind(c));
-router.post("/visitors", authorize("STUDENT"), validate(visitorSchema), c.createVisitor.bind(c));
+router.post("/visitors", authorize("STUDENT", "SECURITY", "ADMIN", "WARDEN"), validate(visitorSchema), c.createVisitor.bind(c));
+router.get("/visitors/students", authorize("ADMIN", "WARDEN", "SECURITY"), c.hostelStudents.bind(c));
 router.get("/fees", authorize("STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT"), c.fees.bind(c));
 export default router;
 //# sourceMappingURL=operations.routes.js.map

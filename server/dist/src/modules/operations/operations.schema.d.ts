@@ -153,41 +153,46 @@ export declare const complaintStatusSchema: z.ZodObject<{
 export declare const visitorSchema: z.ZodObject<{
     body: z.ZodObject<{
         visitorName: z.ZodString;
-        visitorPhone: z.ZodString;
         relationship: z.ZodString;
-        purpose: z.ZodString;
+        studentId: z.ZodOptional<z.ZodString>;
+        visitorPhone: z.ZodOptional<z.ZodString>;
+        purpose: z.ZodOptional<z.ZodString>;
         idProofType: z.ZodOptional<z.ZodString>;
         idProofNumber: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         visitorName: string;
-        visitorPhone: string;
         relationship: string;
-        purpose: string;
+        studentId?: string | undefined;
+        visitorPhone?: string | undefined;
+        purpose?: string | undefined;
         idProofType?: string | undefined;
         idProofNumber?: string | undefined;
     }, {
         visitorName: string;
-        visitorPhone: string;
         relationship: string;
-        purpose: string;
+        studentId?: string | undefined;
+        visitorPhone?: string | undefined;
+        purpose?: string | undefined;
         idProofType?: string | undefined;
         idProofNumber?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         visitorName: string;
-        visitorPhone: string;
         relationship: string;
-        purpose: string;
+        studentId?: string | undefined;
+        visitorPhone?: string | undefined;
+        purpose?: string | undefined;
         idProofType?: string | undefined;
         idProofNumber?: string | undefined;
     };
 }, {
     body: {
         visitorName: string;
-        visitorPhone: string;
         relationship: string;
-        purpose: string;
+        studentId?: string | undefined;
+        visitorPhone?: string | undefined;
+        purpose?: string | undefined;
         idProofType?: string | undefined;
         idProofNumber?: string | undefined;
     };

@@ -17,7 +17,6 @@ import { SecurityDashboard } from '@/features/dashboard/security/SecurityDashboa
 // Features
 import { HostelListPage } from '@/features/hostel/pages/HostelListPage';
 import { RoomBookingPage } from '@/features/hostel/pages/RoomBookingPage';
-import { OperationsPage } from '@/features/operations/OperationsPage';
 import { LeavesPage } from '@/features/leave/LeavesPage';
 import { ComplaintsPage } from '@/features/complaints/ComplaintsPage';
 import { StudentsPage } from '@/features/students/StudentsPage';
@@ -28,6 +27,7 @@ import { StudentVerifyPage } from '@/features/verify/StudentVerifyPage';
 import { NightAttendancePage } from '@/features/attendance/NightAttendancePage';
 import { AttendanceRegisterPage } from '@/features/attendance/AttendanceRegisterPage';
 import { StudentProfilePage } from '@/features/profile/StudentProfilePage';
+import { VisitorManagementPage } from '@/features/visitors/VisitorManagementPage';
 
 export const router = createBrowserRouter([
   {
@@ -59,7 +59,7 @@ export const router = createBrowserRouter([
       { path: 'mess-fee-settings', element: <MessFeePage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
-      { path: 'visitors', element: <OperationsPage kind="visitors" /> },
+      { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
   },
@@ -98,6 +98,7 @@ export const router = createBrowserRouter([
       { path: 'students', element: <StudentsPage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
+      { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
   },
@@ -128,7 +129,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <SecurityDashboard /> },
-      { path: 'visitors', element: <OperationsPage kind="visitors" /> },
+      { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <NightAttendancePage /> },
       { path: 'attendance-log', element: <AttendanceRegisterPage /> },
     ],

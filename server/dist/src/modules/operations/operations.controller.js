@@ -66,20 +66,37 @@ export class OperationsController {
     catch (e) {
         next(e);
     } }
-    async visitors(req, res, next) { try {
-        const u = this.user(req);
-        ApiResponse.success({ res, data: await operationsService.listVisitors(u.userId, u.role) });
+    async visitors(req, res, next) {
+        try {
+            const u = this.user(req);
+            const filters = {
+                hostelId: req.query.hostelId,
+                date: req.query.date,
+            };
+            ApiResponse.success({ res, data: await operationsService.listVisitors(u.userId, u.role, filters) });
+        }
+        catch (e) {
+            next(e);
+        }
     }
-    catch (e) {
-        next(e);
-    } }
-    async createVisitor(req, res, next) { try {
-        const u = this.user(req);
-        ApiResponse.created({ res, message: "Visitor submitted", data: await operationsService.createVisitor(u.userId, req.body) });
+    async createVisitor(req, res, next) {
+        try {
+            const u = this.user(req);
+            ApiResponse.created({ res, message: "Visitor registered successfully", data: await operationsService.createVisitor(u.userId, u.role, req.body) });
+        }
+        catch (e) {
+            next(e);
+        }
     }
-    catch (e) {
-        next(e);
-    } }
+    async hostelStudents(req, res, next) {
+        try {
+            const u = this.user(req);
+            ApiResponse.success({ res, data: await operationsService.listHostelStudents(u.userId, u.role, req.query.hostelId) });
+        }
+        catch (e) {
+            next(e);
+        }
+    }
     async fees(req, res, next) { try {
         const u = this.user(req);
         ApiResponse.success({ res, data: await operationsService.listFees(u.userId, u.role) });
