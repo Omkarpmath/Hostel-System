@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { useTheme } from '@/providers/ThemeProvider';
 import {
-  Users, ClipboardList, MessageSquareWarning, QrCode,
+  Users, ClipboardList, MessageSquareWarning,
   LayoutDashboard, BedDouble, Building2,
 } from 'lucide-react';
 
@@ -51,7 +51,7 @@ export function WardenDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <PageHeader
         title="Warden Dashboard"
-        description="Manage leave requests, complaints, and verify students"
+        description="Manage students, room allocations, leave requests, and complaints"
         breadcrumbs={[{ label: 'Dashboard' }]}
       />
 
@@ -106,7 +106,7 @@ export function WardenDashboard() {
         <StatCard
           title="Occupancy Rate"
           value={stats ? `${stats.occupancyRate}%` : '0%'}
-          icon={QrCode}
+          icon={BedDouble}
           color="blue"
           delay={6}
         />

@@ -19,6 +19,14 @@ export declare class AuthService {
                 gender: import("@prisma/client").$Enums.Gender;
                 qrCodeToken: string;
             } | null;
+            wardenHostels: {
+                name: string;
+                id: string;
+            }[];
+            assignedHostel: {
+                name: string;
+                id: string;
+            } | null;
             id: string;
             email: string;
             role: import("@prisma/client").$Enums.Role;

@@ -98,7 +98,6 @@ export const router = createBrowserRouter([
       { path: 'students', element: <StudentsPage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
-      { path: 'verify', element: <WardenDashboard /> },
       { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
   },
@@ -115,7 +114,6 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <AccountantDashboard /> },
       { path: 'fees', element: <FeesPage /> },
-      { path: 'receipts', element: <FeesPage /> },
     ],
   },
 
@@ -130,10 +128,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <SecurityDashboard /> },
-      { path: 'verify', element: <SecurityDashboard /> },
-      { path: 'leaves', element: <SecurityDashboard /> },
       { path: 'visitors', element: <OperationsPage kind="visitors" /> },
-      { path: 'logs', element: <SecurityDashboard /> },
       { path: 'attendance', element: <NightAttendancePage /> },
       { path: 'attendance-log', element: <AttendanceRegisterPage /> },
     ],

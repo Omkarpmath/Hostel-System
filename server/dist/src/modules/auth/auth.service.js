@@ -6,7 +6,16 @@ export class AuthService {
     async login(data) {
         const user = await prisma.user.findUnique({
             where: { email: data.email },
-            include: { studentProfile: true },
+            include: {
+                studentProfile: true,
+                assignedHostel: {
+                    select: { id: true, name: true },
+                },
+                wardenHostels: {
+                    where: { deletedAt: null },
+                    select: { id: true, name: true },
+                },
+            },
         });
         if (!user) {
             throw ApiError.unauthorized("Invalid email or password");

@@ -9,7 +9,16 @@ export class AuthService {
   async login(data: LoginInput) {
     const user = await prisma.user.findUnique({
       where: { email: data.email },
-      include: { studentProfile: true },
+      include: {
+        studentProfile: true,
+        assignedHostel: {
+          select: { id: true, name: true },
+        },
+        wardenHostels: {
+          where: { deletedAt: null },
+          select: { id: true, name: true },
+        },
+      },
     });
 
     if (!user) {
