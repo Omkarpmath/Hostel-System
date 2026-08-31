@@ -95,7 +95,7 @@ export declare class AttendanceService {
             }[];
         };
     }>;
-    /** Scan a student's QR token and return the result. */
+    /** Scan a student's QR token and return the result. Optimized for minimal DB round-trips. */
     scanStudent(securityUserId: string, qrToken: string): Promise<{
         status: string;
         message: string;

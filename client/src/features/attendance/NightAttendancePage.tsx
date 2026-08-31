@@ -66,15 +66,15 @@ export function NightAttendancePage() {
       if (result.status === 'PRESENT') {
         setScannedCount((c) => c + 1);
       }
-      // Auto-clear result after 2.5 seconds
+      // Auto-clear result after 1.8 seconds
       setTimeout(() => {
         setScanResult(null);
         lastScanRef.current = '';
-      }, 2500);
+      }, 1800);
     },
     onError: () => {
       setScanResult({ status: 'ERROR', message: 'Failed to process scan.' });
-      setTimeout(() => setScanResult(null), 2500);
+      setTimeout(() => setScanResult(null), 1800);
     },
   });
 
@@ -105,7 +105,7 @@ export function NightAttendancePage() {
 
     lastScanRef.current = decodedText;
     scanCooldownRef.current = true;
-    setTimeout(() => { scanCooldownRef.current = false; }, 3000);
+    setTimeout(() => { scanCooldownRef.current = false; }, 1500);
 
     scanMutation.mutate(token);
   }, [scanMutation]);

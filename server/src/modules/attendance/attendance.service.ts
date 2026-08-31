@@ -101,49 +101,60 @@ export class AttendanceService {
 
   // ─── QR SCAN ──────────────────────────────────────────────
 
-  /** Scan a student's QR token and return the result. */
+  /** Scan a student's QR token and return the result. Optimized for minimal DB round-trips. */
   async scanStudent(securityUserId: string, qrToken: string) {
-    const hostelId = await this.getSecurityHostelId(securityUserId);
+    const today = new Date();
     const date = this.todayDate();
 
-    // 1. Find the session
-    const session = await prisma.attendanceSession.findUnique({
-      where: { hostelId_date: { hostelId, date } },
-    });
-    if (!session || session.status !== "ACTIVE") {
-      throw ApiError.badRequest("No active attendance session. Start one first.");
-    }
-
-    // 2. Identify the student from QR token
-    const student = await prisma.studentProfile.findUnique({
-      where: { qrCodeToken: qrToken },
-      include: {
-        user: { select: { firstName: true, lastName: true } },
-        roomAllocations: {
-          where: { status: "ACTIVE" },
-          take: 1,
-          include: {
-            room: {
-              include: {
-                floor: {
-                  include: {
-                    block: {
-                      include: { hostel: { select: { id: true, name: true } } },
+    // 1. Fetch security user & student profile with leaves in parallel (1 DB round-trip)
+    const [securityUser, student] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: securityUserId },
+        select: { assignedHostelId: true },
+      }),
+      prisma.studentProfile.findUnique({
+        where: { qrCodeToken: qrToken },
+        include: {
+          user: { select: { firstName: true, lastName: true } },
+          roomAllocations: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            include: {
+              room: {
+                include: {
+                  floor: {
+                    include: {
+                      block: {
+                        include: { hostel: { select: { id: true, name: true } } },
+                      },
                     },
                   },
                 },
               },
             },
           },
+          leaveRequests: {
+            where: {
+              status: "APPROVED",
+              fromDate: { lte: today },
+              toDate: { gte: today },
+            },
+            take: 1,
+          },
         },
-      },
-    });
+      }),
+    ]);
+
+    if (!securityUser?.assignedHostelId) {
+      throw ApiError.forbidden("You are not assigned to any hostel. Contact admin.");
+    }
+    const hostelId = securityUser.assignedHostelId;
 
     if (!student) {
       return { status: "INVALID", message: "Invalid or unrecognized QR code." };
     }
 
-    // 3. Verify the student belongs to this hostel
+    // 2. Verify active room allocation & hostel
     const allocation = student.roomAllocations[0];
     if (!allocation) {
       return { status: "ERROR", message: `${student.user.firstName} has no active room allocation.` };
@@ -157,18 +168,8 @@ export class AttendanceService {
       };
     }
 
-    // 4. Check for approved leave covering today
-    const today = new Date();
-    const leave = await prisma.leaveRequest.findFirst({
-      where: {
-        studentId: student.id,
-        status: "APPROVED",
-        fromDate: { lte: today },
-        toDate: { gte: today },
-      },
-    });
-
-    if (leave) {
+    // 3. Check for approved leave covering today (already fetched in parallel)
+    if (student.leaveRequests && student.leaveRequests.length > 0) {
       return {
         status: "ON_LEAVE",
         message: `${student.user.firstName} ${student.user.lastName} is on approved leave.`,
@@ -177,24 +178,31 @@ export class AttendanceService {
       };
     }
 
-    // 5. Check for duplicate scan
-    const existingRecord = await prisma.attendanceRecord.findUnique({
-      where: { sessionId_studentId: { sessionId: session.id, studentId: student.id } },
+    // 4. Find the active session for today
+    const session = await prisma.attendanceSession.findUnique({
+      where: { hostelId_date: { hostelId, date } },
+      select: { id: true, status: true },
     });
-
-    if (existingRecord) {
-      return {
-        status: "ALREADY_MARKED",
-        message: `${student.user.firstName} ${student.user.lastName} is already marked present.`,
-        studentName: `${student.user.firstName} ${student.user.lastName}`,
-        usn: student.usn,
-      };
+    if (!session || session.status !== "ACTIVE") {
+      throw ApiError.badRequest("No active attendance session. Start one first.");
     }
 
-    // 6. Mark present
-    await prisma.attendanceRecord.create({
-      data: { sessionId: session.id, studentId: student.id },
-    });
+    // 5. Create attendance record directly (handles duplicate via unique constraint)
+    try {
+      await prisma.attendanceRecord.create({
+        data: { sessionId: session.id, studentId: student.id },
+      });
+    } catch (err: any) {
+      if (err?.code === "P2002") {
+        return {
+          status: "ALREADY_MARKED",
+          message: `${student.user.firstName} ${student.user.lastName} is already marked present.`,
+          studentName: `${student.user.firstName} ${student.user.lastName}`,
+          usn: student.usn,
+        };
+      }
+      throw err;
+    }
 
     return {
       status: "PRESENT",
