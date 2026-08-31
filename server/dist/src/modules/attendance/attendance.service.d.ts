@@ -32,6 +32,11 @@ export declare class AttendanceService {
         _count: {
             records: number;
         };
+        records: {
+            id: string;
+            studentId: string;
+            scannedAt: Date;
+        }[];
     } & {
         id: string;
         createdAt: Date;

@@ -68,6 +68,9 @@ export class AttendanceService {
       include: {
         hostel: { select: { name: true } },
         _count: { select: { records: true } },
+        records: {
+          select: { id: true, studentId: true, scannedAt: true },
+        },
       },
     });
   }

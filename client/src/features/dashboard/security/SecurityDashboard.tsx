@@ -28,13 +28,16 @@ export function SecurityDashboard() {
   });
   const securityUser = (profileData?.data as any)?.data || user;
 
-  // 2. Fetch active night attendance session
+  // 2. Fetch today's attendance session
   const { data: activeSessionData } = useQuery({
     queryKey: ['active-attendance-session'],
     queryFn: () => attendanceApi.getActiveSession(),
     refetchInterval: 5000,
   });
-  const activeSession = (activeSessionData?.data as any)?.data || null;
+  const todaySession = (activeSessionData?.data as any)?.data || null;
+  const isSessionActive = todaySession?.status === 'ACTIVE';
+  const isSessionCompleted = todaySession?.status === 'COMPLETED';
+  const scannedCount = todaySession?._count?.records ?? (todaySession?.records?.length || 0);
 
   // 3. Fetch visitor logs
   const { data: visitorsData } = useQuery({
@@ -44,7 +47,7 @@ export function SecurityDashboard() {
   });
   const visitors: any[] = (visitorsData?.data as any)?.data || [];
 
-  const assignedHostel = securityUser?.assignedHostel || activeSession?.hostel || null;
+  const assignedHostel = securityUser?.assignedHostel || todaySession?.hostel || null;
   const assignedHostelName = assignedHostel?.name || null;
 
   const cardStyle: React.CSSProperties = {
@@ -97,9 +100,11 @@ export function SecurityDashboard() {
         style={{
           borderRadius: '1rem',
           padding: '1.5rem 1.75rem',
-          background: activeSession
+          background: isSessionActive
             ? 'linear-gradient(135deg, #065f46 0%, #047857 55%, #0f766e 100%)'
-            : 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 55%, #0d9488 100%)',
+            : isSessionCompleted
+              ? 'linear-gradient(135deg, #1e293b 0%, #334155 55%, #0f766e 100%)'
+              : 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 55%, #0d9488 100%)',
           color: 'white',
           boxShadow: '0 8px 20px -4px rgba(0, 0, 0, 0.15)',
           display: 'flex',
@@ -114,16 +119,20 @@ export function SecurityDashboard() {
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
               padding: '0.2rem 0.55rem', borderRadius: '9999px',
-              backgroundColor: activeSession ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.2)',
+              backgroundColor: isSessionActive
+                ? 'rgba(255,255,255,0.25)'
+                : isSessionCompleted
+                  ? 'rgba(16,185,129,0.3)'
+                  : 'rgba(255,255,255,0.2)',
               fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.05em',
             }}>
-              {activeSession && (
+              {isSessionActive && (
                 <span style={{
                   width: '0.45rem', height: '0.45rem', borderRadius: '50%',
                   backgroundColor: '#4ade80', display: 'inline-block',
                 }} />
               )}
-              {activeSession ? 'SESSION ACTIVE' : 'CURFEW STANDBY'}
+              {isSessionActive ? 'SESSION ACTIVE' : isSessionCompleted ? 'COMPLETED TONIGHT' : 'CURFEW STANDBY'}
             </span>
             <span style={{ fontSize: '0.75rem', opacity: 0.85, fontWeight: 500 }}>
               {new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
@@ -131,34 +140,38 @@ export function SecurityDashboard() {
           </div>
 
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.25rem', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
-            {activeSession
-              ? `Attendance session in progress for ${activeSession.hostel?.name || assignedHostelName || 'Hostel'}`
-              : assignedHostelName
-                ? `Ready for ${assignedHostelName} Night Attendance`
-                : 'Hostel Assignment Required'}
+            {isSessionActive
+              ? `Attendance session in progress for ${todaySession.hostel?.name || assignedHostelName || 'Hostel'}`
+              : isSessionCompleted
+                ? `Night Attendance Completed for ${todaySession.hostel?.name || assignedHostelName || 'Hostel'}`
+                : assignedHostelName
+                  ? `Ready for ${assignedHostelName} Night Attendance`
+                  : 'Hostel Assignment Required'}
           </h2>
           <p style={{ fontSize: '0.8125rem', opacity: 0.9, margin: 0, lineHeight: 1.5 }}>
-            {activeSession
-              ? `Started at ${new Date(activeSession.startedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}. Total scanned: ${activeSession.records?.length || 0} students.`
-              : assignedHostelName
-                ? 'Launch the QR scanner to record nightly student attendance and automatically verify leave approvals.'
-                : 'Please contact the administrator to assign your security account to a hostel block in Admin Settings.'}
+            {isSessionActive
+              ? `Started at ${new Date(todaySession.startedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}. Total scanned: ${scannedCount} student${scannedCount !== 1 ? 's' : ''}.`
+              : isSessionCompleted
+                ? `Session ended at ${todaySession.endedAt ? new Date(todaySession.endedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'curfew'}. Verified ${scannedCount} student${scannedCount !== 1 ? 's' : ''}.`
+                : assignedHostelName
+                  ? 'Launch the QR scanner to record nightly student attendance and automatically verify leave approvals.'
+                  : 'Please contact the administrator to assign your security account to a hostel block in Admin Settings.'}
           </p>
         </div>
 
         <Link
-          to="/security/attendance"
+          to={isSessionCompleted ? '/security/attendance-log' : '/security/attendance'}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
             padding: '0.65rem 1.25rem', borderRadius: '0.625rem',
-            backgroundColor: 'white', color: activeSession ? '#065f46' : '#1e3a8a',
+            backgroundColor: 'white', color: isSessionActive ? '#065f46' : isSessionCompleted ? '#0f766e' : '#1e3a8a',
             fontSize: '0.8125rem', fontWeight: 700, textDecoration: 'none',
             boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
             transition: 'transform 0.15s ease',
           }}
         >
-          <ScanLine style={{ width: '1rem', height: '1rem' }} />
-          {activeSession ? 'Open Scanner' : 'Start Session'}
+          {isSessionCompleted ? <ClipboardList style={{ width: '1rem', height: '1rem' }} /> : <ScanLine style={{ width: '1rem', height: '1rem' }} />}
+          {isSessionActive ? 'Open Scanner' : isSessionCompleted ? 'View Register' : 'Start Session'}
           <ArrowRight style={{ width: '0.875rem', height: '0.875rem' }} />
         </Link>
       </motion.div>
@@ -197,19 +210,31 @@ export function SecurityDashboard() {
               <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Curfew Session
               </div>
-              <div style={{ fontSize: '1.0625rem', fontWeight: 800, color: activeSession ? '#16a34a' : 'var(--text-primary)', marginTop: '0.375rem', lineHeight: 1.2 }}>
-                {activeSession ? 'Session Active' : 'Standby'}
+              <div style={{
+                fontSize: '1.0625rem', fontWeight: 800,
+                color: isSessionActive ? '#16a34a' : isSessionCompleted ? '#0d9488' : 'var(--text-primary)',
+                marginTop: '0.375rem', lineHeight: 1.2,
+              }}>
+                {isSessionActive ? 'Session Active' : isSessionCompleted ? 'Completed' : 'Standby'}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.375rem', fontWeight: 500 }}>
-                {activeSession ? 'Scanning in progress' : 'Ready for evening check'}
+                {isSessionActive ? 'Scanning in progress' : isSessionCompleted ? 'Tonight\'s check completed' : 'Ready for evening check'}
               </div>
             </div>
             <div style={{
               width: '2.25rem', height: '2.25rem', borderRadius: '0.5rem',
-              backgroundColor: activeSession ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7') : (isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7'),
+              backgroundColor: isSessionActive
+                ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
+                : isSessionCompleted
+                  ? (isDark ? 'rgba(13,148,136,0.15)' : '#f0fdfa')
+                  : (isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7'),
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              <ScanLine style={{ width: '1.125rem', height: '1.125rem', color: activeSession ? '#16a34a' : '#f59e0b' }} />
+              {isSessionCompleted ? (
+                <CheckCircle2 style={{ width: '1.125rem', height: '1.125rem', color: '#0d9488' }} />
+              ) : (
+                <ScanLine style={{ width: '1.125rem', height: '1.125rem', color: isSessionActive ? '#16a34a' : '#f59e0b' }} />
+              )}
             </div>
           </div>
         </motion.div>
@@ -222,10 +247,10 @@ export function SecurityDashboard() {
                 Session Scans
               </div>
               <div style={{ fontSize: '1.375rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.25rem', lineHeight: 1 }}>
-                {activeSession?.records?.length || 0}
+                {scannedCount}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.375rem', fontWeight: 500 }}>
-                Students marked present
+                {isSessionCompleted ? 'Students verified' : 'Students marked present'}
               </div>
             </div>
             <div style={{
