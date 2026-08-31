@@ -18,8 +18,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 // ============ MIDDLEWARE ============
+const allowedOrigins = [
+    env.CLIENT_URL,
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "https://frontend-4onm.onrender.com",
+].filter(Boolean);
 app.use(cors({
-    origin: env.CLIENT_URL,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+            callback(null, true);
+        }
+        else {
+            callback(null, origin === env.CLIENT_URL);
+        }
+    },
     credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));
