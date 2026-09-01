@@ -165,6 +165,12 @@ export declare class AuthService {
         updatedAt: Date;
         assignedHostelId: string | null;
     }>;
+    getDynamicQr(userId: string): Promise<{
+        token: string;
+        expiresInSeconds: number;
+        expiresAt: string;
+        usn: string;
+    }>;
 }
 export declare const authService: AuthService;
 //# sourceMappingURL=auth.service.d.ts.map

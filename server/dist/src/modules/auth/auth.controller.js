@@ -103,6 +103,22 @@ export class AuthController {
             next(error);
         }
     }
+    async getDynamicQr(req, res, next) {
+        try {
+            if (!req.user) {
+                return ApiResponse.error(res, 401, "Authentication required");
+            }
+            const data = await authService.getDynamicQr(req.user.userId);
+            ApiResponse.success({
+                res,
+                message: "Dynamic QR generated",
+                data,
+            });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
 }
 export const authController = new AuthController();
 //# sourceMappingURL=auth.controller.js.map

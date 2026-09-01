@@ -10,5 +10,6 @@ router.post("/refresh", authController.refresh);
 router.post("/logout", authController.logout);
 router.post("/reset-password", validate(resetPasswordSchema), authController.resetPassword);
 router.get("/profile", authenticate, authController.getProfile);
+router.get("/dynamic-qr", authenticate, authController.getDynamicQr);
 export default router;
 //# sourceMappingURL=auth.routes.js.map

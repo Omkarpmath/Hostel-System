@@ -1,7 +1,7 @@
 export declare class VerifyService {
     /**
-     * Public verification: look up a student by their unique QR token
-     * and return non-sensitive verification data including hostel & fee status.
+     * Public verification: look up a student by their unique dynamic QR token
+     * (or legacy UUID token) and return non-sensitive verification data including hostel & fee status.
      */
     verifyStudent(token: string): Promise<{
         verified: boolean;

@@ -1,6 +1,7 @@
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { notificationService } from "../notification/notification.service.js";
+import { verifyQrToken } from "../../utils/dynamicQr.js";
 export class AttendanceService {
     /**
      * Get the hostelId a security user is assigned to.
@@ -128,6 +129,26 @@ export class AttendanceService {
     async scanStudent(securityUserId, qrToken) {
         const today = new Date();
         const date = this.todayDate();
+        // 0. Validate token (dynamic QR expiration and signature check)
+        const check = verifyQrToken(qrToken);
+        if (!check.valid) {
+            if (check.error === "EXPIRED") {
+                return {
+                    status: "EXPIRED",
+                    message: check.message || "QR Code expired. Please ask the student to present the live QR on their phone.",
+                };
+            }
+            if (check.error === "TAMPERED") {
+                return {
+                    status: "INVALID",
+                    message: "QR code verification failed. This token appears to be modified or invalid.",
+                };
+            }
+            return { status: "INVALID", message: "Invalid or unrecognized QR code." };
+        }
+        const studentWhere = check.isDynamic && check.studentProfileId
+            ? { id: check.studentProfileId }
+            : { qrCodeToken: qrToken };
         // 1. Fetch security user & student profile with leaves in parallel (1 DB round-trip)
         const [securityUser, student] = await Promise.all([
             prisma.user.findUnique({
@@ -135,7 +156,7 @@ export class AttendanceService {
                 select: { assignedHostelId: true },
             }),
             prisma.studentProfile.findUnique({
-                where: { qrCodeToken: qrToken },
+                where: studentWhere,
                 include: {
                     user: { select: { firstName: true, lastName: true } },
                     roomAllocations: {

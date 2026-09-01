@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -8,7 +8,7 @@ import { operationsApi } from '@/api/operations.api';
 import { authApi } from '@/api/auth.api';
 import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
 import {
-  CreditCard, ClipboardList, QrCode, Download,
+  CreditCard, ClipboardList, QrCode,
   Building2, CheckCircle2, Clock, UtensilsCrossed,
   Megaphone, ChevronRight, X, RotateCw, ShieldCheck,
 } from 'lucide-react';
@@ -25,7 +25,6 @@ export function StudentDashboard() {
   const { data: profileData } = useQuery({ queryKey: ['profile'], queryFn: authApi.getProfile });
 
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [dynamicToken, setDynamicToken] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [isRotating, setIsRotating] = useState<boolean>(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
@@ -63,7 +62,6 @@ export function StudentDashboard() {
       const res = await authApi.getDynamicQr();
       const token = (res.data as any)?.data?.token;
       if (token) {
-        setDynamicToken(token);
         setTimeLeft(30);
 
         const publicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL?.replace(/\/$/, '') || window.location.origin;
@@ -111,14 +109,6 @@ export function StudentDashboard() {
     borderRadius: '1rem',
     padding: '1.5rem',
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-  };
-
-  const downloadQR = () => {
-    if (!qrDataUrl) return;
-    const link = document.createElement('a');
-    link.download = `BMSCE-QR-${profile?.studentProfile?.usn || 'student'}.png`;
-    link.href = qrDataUrl;
-    link.click();
   };
 
   return (
