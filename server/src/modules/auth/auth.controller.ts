@@ -1,20 +1,23 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, CookieOptions } from "express";
 import { authService } from "./auth.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { AuthRequest } from "../../middleware/auth.middleware.js";
+
+const getRefreshTokenCookieOptions = (): CookieOptions => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: "/",
+});
 
 export class AuthController {
   async login(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await authService.login(req.body);
 
-      // Set refresh token in httpOnly cookie
-      res.cookie("refreshToken", result.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
+      // Set refresh token in persistent httpOnly cookie (7 days)
+      res.cookie("refreshToken", result.refreshToken, getRefreshTokenCookieOptions());
 
       ApiResponse.success({
         res,
@@ -51,12 +54,8 @@ export class AuthController {
 
       const result = await authService.refreshToken(token);
 
-      res.cookie("refreshToken", result.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      // Rotate refresh token cookie
+      res.cookie("refreshToken", result.refreshToken, getRefreshTokenCookieOptions());
 
       ApiResponse.success({
         res,
@@ -75,7 +74,14 @@ export class AuthController {
         await authService.logout(token);
       }
 
-      res.clearCookie("refreshToken");
+      // Clear the refresh token cookie with matching options
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        path: "/",
+      });
+
       ApiResponse.success({
         res,
         message: "Logged out successfully",

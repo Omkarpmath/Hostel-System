@@ -22,29 +22,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      if (!token) {
+      const hasSession = localStorage.getItem('has_session') === 'true';
+
+      // If user never logged in or explicitly logged out, do not make blind refresh requests
+      if (!token && !hasSession) {
         setUser(null);
         return;
       }
-      const { data } = await authApi.getProfile();
-      if (data.data) {
-        setUser(data.data);
+
+      if (token) {
+        try {
+          const { data } = await authApi.getProfile();
+          if (data.data) {
+            setUser(data.data);
+            localStorage.setItem('has_session', 'true');
+            return;
+          }
+        } catch {
+          // Token expired or invalid, fall through to silent refresh
+        }
       }
+
+      // If user has a valid active session flag, attempt silent refresh via 7-day HttpOnly cookie
+      if (hasSession || token) {
+        try {
+          const refreshRes = await authApi.refresh();
+          const newToken = (refreshRes.data as any)?.data?.accessToken;
+
+          if (newToken) {
+            localStorage.setItem('accessToken', newToken);
+            localStorage.setItem('has_session', 'true');
+            const profileRes = await authApi.getProfile();
+            if (profileRes.data?.data) {
+              setUser(profileRes.data.data);
+              return;
+            }
+          }
+        } catch {
+          // 7-day session expired or revoked
+        }
+      }
+
+      // No valid active session
+      setUser(null);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('has_session');
     } catch {
       setUser(null);
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('has_session');
     }
   }, []);
 
+  // Initial session restoration on startup
   useEffect(() => {
     refreshProfile().finally(() => setIsLoading(false));
   }, [refreshProfile]);
+
+  // Multi-tab auth state synchronization
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'accessToken' || e.key === 'auth_event' || e.key === 'has_session') {
+        const currentToken = localStorage.getItem('accessToken');
+        const currentHasSession = localStorage.getItem('has_session') === 'true';
+        if (!currentToken && !currentHasSession) {
+          setUser(null);
+          queryClient.clear();
+        } else {
+          refreshProfile();
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [queryClient, refreshProfile]);
 
   const login = async (email: string, password: string): Promise<User> => {
     queryClient.clear();
     const { data } = await authApi.login({ email, password });
     if (data.data) {
       localStorage.setItem('accessToken', data.data.accessToken);
+      localStorage.setItem('has_session', 'true');
+      localStorage.setItem('auth_event', `login_${Date.now()}`);
       setUser(data.data.user);
       return data.data.user;
     }
@@ -55,9 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } catch {
-      // Ignore logout errors
+      // Ignore logout errors on server
     } finally {
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('has_session');
+      localStorage.setItem('auth_event', `logout_${Date.now()}`);
       setUser(null);
       queryClient.clear();
     }

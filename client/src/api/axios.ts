@@ -42,7 +42,14 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Avoid retry loop on auth endpoints (e.g. login, refresh, register)
+    const isAuthEndpoint =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/refresh') ||
+      originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/logout');
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
@@ -51,12 +58,13 @@ api.interceptors.response.use(
 
         if (newToken) {
           localStorage.setItem('accessToken', newToken);
+          originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         }
-      } catch {
+      } catch (refreshErr) {
         localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        return Promise.reject(refreshErr);
       }
     }
 
