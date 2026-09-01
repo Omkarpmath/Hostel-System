@@ -295,3 +295,41 @@ export interface AnnouncementStats {
   totalReads: number;
 }
 
+// Notifications
+export type NotificationType =
+  | 'LEAVE_APPROVED'
+  | 'LEAVE_REJECTED'
+  | 'NEW_LEAVE_REQUEST'
+  | 'VISITOR_REGISTERED'
+  | 'COMPLAINT_RESOLVED'
+  | 'COMPLAINT_STATUS_UPDATED'
+  | 'NEW_COMPLAINT'
+  | 'ATTENDANCE_NOT_RECORDED'
+  | 'NEW_ANNOUNCEMENT'
+  | 'IMPORTANT_ANNOUNCEMENT';
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  isRead: boolean;
+  relatedId?: string | null;
+  relatedType?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  meta: {
+    total: number;
+    unreadCount: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+

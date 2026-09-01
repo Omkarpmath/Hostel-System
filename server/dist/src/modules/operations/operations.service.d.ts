@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 export declare class OperationsService {
     private wardenStudents;
     private studentId;
+    private getWardenIdsForStudent;
     getMyOverview(userId: string): Promise<{
         profile: {
             user: {
@@ -679,7 +680,7 @@ export declare class OperationsService {
         rejectionReason: string | null;
         approvedAt: Date | null;
     }>;
-    decideLeave(id: string, approverId: string, data: any): Promise<{
+    decideLeave(id: string, approverId: string, role: string, data: any): Promise<{
         student: {
             user: {
                 id: string;
@@ -972,7 +973,7 @@ export declare class OperationsService {
         resolution: string | null;
         resolvedAt: Date | null;
     }) | null>;
-    updateComplaint(id: string, wardenId: string, data: any): Promise<{
+    updateComplaint(id: string, approverId: string, role: string, data: any): Promise<{
         student: {
             user: {
                 id: string;

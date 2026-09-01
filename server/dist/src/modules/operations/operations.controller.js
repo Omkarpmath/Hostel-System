@@ -43,7 +43,7 @@ export class OperationsController {
     } }
     async decideLeave(req, res, next) { try {
         const u = this.user(req);
-        ApiResponse.success({ res, message: "Leave request updated", data: await operationsService.decideLeave(String(req.params.id), u.userId, req.body) });
+        ApiResponse.success({ res, message: "Leave request updated", data: await operationsService.decideLeave(String(req.params.id), u.userId, u.role, req.body) });
     }
     catch (e) {
         next(e);
@@ -68,7 +68,7 @@ export class OperationsController {
     } }
     async updateComplaint(req, res, next) { try {
         const u = this.user(req);
-        ApiResponse.success({ res, message: "Complaint updated", data: await operationsService.updateComplaint(String(req.params.id), u.userId, req.body) });
+        ApiResponse.success({ res, message: "Complaint updated", data: await operationsService.updateComplaint(String(req.params.id), u.userId, u.role, req.body) });
     }
     catch (e) {
         next(e);

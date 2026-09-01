@@ -1,5 +1,6 @@
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { notificationService } from "../notification/notification.service.js";
 export class AttendanceService {
     /**
      * Get the hostelId a security user is assigned to.
@@ -85,6 +86,41 @@ export class AttendanceService {
         });
         // Build summary
         const summary = await this.getRegister(hostelId, date);
+        // Asynchronously notify absent students (non-blocking)
+        (async () => {
+            try {
+                const absents = summary.register.filter((r) => r.status === "ABSENT");
+                if (absents.length > 0) {
+                    const studentProfiles = await prisma.studentProfile.findMany({
+                        where: { id: { in: absents.map((a) => a.studentId) } },
+                        select: { id: true, userId: true },
+                    });
+                    const userMap = new Map(studentProfiles.map((sp) => [sp.id, sp.userId]));
+                    const dateStr = date.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+                    const notifications = absents
+                        .map((a) => {
+                        const uId = userMap.get(a.studentId);
+                        if (!uId)
+                            return null;
+                        return {
+                            userId: uId,
+                            title: "Attendance Not Recorded",
+                            message: `Night attendance for ${summary.hostel.name} was not recorded for you on ${dateStr}. If you were present, contact hostel security.`,
+                            type: "ATTENDANCE_NOT_RECORDED",
+                            relatedId: session.id,
+                            relatedType: "ATTENDANCE",
+                        };
+                    })
+                        .filter((n) => Boolean(n));
+                    if (notifications.length > 0) {
+                        await notificationService.createNotificationsMany(notifications);
+                    }
+                }
+            }
+            catch (err) {
+                console.error("[AttendanceService] Failed to notify absent students:", err);
+            }
+        })();
         return { session: updated, summary };
     }
     // ─── QR SCAN ──────────────────────────────────────────────

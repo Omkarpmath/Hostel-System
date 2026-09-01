@@ -22,6 +22,7 @@ import {
   GraduationCap,
   ScanLine,
   Megaphone,
+  Bell,
   type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '@/types';
@@ -76,6 +77,7 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       title: 'COMMUNICATION',
       items: [
         { label: 'Announcements', icon: Megaphone, href: '/admin/announcements' },
+        { label: 'Notifications', icon: Bell, href: '/admin/notifications' },
       ],
     },
   ],
@@ -100,6 +102,7 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       title: 'COMMUNICATION',
       items: [
         { label: 'Announcements', icon: Megaphone, href: '/warden/announcements' },
+        { label: 'Notifications', icon: Bell, href: '/warden/notifications' },
       ],
     },
   ],
@@ -125,6 +128,7 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       title: 'COMMUNICATION',
       items: [
         { label: 'Announcements', icon: Megaphone, href: '/student/announcements' },
+        { label: 'Notifications', icon: Bell, href: '/student/notifications' },
       ],
     },
   ],
@@ -133,6 +137,7 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       title: 'WORKSPACE',
       items: [
         { label: 'Dashboard', icon: LayoutDashboard, href: '/accountant/dashboard' },
+        { label: 'Notifications', icon: Bell, href: '/accountant/notifications' },
       ],
     },
     {
@@ -147,6 +152,7 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       title: 'WORKSPACE',
       items: [
         { label: 'Dashboard', icon: LayoutDashboard, href: '/security/dashboard' },
+        { label: 'Notifications', icon: Bell, href: '/security/notifications' },
       ],
     },
     {

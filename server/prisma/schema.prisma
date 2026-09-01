@@ -163,6 +163,19 @@ enum AnnouncementStatus {
   ARCHIVED
 }
 
+enum NotificationType {
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  NEW_LEAVE_REQUEST
+  VISITOR_REGISTERED
+  COMPLAINT_RESOLVED
+  COMPLAINT_STATUS_UPDATED
+  NEW_COMPLAINT
+  ATTENDANCE_NOT_RECORDED
+  NEW_ANNOUNCEMENT
+  IMPORTANT_ANNOUNCEMENT
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -197,6 +210,7 @@ model User {
   attendanceSessions AttendanceSession[] @relation("SecuritySessions")
   createdAnnouncements Announcement[]   @relation("CreatedAnnouncements")
   announcementReads  AnnouncementRead[]   @relation("UserAnnouncementReads")
+  notifications      Notification[]
   refreshTokens      RefreshToken[]
 
   @@map("users")
@@ -601,4 +615,28 @@ model AnnouncementRead {
 
   @@unique([announcementId, userId])
   @@map("announcement_reads")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
+  title       String
+  message     String           @db.Text
+  type        NotificationType
+  isRead      Boolean          @default(false) @map("is_read")
+  relatedId   String?          @map("related_id")
+  relatedType String?          @map("related_type")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

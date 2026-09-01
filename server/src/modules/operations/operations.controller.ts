@@ -18,7 +18,7 @@ export class OperationsController {
     } catch (e) { next(e); }
   }
   async createLeave(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.created({ res, message: "Leave request submitted", data: await operationsService.createLeave(u.userId, req.body) }); } catch (e) { next(e); } }
-  async decideLeave(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, message: "Leave request updated", data: await operationsService.decideLeave(String(req.params.id), u.userId, req.body) }); } catch (e) { next(e); } }
+  async decideLeave(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, message: "Leave request updated", data: await operationsService.decideLeave(String(req.params.id), u.userId, u.role, req.body) }); } catch (e) { next(e); } }
   async complaints(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const u = this.user(req);
@@ -27,7 +27,7 @@ export class OperationsController {
     } catch (e) { next(e); }
   }
   async createComplaint(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); const files = req.files as Express.Multer.File[] | undefined; ApiResponse.created({ res, message: "Complaint submitted", data: await operationsService.createComplaint(u.userId, req.body, files) }); } catch (e) { next(e); } }
-  async updateComplaint(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, message: "Complaint updated", data: await operationsService.updateComplaint(String(req.params.id), u.userId, req.body) }); } catch (e) { next(e); } }
+  async updateComplaint(req: AuthRequest, res: Response, next: NextFunction) { try { const u = this.user(req); ApiResponse.success({ res, message: "Complaint updated", data: await operationsService.updateComplaint(String(req.params.id), u.userId, u.role, req.body) }); } catch (e) { next(e); } }
   async visitors(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const u = this.user(req);

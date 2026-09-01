@@ -30,6 +30,7 @@ import { StudentProfilePage } from '@/features/profile/StudentProfilePage';
 import { VisitorManagementPage } from '@/features/visitors/VisitorManagementPage';
 import { AnnouncementsPage } from '@/features/announcements/pages/AnnouncementsPage';
 import { StudentAnnouncementsPage } from '@/features/announcements/pages/StudentAnnouncementsPage';
+import { NotificationsPage } from '@/features/notifications/NotificationsPage';
 
 export const router = createBrowserRouter([
   {
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
       { path: 'announcements', element: <AnnouncementsPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
       { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
@@ -83,6 +85,7 @@ export const router = createBrowserRouter([
       { path: 'fees', element: <FeesPage /> },
       { path: 'mess-fees', element: <MessFeePage /> },
       { path: 'announcements', element: <StudentAnnouncementsPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
     ],
@@ -103,6 +106,7 @@ export const router = createBrowserRouter([
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
       { path: 'announcements', element: <AnnouncementsPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
       { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
@@ -120,6 +124,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <AccountantDashboard /> },
       { path: 'fees', element: <FeesPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
     ],
   },
 
@@ -137,6 +142,7 @@ export const router = createBrowserRouter([
       { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <NightAttendancePage /> },
       { path: 'attendance-log', element: <AttendanceRegisterPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
     ],
   },
 

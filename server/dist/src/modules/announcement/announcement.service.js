@@ -1,5 +1,6 @@
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { notificationService } from "../notification/notification.service.js";
 export class AnnouncementService {
     /**
      * Helper to fetch student context (active hostel, year, department)
@@ -363,7 +364,7 @@ export class AnnouncementService {
                 throw ApiError.forbidden("You can only create announcements for hostels assigned to you");
             }
         }
-        return prisma.announcement.create({
+        const created = await prisma.announcement.create({
             data: {
                 title: data.title,
                 message: data.message,
@@ -384,6 +385,78 @@ export class AnnouncementService {
                 targetHostel: { select: { id: true, name: true, type: true } },
             },
         });
+        if (status === "PUBLISHED") {
+            (async () => {
+                await this.notifyTargetedStudents(created);
+            })();
+        }
+        return created;
+    }
+    /**
+     * Helper to notify targeted students about an announcement
+     */
+    async notifyTargetedStudents(announcement) {
+        try {
+            const where = {};
+            if (announcement.targetAudience === "SPECIFIC_HOSTEL" && announcement.targetHostelId) {
+                where.roomAllocations = {
+                    some: {
+                        status: "ACTIVE",
+                        room: { floor: { block: { hostelId: announcement.targetHostelId } } },
+                    },
+                };
+            }
+            else if (announcement.targetAudience === "SPECIFIC_YEAR" && announcement.targetYear) {
+                where.year = announcement.targetYear;
+            }
+            else if (announcement.targetAudience === "SPECIFIC_DEPARTMENT" && announcement.targetDepartment) {
+                where.department = { equals: announcement.targetDepartment, mode: "insensitive" };
+            }
+            else if (announcement.targetAudience === "CUSTOM_GROUP") {
+                const andClauses = [];
+                if (announcement.targetHostelId) {
+                    andClauses.push({
+                        roomAllocations: {
+                            some: {
+                                status: "ACTIVE",
+                                room: { floor: { block: { hostelId: announcement.targetHostelId } } },
+                            },
+                        },
+                    });
+                }
+                if (announcement.targetYear) {
+                    andClauses.push({ year: announcement.targetYear });
+                }
+                if (announcement.targetDepartment) {
+                    andClauses.push({ department: { equals: announcement.targetDepartment, mode: "insensitive" } });
+                }
+                if (andClauses.length > 0) {
+                    where.AND = andClauses;
+                }
+            }
+            const students = await prisma.studentProfile.findMany({
+                where,
+                select: { userId: true },
+            });
+            if (students.length === 0)
+                return;
+            const isUrgentOrImportant = announcement.priority === "IMPORTANT" || announcement.priority === "URGENT";
+            const title = isUrgentOrImportant ? `Important: ${announcement.title}` : announcement.title;
+            const type = isUrgentOrImportant ? "IMPORTANT_ANNOUNCEMENT" : "NEW_ANNOUNCEMENT";
+            const snippet = announcement.message.length > 160 ? `${announcement.message.slice(0, 160)}...` : announcement.message;
+            const notifications = students.map((s) => ({
+                userId: s.userId,
+                title,
+                message: snippet,
+                type: type,
+                relatedId: announcement.id,
+                relatedType: "ANNOUNCEMENT",
+            }));
+            await notificationService.createNotificationsMany(notifications);
+        }
+        catch (err) {
+            console.error("[AnnouncementService] Failed to notify target students:", err);
+        }
     }
     /**
      * Update an announcement (Admin / Warden)

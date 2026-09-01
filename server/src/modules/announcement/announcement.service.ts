@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
 import type { CreateAnnouncementInput, UpdateAnnouncementInput } from "./announcement.schema.js";
+import { notificationService } from "../notification/notification.service.js";
 
 export class AnnouncementService {
   /**
@@ -417,7 +418,7 @@ export class AnnouncementService {
       }
     }
 
-    return prisma.announcement.create({
+    const created = await prisma.announcement.create({
       data: {
         title: data.title,
         message: data.message,
@@ -438,6 +439,91 @@ export class AnnouncementService {
         targetHostel: { select: { id: true, name: true, type: true } },
       },
     });
+
+    if (status === "PUBLISHED") {
+      (async () => {
+        await this.notifyTargetedStudents(created);
+      })();
+    }
+
+    return created;
+  }
+
+  /**
+   * Helper to notify targeted students about an announcement
+   */
+  private async notifyTargetedStudents(announcement: {
+    id: string;
+    title: string;
+    message: string;
+    priority: string;
+    targetAudience: string;
+    targetHostelId?: string | null;
+    targetYear?: number | null;
+    targetDepartment?: string | null;
+  }) {
+    try {
+      const where: Prisma.StudentProfileWhereInput = {};
+
+      if (announcement.targetAudience === "SPECIFIC_HOSTEL" && announcement.targetHostelId) {
+        where.roomAllocations = {
+          some: {
+            status: "ACTIVE",
+            room: { floor: { block: { hostelId: announcement.targetHostelId } } },
+          },
+        };
+      } else if (announcement.targetAudience === "SPECIFIC_YEAR" && announcement.targetYear) {
+        where.year = announcement.targetYear;
+      } else if (announcement.targetAudience === "SPECIFIC_DEPARTMENT" && announcement.targetDepartment) {
+        where.department = { equals: announcement.targetDepartment, mode: "insensitive" };
+      } else if (announcement.targetAudience === "CUSTOM_GROUP") {
+        const andClauses: Prisma.StudentProfileWhereInput[] = [];
+        if (announcement.targetHostelId) {
+          andClauses.push({
+            roomAllocations: {
+              some: {
+                status: "ACTIVE",
+                room: { floor: { block: { hostelId: announcement.targetHostelId } } },
+              },
+            },
+          });
+        }
+        if (announcement.targetYear) {
+          andClauses.push({ year: announcement.targetYear });
+        }
+        if (announcement.targetDepartment) {
+          andClauses.push({ department: { equals: announcement.targetDepartment, mode: "insensitive" } });
+        }
+        if (andClauses.length > 0) {
+          where.AND = andClauses;
+        }
+      }
+
+      const students = await prisma.studentProfile.findMany({
+        where,
+        select: { userId: true },
+      });
+
+      if (students.length === 0) return;
+
+      const isUrgentOrImportant = announcement.priority === "IMPORTANT" || announcement.priority === "URGENT";
+      const title = isUrgentOrImportant ? `Important: ${announcement.title}` : announcement.title;
+      const type = isUrgentOrImportant ? "IMPORTANT_ANNOUNCEMENT" : "NEW_ANNOUNCEMENT";
+      const snippet = announcement.message.length > 160 ? `${announcement.message.slice(0, 160)}...` : announcement.message;
+
+      const notifications = students.map((s) => ({
+        userId: s.userId,
+        title,
+        message: snippet,
+        type: type as any,
+        relatedId: announcement.id,
+        relatedType: "ANNOUNCEMENT",
+      }));
+
+      await notificationService.createNotificationsMany(notifications);
+    } catch (err) {
+      console.error("[AnnouncementService] Failed to notify target students:", err);
+    }
   }
 
   /**

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { notificationService } from "../notification/notification.service.js";
 
 const studentInclude = {
   student: {
@@ -102,6 +103,36 @@ export class OperationsService {
     const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } });
     if (!student) throw ApiError.notFound("Student profile has not been created yet");
     return student.id;
+  }
+
+  private async getWardenIdsForStudent(studentId: string): Promise<string[]> {
+    const student = await prisma.studentProfile.findUnique({
+      where: { id: studentId },
+      include: {
+        roomAllocations: {
+          where: { status: "ACTIVE" },
+          include: { room: { include: { floor: { include: { block: true } } } } },
+        },
+      },
+    });
+
+    const hostelId = student?.roomAllocations?.[0]?.room?.floor?.block?.hostelId;
+    if (hostelId) {
+      const hostel = await prisma.hostel.findUnique({
+        where: { id: hostelId },
+        select: { wardenId: true },
+      });
+      if (hostel?.wardenId) {
+        return [hostel.wardenId];
+      }
+    }
+
+    // If no specific hostel warden assigned, fallback to all active wardens
+    const wardens = await prisma.user.findMany({
+      where: { role: "WARDEN", isActive: true },
+      select: { id: true },
+    });
+    return wardens.map((w) => w.id);
   }
 
   async getMyOverview(userId: string) {
@@ -212,12 +243,109 @@ export class OperationsService {
     }
     return prisma.leaveRequest.findMany({ where, include: studentInclude, orderBy: { createdAt: "desc" } });
   }
-  async createLeave(userId: string, data: any) { return prisma.leaveRequest.create({ data: { studentId: await this.studentId(userId), ...data }, include: studentInclude }); }
-  async decideLeave(id: string, approverId: string, data: any) {
-    const leave = await prisma.leaveRequest.findFirst({ where: { id, student: this.wardenStudents(approverId) }, select: { status: true } });
+  async createLeave(userId: string, data: any) {
+    const studentId = await this.studentId(userId);
+    const leave = await prisma.leaveRequest.create({
+      data: { studentId, ...data },
+      include: studentInclude,
+    });
+
+    // Asynchronously notify assigned warden(s) (non-blocking)
+    (async () => {
+      try {
+        const student = await prisma.studentProfile.findUnique({
+          where: { id: studentId },
+          include: {
+            user: { select: { firstName: true, lastName: true } },
+            roomAllocations: {
+              where: { status: "ACTIVE" },
+              include: { room: { include: { floor: { include: { block: { include: { hostel: true } } } } } } },
+            },
+          },
+        });
+
+        const studentName = `${student?.user?.firstName || "Student"} ${student?.user?.lastName || ""}`.trim();
+        const fromStr = new Date(data.fromDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+        const toStr = new Date(data.toDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+        const leaveTypeStr = String(data.type || "LEAVE").replace(/_/g, " ");
+
+        const wardenIds = await this.getWardenIdsForStudent(studentId);
+        for (const wId of wardenIds) {
+          await notificationService.createNotification({
+            userId: wId,
+            title: "New Leave Request",
+            message: `${studentName} requested ${leaveTypeStr} from ${fromStr} to ${toStr}.`,
+            type: "NEW_LEAVE_REQUEST",
+            relatedId: leave.id,
+            relatedType: "LEAVE",
+          });
+        }
+      } catch (err) {
+        console.error("[OperationsService] Error notifying on leave create:", err);
+      }
+    })();
+
+    return leave;
+  }
+
+  async decideLeave(id: string, approverId: string, role: string, data: any) {
+    const where: Prisma.LeaveRequestWhereInput = { id };
+    if (role === "WARDEN") {
+      where.student = this.wardenStudents(approverId);
+    }
+
+    const leave = await prisma.leaveRequest.findFirst({
+      where,
+      include: { student: { select: { userId: true } } },
+    });
     if (!leave) throw ApiError.notFound("Leave request not found in your hostel scope");
     if (leave.status !== "PENDING") throw ApiError.conflict("Only pending leave requests can be decided");
-    return prisma.leaveRequest.update({ where: { id }, data: { status: data.status, rejectionReason: data.status === "REJECTED" ? data.rejectionReason : null, approvedBy: approverId, approvedAt: new Date() }, include: studentInclude });
+
+    const updated = await prisma.leaveRequest.update({
+      where: { id },
+      data: {
+        status: data.status,
+        rejectionReason: data.status === "REJECTED" ? data.rejectionReason : null,
+        approvedBy: approverId,
+        approvedAt: new Date(),
+      },
+      include: studentInclude,
+    });
+
+    // Asynchronously notify student (non-blocking)
+    (async () => {
+      try {
+        const studentUserId = leave.student?.userId;
+        if (studentUserId) {
+          if (data.status === "APPROVED") {
+            const fromStr = new Date(updated.fromDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+            const toStr = new Date(updated.toDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+            await notificationService.createNotification({
+              userId: studentUserId,
+              title: "Leave Request Approved",
+              message: `Your leave request for ${fromStr} to ${toStr} has been approved.`,
+              type: "LEAVE_APPROVED",
+              relatedId: id,
+              relatedType: "LEAVE",
+            });
+          } else if (data.status === "REJECTED") {
+            const reason = data.rejectionReason ? `: ${data.rejectionReason}` : ".";
+            await notificationService.createNotification({
+              userId: studentUserId,
+              title: "Leave Request Rejected",
+              message: `Your leave request was rejected${reason}`,
+              type: "LEAVE_REJECTED",
+              relatedId: id,
+              relatedType: "LEAVE",
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[OperationsService] Error notifying on leave decision:", err);
+      }
+    })();
+
+    return updated;
   }
 
   async listComplaints(userId: string, role: string, filters?: { hostelId?: string }) {
@@ -255,8 +383,8 @@ export class OperationsService {
     const studentId = await this.studentId(userId);
     const { title, description, category, priority } = data;
 
-    return prisma.$transaction(async (tx) => {
-      const complaint = await tx.complaint.create({
+    const complaint = await prisma.$transaction(async (tx) => {
+      const created = await tx.complaint.create({
         data: { studentId, title, description, category, priority },
         include: { ...studentInclude, images: true },
       });
@@ -264,24 +392,115 @@ export class OperationsService {
       if (files && files.length > 0) {
         await tx.complaintImage.createMany({
           data: files.map((f) => ({
-            complaintId: complaint.id,
+            complaintId: created.id,
             imageUrl: `data:${f.mimetype};base64,${f.buffer.toString("base64")}`,
           })),
         });
         // Re-fetch to include images
         return tx.complaint.findUnique({
-          where: { id: complaint.id },
+          where: { id: created.id },
           include: { ...studentInclude, images: true },
         });
       }
 
-      return complaint;
+      return created;
     });
+
+    // Asynchronously notify assigned warden(s) (non-blocking)
+    (async () => {
+      try {
+        const student = await prisma.studentProfile.findUnique({
+          where: { id: studentId },
+          include: {
+            user: { select: { firstName: true, lastName: true } },
+            roomAllocations: {
+              where: { status: "ACTIVE" },
+              include: { room: { include: { floor: { include: { block: { include: { hostel: true } } } } } } },
+            },
+          },
+        });
+
+        const studentName = `${student?.user?.firstName || "Student"} ${student?.user?.lastName || ""}`.trim();
+        const roomNumber = student?.roomAllocations?.[0]?.room?.roomNumber;
+        const roomText = roomNumber ? ` (Room ${roomNumber})` : "";
+        const categoryStr = String(category || "GENERAL").toLowerCase();
+
+        const wardenIds = await this.getWardenIdsForStudent(studentId);
+        if (complaint) {
+          for (const wId of wardenIds) {
+            await notificationService.createNotification({
+              userId: wId,
+              title: "New Student Complaint",
+              message: `${studentName}${roomText} lodged a ${categoryStr} complaint: "${title}".`,
+              type: "NEW_COMPLAINT",
+              relatedId: complaint.id,
+              relatedType: "COMPLAINT",
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[OperationsService] Error notifying warden on complaint create:", err);
+      }
+    })();
+
+    return complaint;
   }
-  async updateComplaint(id: string, wardenId: string, data: any) {
-    const complaint = await prisma.complaint.findFirst({ where: { id, student: this.wardenStudents(wardenId) }, select: { id: true } });
+  async updateComplaint(id: string, approverId: string, role: string, data: any) {
+    const where: Prisma.ComplaintWhereInput = { id };
+    if (role === "WARDEN") {
+      where.student = this.wardenStudents(approverId);
+    }
+
+    const complaint = await prisma.complaint.findFirst({
+      where,
+      include: { student: { select: { userId: true } } },
+    });
     if (!complaint) throw ApiError.notFound("Complaint not found in your hostel scope");
-    return prisma.complaint.update({ where: { id }, data: { ...data, resolvedAt: ["RESOLVED", "CLOSED"].includes(data.status) ? new Date() : undefined }, include: { ...studentInclude, images: true } });
+
+    const previousStatus = complaint.status;
+    const updated = await prisma.complaint.update({
+      where: { id },
+      data: {
+        ...data,
+        resolvedAt: ["RESOLVED", "CLOSED"].includes(data.status) ? new Date() : undefined,
+      },
+      include: { ...studentInclude, images: true },
+    });
+
+    // Asynchronously notify student if status changed (non-blocking)
+    if (data.status && data.status !== previousStatus) {
+      (async () => {
+        try {
+          const studentUserId = complaint.student?.userId;
+          if (studentUserId) {
+            if (["RESOLVED", "CLOSED"].includes(data.status)) {
+              await notificationService.createNotification({
+                userId: studentUserId,
+                title: "Complaint Resolved",
+                message: `Your complaint "${complaint.title}" has been marked as resolved.`,
+                type: "COMPLAINT_RESOLVED",
+                relatedId: id,
+                relatedType: "COMPLAINT",
+              });
+            } else {
+              const statusStr = String(data.status).replace(/_/g, " ").toLowerCase();
+              await notificationService.createNotification({
+                userId: studentUserId,
+                title: "Complaint Status Updated",
+                message: `Your complaint "${complaint.title}" is now ${statusStr}.`,
+                type: "COMPLAINT_STATUS_UPDATED",
+                relatedId: id,
+                relatedType: "COMPLAINT",
+              });
+            }
+          }
+        } catch (err) {
+          console.error("[OperationsService] Error notifying on complaint update:", err);
+        }
+      })();
+    }
+
+    return updated;
   }
 
   async listVisitors(userId: string, role: string, filters?: { hostelId?: string; date?: string }) {
@@ -396,7 +615,7 @@ export class OperationsService {
       }
     }
 
-    return prisma.visitor.create({
+    const visitor = await prisma.visitor.create({
       data: {
         studentId: targetStudentId,
         visitorName: data.visitorName?.trim() || "Visitor",
@@ -409,6 +628,32 @@ export class OperationsService {
       },
       include: visitorStudentInclude,
     });
+
+    // Asynchronously notify visiting student (non-blocking)
+    (async () => {
+      try {
+        const student = await prisma.studentProfile.findUnique({
+          where: { id: targetStudentId },
+          select: { userId: true },
+        });
+        if (student?.userId) {
+          const vName = data.visitorName?.trim() || "A visitor";
+          const rel = data.relationship?.trim() ? ` (${data.relationship.trim()})` : "";
+          await notificationService.createNotification({
+            userId: student.userId,
+            title: "Visitor Registered",
+            message: `${vName}${rel} has been registered as a campus visitor for you.`,
+            type: "VISITOR_REGISTERED",
+            relatedId: visitor.id,
+            relatedType: "VISITOR",
+          });
+        }
+      } catch (err) {
+        console.error("[OperationsService] Error notifying on visitor create:", err);
+      }
+    })();
+
+    return visitor;
   }
 
   async listHostelStudents(userId: string, role: string, queryHostelId?: string) {

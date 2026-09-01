@@ -228,6 +228,10 @@ export declare class AnnouncementService {
         createdById: string;
     }>;
     /**
+     * Helper to notify targeted students about an announcement
+     */
+    private notifyTargetedStudents;
+    /**
      * Update an announcement (Admin / Warden)
      */
     updateAnnouncement(id: string, userId: string, role: string, data: UpdateAnnouncementInput): Promise<{
