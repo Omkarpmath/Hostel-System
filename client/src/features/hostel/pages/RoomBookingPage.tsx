@@ -43,11 +43,11 @@ export function RoomBookingPage() {
   // Filter to eligible hostels for students
   const eligibleHostels = isStudent && studentProfile
     ? allHostels.filter((h: any) =>
-        h.isActive !== false &&
-        h.allowedYears?.includes(studentProfile.year) &&
-        ((studentProfile.gender === 'MALE' && h.type === 'BOYS') ||
-         (studentProfile.gender === 'FEMALE' && h.type === 'GIRLS'))
-      )
+      h.isActive !== false &&
+      h.allowedYears?.includes(studentProfile.year) &&
+      ((studentProfile.gender === 'MALE' && h.type === 'BOYS') ||
+        (studentProfile.gender === 'FEMALE' && h.type === 'GIRLS'))
+    )
     : allHostels.filter((h: any) => h.isActive !== false);
 
   const selectedHostel = eligibleHostels.find((h: any) => h.id === selectedHostelId);
