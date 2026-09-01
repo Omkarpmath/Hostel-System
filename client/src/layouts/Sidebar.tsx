@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   GraduationCap,
   ScanLine,
+  Megaphone,
   type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '@/types';
@@ -42,6 +43,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Mess Fee Settings', icon: UtensilsCrossed, href: '/admin/mess-fee-settings' },
     { label: 'Leave Requests', icon: ClipboardList, href: '/admin/leaves' },
     { label: 'Complaints', icon: MessageSquareWarning, href: '/admin/complaints' },
+    { label: 'Announcements', icon: Megaphone, href: '/admin/announcements' },
     { label: 'Visitors', icon: Users, href: '/admin/visitors' },
     { label: 'Attendance', icon: ScanLine, href: '/admin/attendance' },
   ],
@@ -51,6 +53,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Browse Rooms', icon: BedDouble, href: '/student/rooms' },
     { label: 'Fees', icon: CreditCard, href: '/student/fees' },
     { label: 'Mess Fees', icon: UtensilsCrossed, href: '/student/mess-fees' },
+    { label: 'Announcements', icon: Megaphone, href: '/student/announcements' },
     { label: 'Leave', icon: ClipboardList, href: '/student/leaves' },
     { label: 'Complaints', icon: MessageSquareWarning, href: '/student/complaints' },
   ],
@@ -59,6 +62,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: 'Students', icon: GraduationCap, href: '/warden/students' },
     { label: 'Leave Requests', icon: ClipboardList, href: '/warden/leaves' },
     { label: 'Complaints', icon: MessageSquareWarning, href: '/warden/complaints' },
+    { label: 'Announcements', icon: Megaphone, href: '/warden/announcements' },
     { label: 'Visitors', icon: Users, href: '/warden/visitors' },
     { label: 'Attendance', icon: ScanLine, href: '/warden/attendance' },
   ],

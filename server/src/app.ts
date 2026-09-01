@@ -15,6 +15,7 @@ import bookingRoutes from "./modules/booking/booking.routes.js";
 import messFeeRoutes from "./modules/mess-fee/mess-fee.routes.js";
 import verifyRoutes from "./modules/verify/verify.routes.js";
 import attendanceRoutes from "./modules/attendance/attendance.routes.js";
+import announcementRoutes from "./modules/announcement/announcement.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,6 +77,7 @@ app.use("/api/v1", operationsRoutes);
 app.use("/api/v1/booking", bookingRoutes);
 app.use("/api/v1/mess-fee", messFeeRoutes);
 app.use("/api/v1/attendance", attendanceRoutes);
+app.use("/api/v1/announcements", announcementRoutes);
 
 // ============ ERROR HANDLING ============
 

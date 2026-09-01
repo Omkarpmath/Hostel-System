@@ -10,7 +10,11 @@ import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
 import {
   CreditCard, ClipboardList, QrCode, Download,
   Building2, CheckCircle2, Clock, UtensilsCrossed,
+  Megaphone, ChevronRight, X,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { announcementApi } from '@/api/announcement.api';
+import type { Announcement } from '@/types';
 import QRCode from 'qrcode';
 
 export function StudentDashboard() {
@@ -21,6 +25,24 @@ export function StudentDashboard() {
   const { data: profileData } = useQuery({ queryKey: ['profile'], queryFn: authApi.getProfile });
 
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+
+  // Fetch announcements targeted to this student
+  const { data: announcementsData, refetch: refetchAnnouncements } = useQuery({
+    queryKey: ['dashboard-announcements'],
+    queryFn: () => announcementApi.getMy(),
+  });
+  const allAnnouncements: Announcement[] = (announcementsData?.data as any)?.data || [];
+  const recentAnnouncements = allAnnouncements.slice(0, 4);
+  const unreadCount = allAnnouncements.filter((a) => !a.isRead).length;
+
+  const handleOpenAnnouncement = async (a: Announcement) => {
+    setSelectedAnnouncement(a);
+    if (!a.isRead) {
+      await announcementApi.markRead(a.id);
+      refetchAnnouncements();
+    }
+  };
 
   const overview = (data?.data as any)?.data;
   const profile = (profileData?.data as any)?.data;
@@ -207,6 +229,274 @@ export function StudentDashboard() {
           )}
         </motion.div>
       </div>
+
+      {/* ─── 📢 Important Announcements Widget ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.28 }}
+        style={{
+          ...cardStyle,
+          padding: '1.5rem',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <div style={{
+              width: '2.25rem',
+              height: '2.25rem',
+              borderRadius: '0.625rem',
+              backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : '#eff6ff',
+              color: isDark ? '#60a5fa' : '#2563eb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Megaphone style={{ width: '1.25rem', height: '1.25rem' }} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  📢 Important Announcements
+                </h3>
+                {unreadCount > 0 && (
+                  <span style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 800,
+                    padding: '0.125rem 0.5rem',
+                    borderRadius: '9999px',
+                    backgroundColor: '#2563eb',
+                    color: 'white',
+                  }}>
+                    {unreadCount} NEW
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                Official notices and updates from warden & campus administration
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/student/announcements"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              fontSize: '0.8125rem',
+              fontWeight: 700,
+              color: isDark ? '#60a5fa' : '#2563eb',
+              textDecoration: 'none',
+            }}
+          >
+            View All ({allAnnouncements.length}) <ChevronRight style={{ width: '1rem', height: '1rem' }} />
+          </Link>
+        </div>
+
+        {recentAnnouncements.length === 0 ? (
+          <div style={{
+            padding: '2rem',
+            textAlign: 'center',
+            borderRadius: '0.75rem',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+            border: '1px solid var(--border-primary)',
+          }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              No active announcements right now.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+            {recentAnnouncements.map((a) => {
+              const isUrgent = a.priority === 'URGENT';
+              const isImportant = a.priority === 'IMPORTANT';
+              const isUnread = !a.isRead;
+
+              return (
+                <div
+                  key={a.id}
+                  onClick={() => handleOpenAnnouncement(a)}
+                  style={{
+                    padding: '1.25rem',
+                    borderRadius: '0.875rem',
+                    backgroundColor: isUnread
+                      ? (isDark ? 'rgba(30,58,138,0.15)' : '#f0f7ff')
+                      : (isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc'),
+                    border: isUnread
+                      ? `1px solid ${isDark ? 'rgba(59,130,246,0.3)' : '#bfdbfe'}`
+                      : '1px solid var(--border-primary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                    position: 'relative',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.375rem', flexWrap: 'wrap' }}>
+                      {isUnread && (
+                        <span style={{
+                          width: '0.5rem',
+                          height: '0.5rem',
+                          borderRadius: '9999px',
+                          backgroundColor: '#2563eb',
+                        }} />
+                      )}
+                      <span style={{
+                        fontSize: '0.625rem',
+                        fontWeight: 800,
+                        padding: '0.125rem 0.375rem',
+                        borderRadius: '0.25rem',
+                        backgroundColor: isUrgent
+                          ? (isDark ? 'rgba(239,68,68,0.2)' : '#fee2e2')
+                          : isImportant
+                          ? (isDark ? 'rgba(245,158,11,0.2)' : '#fef3c7')
+                          : (isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe'),
+                        color: isUrgent ? '#dc2626' : isImportant ? '#d97706' : '#2563eb',
+                        textTransform: 'uppercase',
+                      }}>
+                        {a.priority}
+                      </span>
+
+                      {a.targetHostel && (
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+                          • {a.targetHostel.name}
+                        </span>
+                      )}
+                    </div>
+
+                    <h4 style={{
+                      fontSize: '0.875rem',
+                      fontWeight: isUnread ? 800 : 600,
+                      color: 'var(--text-primary)',
+                      marginBottom: '0.25rem',
+                      lineHeight: 1.3,
+                    }}>
+                      {a.title}
+                    </h4>
+
+                    <p style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.4,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}>
+                      {a.message}
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--text-muted)', paddingTop: '0.5rem', borderTop: '1px solid var(--border-primary)' }}>
+                    <span>{a.createdBy?.firstName} ({a.createdBy?.role})</span>
+                    <span>{a.publishAt ? new Date(a.publishAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : ''}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+
+      {/* ─── ANNOUNCEMENT DETAIL MODAL ─── */}
+      {selectedAnnouncement && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          padding: '1rem',
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '580px',
+            backgroundColor: 'var(--bg-card)',
+            borderRadius: '1.25rem',
+            border: '1px solid var(--border-primary)',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            padding: '2rem',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <span style={{
+                fontSize: '0.6875rem',
+                fontWeight: 800,
+                padding: '0.2rem 0.5rem',
+                borderRadius: '9999px',
+                backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : '#dbeafe',
+                color: isDark ? '#93c5fd' : '#2563eb',
+                textTransform: 'uppercase',
+              }}>
+                {selectedAnnouncement.priority} NOTICE
+              </span>
+              <button
+                onClick={() => setSelectedAnnouncement(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X style={{ width: '1.25rem', height: '1.25rem' }} />
+              </button>
+            </div>
+
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              {selectedAnnouncement.title}
+            </h3>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.625rem 0.875rem',
+              borderRadius: '0.5rem',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc',
+              border: '1px solid var(--border-primary)',
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              marginBottom: '1.25rem',
+            }}>
+              <span>Posted by: <strong>{selectedAnnouncement.createdBy?.firstName} {selectedAnnouncement.createdBy?.lastName}</strong> ({selectedAnnouncement.createdBy?.role})</span>
+              <span>•</span>
+              <span>{selectedAnnouncement.publishAt ? new Date(selectedAnnouncement.publishAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</span>
+            </div>
+
+            <p style={{
+              fontSize: '0.875rem',
+              color: 'var(--text-primary)',
+              lineHeight: 1.7,
+              whiteSpace: 'pre-wrap',
+              marginBottom: '1.5rem',
+            }}>
+              {selectedAnnouncement.message}
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setSelectedAnnouncement(null)}
+                style={{
+                  padding: '0.625rem 1.25rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  backgroundColor: '#2563eb',
+                  color: 'white',
+                  fontSize: '0.875rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

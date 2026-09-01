@@ -28,6 +28,8 @@ import { NightAttendancePage } from '@/features/attendance/NightAttendancePage';
 import { AttendanceRegisterPage } from '@/features/attendance/AttendanceRegisterPage';
 import { StudentProfilePage } from '@/features/profile/StudentProfilePage';
 import { VisitorManagementPage } from '@/features/visitors/VisitorManagementPage';
+import { AnnouncementsPage } from '@/features/announcements/pages/AnnouncementsPage';
+import { StudentAnnouncementsPage } from '@/features/announcements/pages/StudentAnnouncementsPage';
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +61,7 @@ export const router = createBrowserRouter([
       { path: 'mess-fee-settings', element: <MessFeePage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
+      { path: 'announcements', element: <AnnouncementsPage /> },
       { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],
@@ -79,6 +82,7 @@ export const router = createBrowserRouter([
       { path: 'rooms', element: <RoomBookingPage /> },
       { path: 'fees', element: <FeesPage /> },
       { path: 'mess-fees', element: <MessFeePage /> },
+      { path: 'announcements', element: <StudentAnnouncementsPage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
     ],
@@ -98,6 +102,7 @@ export const router = createBrowserRouter([
       { path: 'students', element: <StudentsPage /> },
       { path: 'leaves', element: <LeavesPage /> },
       { path: 'complaints', element: <ComplaintsPage /> },
+      { path: 'announcements', element: <AnnouncementsPage /> },
       { path: 'visitors', element: <VisitorManagementPage /> },
       { path: 'attendance', element: <AttendanceRegisterPage /> },
     ],

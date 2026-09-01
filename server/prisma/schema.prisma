@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================
@@ -140,6 +141,28 @@ enum SecurityLogType {
   VISITOR_CHECK
 }
 
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum AnnouncementTarget {
+  ALL_HOSTELS
+  SPECIFIC_HOSTEL
+  SPECIFIC_YEAR
+  SPECIFIC_DEPARTMENT
+  CUSTOM_GROUP
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  EXPIRED
+  ARCHIVED
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -172,6 +195,8 @@ model User {
   messVerifications  MessVerification[] @relation("VerifiedBy")
   securityLogs       SecurityLog[]      @relation("SecurityLogs")
   attendanceSessions AttendanceSession[] @relation("SecuritySessions")
+  createdAnnouncements Announcement[]   @relation("CreatedAnnouncements")
+  announcementReads  AnnouncementRead[]   @relation("UserAnnouncementReads")
   refreshTokens      RefreshToken[]
 
   @@map("users")
@@ -238,6 +263,7 @@ model Hostel {
   assignedSecurity   User[]              @relation("SecurityHostel")
   blocks             Block[]
   attendanceSessions AttendanceSession[]
+  announcements      Announcement[]      @relation("HostelAnnouncements")
 
   @@map("hostels")
 }
@@ -533,4 +559,46 @@ model AttendanceRecord {
 
   @@unique([sessionId, studentId]) // No duplicate scans
   @@map("attendance_records")
+}
+
+// ============================================
+// ANNOUNCEMENTS
+// ============================================
+
+model Announcement {
+  id               String               @id @default(uuid())
+  title            String
+  message          String               @db.Text
+  priority         AnnouncementPriority @default(NORMAL)
+  targetAudience   AnnouncementTarget   @default(ALL_HOSTELS) @map("target_audience")
+  targetHostelId   String?              @map("target_hostel_id")
+  targetYear       Int?                 @map("target_year")
+  targetDepartment String?              @map("target_department")
+  status           AnnouncementStatus   @default(PUBLISHED)
+  publishAt        DateTime             @default(now()) @map("publish_at")
+  expiresAt        DateTime?            @map("expires_at")
+  createdById      String               @map("created_by_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy        User                 @relation("CreatedAnnouncements", fields: [createdById], references: [id])
+  targetHostel     Hostel?              @relation("HostelAnnouncements", fields: [targetHostelId], references: [id], onDelete: Cascade)
+  reads            AnnouncementRead[]
+
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String       @id @default(uuid())
+  announcementId String       @map("announcement_id")
+  userId         String       @map("user_id")
+  readAt         DateTime     @default(now()) @map("read_at")
+
+  // Relations
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation("UserAnnouncementReads", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@map("announcement_reads")
 }

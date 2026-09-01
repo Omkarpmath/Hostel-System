@@ -230,3 +230,68 @@ export interface PaginationMeta {
   total: number;
   totalPages: number;
 }
+
+// Announcements
+export type AnnouncementPriority = 'NORMAL' | 'IMPORTANT' | 'URGENT';
+export type AnnouncementTarget = 'ALL_HOSTELS' | 'SPECIFIC_HOSTEL' | 'SPECIFIC_YEAR' | 'SPECIFIC_DEPARTMENT' | 'CUSTOM_GROUP';
+export type AnnouncementStatus = 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'EXPIRED' | 'ARCHIVED';
+
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  priority: AnnouncementPriority;
+  targetAudience: AnnouncementTarget;
+  targetHostelId?: string | null;
+  targetHostel?: { id: string; name: string; type: string } | null;
+  targetYear?: number | null;
+  targetDepartment?: string | null;
+  status: AnnouncementStatus;
+  publishAt: string;
+  expiresAt?: string | null;
+  createdById: string;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: Role;
+    avatarUrl?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+
+  // Student perspective
+  isRead?: boolean;
+  readAt?: string | null;
+
+  // Staff analytics
+  targetCount?: number;
+  readCount?: number;
+  unreadCount?: number;
+  readPercentage?: number;
+  reads?: Array<{
+    id: string;
+    userId: string;
+    readAt: string;
+    user?: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      studentProfile?: {
+        usn: string;
+        department: string;
+        year: number;
+      };
+    };
+  }>;
+}
+
+export interface AnnouncementStats {
+  total: number;
+  active: number;
+  urgent: number;
+  totalReads: number;
+}
+
