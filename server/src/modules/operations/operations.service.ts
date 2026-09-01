@@ -140,6 +140,43 @@ export class OperationsService {
       const nextOccupied = room.occupiedBeds + 1;
       const allocation = await tx.roomAllocation.create({ data: { studentId, roomId, bedNumber, allocatedFrom: new Date() }, include: { ...studentInclude, ...roomInclude() } });
       await tx.room.update({ where: { id: roomId }, data: { occupiedBeds: nextOccupied, status: nextOccupied >= room.capacity ? "FULL" : "PARTIALLY_OCCUPIED", version: { increment: 1 } } });
+
+      // Generate PENDING Hostel Fee if not present
+      const existingHostelFee = await tx.fee.findFirst({ where: { studentId, allocationId: allocation.id, type: "HOSTEL_FEE" } });
+      if (!existingHostelFee) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+        await tx.fee.create({
+          data: {
+            studentId,
+            allocationId: allocation.id,
+            amount: room.feePerSemester,
+            type: "HOSTEL_FEE",
+            status: "PENDING",
+            dueDate,
+          },
+        });
+      }
+
+      // Generate PENDING Mess Fee if not present
+      const existingMessFee = await tx.fee.findFirst({ where: { studentId, type: "MESS_FEE" } });
+      if (!existingMessFee) {
+        const messConfig = await tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } });
+        const messAmount = messConfig ? parseFloat(messConfig.value) : 78000;
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+        await tx.fee.create({
+          data: {
+            studentId,
+            allocationId: allocation.id,
+            amount: messAmount,
+            type: "MESS_FEE",
+            status: "PENDING",
+            dueDate,
+          },
+        });
+      }
+
       return allocation;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
@@ -442,6 +479,41 @@ export class OperationsService {
   }
 
   async listFees(userId: string, role: string, filters?: { hostelId?: string }) {
+    // Reconcile: Ensure all students with active room allocations have a MESS_FEE invoice if none exists yet
+    const config = await prisma.systemConfig.findUnique({ where: { key: "annual_mess_fee" } });
+    const messAmount = config ? parseFloat(config.value) : 78000;
+
+    const allocationsWithoutMess = await prisma.roomAllocation.findMany({
+      where: {
+        status: "ACTIVE",
+        student: {
+          fees: {
+            none: { type: "MESS_FEE" },
+          },
+        },
+      },
+      select: {
+        id: true,
+        studentId: true,
+      },
+    });
+
+    if (allocationsWithoutMess.length > 0) {
+      const defaultDueDate = new Date();
+      defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+      await prisma.fee.createMany({
+        data: allocationsWithoutMess.map((a) => ({
+          studentId: a.studentId,
+          allocationId: a.id,
+          amount: messAmount,
+          type: "MESS_FEE",
+          status: "PENDING",
+          dueDate: defaultDueDate,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     let where: Prisma.FeeWhereInput = {};
     const selectedHostelId = filters?.hostelId && filters.hostelId !== "ALL" ? filters.hostelId : undefined;
 

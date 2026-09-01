@@ -7,10 +7,11 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { Link } from 'react-router-dom';
 import {
   CreditCard, ChevronRight, User, Calendar, Building2,
-  BedDouble, Receipt, IndianRupee, Clock, CheckCircle2, XCircle, AlertCircle,
-  Download, X,
+  BedDouble, Receipt, IndianRupee, Clock, CheckCircle2,
+  Download, Search, UtensilsCrossed, ShieldCheck, ArrowRight,
 } from 'lucide-react';
 import { hostelApi } from '@/api/hostel.api';
 
@@ -21,6 +22,23 @@ const money = (v?: number | string) => {
   return `₹${n.toLocaleString('en-IN')}`;
 };
 
+function InfoBlock({ label, value, icon: Icon }: { label: string; value: string; icon: any }) {
+  return (
+    <div style={{
+      padding: '0.75rem 1rem', borderRadius: '0.625rem',
+      backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+        <Icon style={{ width: '0.75rem', height: '0.75rem' }} />
+        <span>{label}</span>
+      </div>
+      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem', wordBreak: 'break-word' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 export function FeesPage() {
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -28,6 +46,7 @@ export function FeesPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'HOSTEL_FEE' | 'MESS_FEE'>('HOSTEL_FEE');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const isStudent = user?.role === 'STUDENT';
   const canFilterHostel = !isStudent;
@@ -48,7 +67,7 @@ export function FeesPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Hostel_Fee_Receipt_${receiptNumber || feeId}.pdf`;
+      a.download = `Fee_Receipt_${receiptNumber || feeId}.pdf`;
       a.target = '_blank';
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
@@ -66,8 +85,19 @@ export function FeesPage() {
   });
   const allFees: any[] = (data?.data as any)?.data || [];
 
-  // Filter fees by active tab (for admin/accountant/warden)
-  const fees = isStudent ? allFees : allFees.filter((f) => f.type === activeTab);
+  // Filter fees by active tab (for staff)
+  const tabFees = isStudent ? allFees : allFees.filter((f) => f.type === activeTab);
+
+  // Search filter
+  const fees = tabFees.filter((f) => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    const studentName = `${f.student?.user?.firstName || ''} ${f.student?.user?.lastName || ''}`.toLowerCase();
+    const usn = (f.student?.usn || '').toLowerCase();
+    const receipt = (f.receiptNumber || '').toLowerCase();
+    const room = (f.allocation?.room?.roomNumber || '').toLowerCase();
+    return studentName.includes(term) || usn.includes(term) || receipt.includes(term) || room.includes(term);
+  });
 
   const totalPaid = fees.filter((f) => f.status === 'PAID').reduce((s, f) => s + parseFloat(f.amount || 0), 0);
   const totalPending = fees.filter((f) => f.status === 'PENDING').reduce((s, f) => s + parseFloat(f.amount || 0), 0);
@@ -77,8 +107,8 @@ export function FeesPage() {
   const cardStyle: React.CSSProperties = {
     backgroundColor: 'var(--bg-card)',
     border: '1px solid var(--border-primary)',
-    borderRadius: '1rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+    borderRadius: '1.25rem',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
     overflow: 'hidden',
   };
 
@@ -94,133 +124,179 @@ export function FeesPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <PageHeader
-        title="Fee Records"
-        description={`${fees.length} record${fees.length !== 1 ? 's' : ''} found`}
+        title={isStudent ? 'My Fee Records' : 'Fee Records & Invoices'}
+        description={isStudent ? 'Official records of hostel accommodation and mess dining payments' : `${fees.length} verified fee ledger record${fees.length !== 1 ? 's' : ''}`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Fees' }]}
       />
 
-      {/* Controls Bar: Tab Switcher + Hostel Filter (Staff only) */}
-      {!isStudent && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', gap: '0.25rem', padding: '0.25rem', borderRadius: '0.75rem', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', width: 'fit-content' }}>
-            {([
-              { key: 'HOSTEL_FEE' as const, label: 'Hostel Fees' },
-              { key: 'MESS_FEE' as const, label: 'Mess Fees' },
-            ]).map((tab) => (
+      {/* ─── 1. Financial Overview Summary Cards ─── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
+        {/* Total Collected / Paid */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            ...cardStyle,
+            padding: '1.5rem',
+            background: isDark
+              ? 'linear-gradient(135deg, rgba(22,163,74,0.15) 0%, rgba(15,23,42,0.6) 100%)'
+              : 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)',
+            border: `1px solid ${isDark ? 'rgba(22,163,74,0.3)' : '#bbf7d0'}`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#16a34a' }}>
+              {isStudent ? 'Total Fees Cleared' : 'Total Amount Collected'}
+            </span>
+            <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem', backgroundColor: isDark ? 'rgba(22,163,74,0.2)' : '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CheckCircle2 style={{ width: '1.25rem', height: '1.25rem' }} />
+            </div>
+          </div>
+          <div style={{ fontSize: '1.875rem', fontWeight: 900, color: '#16a34a', lineHeight: 1 }}>
+            {money(totalPaid)}
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+            {paidCount} successful transaction{paidCount !== 1 ? 's' : ''} verified
+          </p>
+        </motion.div>
+
+        {/* Pending Outstanding Dues */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          style={{
+            ...cardStyle,
+            padding: '1.5rem',
+            background: totalPending > 0
+              ? (isDark ? 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(15,23,42,0.6) 100%)' : 'linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)')
+              : (isDark ? 'rgba(255,255,255,0.02)' : 'white'),
+            border: `1px solid ${totalPending > 0 ? (isDark ? 'rgba(245,158,11,0.3)' : '#fde68a') : 'var(--border-primary)'}`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: totalPending > 0 ? '#d97706' : 'var(--text-secondary)' }}>
+              {isStudent ? 'Outstanding Balance' : 'Pending Receivables'}
+            </span>
+            <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem', backgroundColor: totalPending > 0 ? (isDark ? 'rgba(245,158,11,0.2)' : '#fef3c7') : 'var(--bg-secondary)', color: totalPending > 0 ? '#d97706' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock style={{ width: '1.25rem', height: '1.25rem' }} />
+            </div>
+          </div>
+          <div style={{ fontSize: '1.875rem', fontWeight: 900, color: totalPending > 0 ? '#d97706' : 'var(--text-primary)', lineHeight: 1 }}>
+            {money(totalPending)}
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+            {pendingCount > 0 ? `${pendingCount} invoice pending payment` : 'All dues are fully settled'}
+          </p>
+        </motion.div>
+
+        {/* Total Invoices Count */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          style={{ ...cardStyle, padding: '1.5rem' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Total Fee Records</span>
+            <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.625rem', backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff', color: isDark ? '#60a5fa' : '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CreditCard style={{ width: '1.25rem', height: '1.25rem' }} />
+            </div>
+          </div>
+          <div style={{ fontSize: '1.875rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1 }}>
+            {fees.length}
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+            Academic term electronic invoices
+          </p>
+        </motion.div>
+      </div>
+
+      {/* ─── 2. Controls & Filter Bar ─── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+        {/* Category Tabs (For Staff) */}
+        {!isStudent ? (
+          <div style={{ display: 'flex', gap: '0.25rem', padding: '0.25rem', borderRadius: '0.75rem', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' }}>
+            {[
+              { key: 'HOSTEL_FEE' as const, label: 'Hostel Fees', icon: Building2 },
+              { key: 'MESS_FEE' as const, label: 'Mess Fees', icon: UtensilsCrossed },
+            ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => { setActiveTab(tab.key); setExpandedId(null); }}
                 style={{
-                  padding: '0.625rem 1.25rem',
-                  borderRadius: '0.625rem',
-                  border: 'none',
-                  fontFamily: 'inherit',
-                  fontSize: '0.875rem',
-                  fontWeight: activeTab === tab.key ? 700 : 500,
+                  display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                  padding: '0.625rem 1.25rem', borderRadius: '0.625rem', border: 'none',
+                  fontSize: '0.875rem', fontWeight: activeTab === tab.key ? 700 : 500,
                   cursor: 'pointer',
-                  backgroundColor: activeTab === tab.key
-                    ? (isDark ? 'rgba(59,130,246,0.2)' : 'white')
-                    : 'transparent',
-                  color: activeTab === tab.key
-                    ? (isDark ? '#60a5fa' : '#1d4ed8')
-                    : 'var(--text-secondary)',
+                  backgroundColor: activeTab === tab.key ? (isDark ? 'rgba(59,130,246,0.25)' : 'white') : 'transparent',
+                  color: activeTab === tab.key ? (isDark ? '#93c5fd' : '#1d4ed8') : 'var(--text-secondary)',
                   boxShadow: activeTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  transition: 'all 0.2s',
+                  transition: 'all 0.15s',
                 }}
               >
-                {tab.label}
+                <tab.icon style={{ width: '0.875rem', height: '0.875rem' }} />
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
+        ) : (
+          <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            All Invoices & Payments
+          </div>
+        )}
 
-          {/* Hostel Filter Dropdown */}
-          {availableHostels.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <select
-                value={selectedHostel}
-                onChange={(e) => setSelectedHostel(e.target.value)}
-                style={{
-                  padding: '0.625rem 1rem',
-                  borderRadius: '0.625rem',
-                  border: '1px solid var(--border-primary)',
-                  backgroundColor: 'var(--bg-card)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                }}
-              >
-                <option value="ALL">All Hostels ({availableHostels.length})</option>
-                {availableHostels.map((h: any) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name}
-                  </option>
-                ))}
-              </select>
+        {/* Search & Hostel Filter Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Search Box */}
+          <div style={{ position: 'relative', minWidth: '220px' }}>
+            <Search style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', width: '0.875rem', height: '0.875rem', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Search student or receipt..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%', padding: '0.5rem 0.75rem 0.5rem 2.25rem', borderRadius: '0.625rem',
+                border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-primary)', fontSize: '0.8125rem', outline: 'none',
+              }}
+            />
+          </div>
 
-              {selectedHostel !== 'ALL' && (
-                <button
-                  onClick={() => setSelectedHostel('ALL')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: '0.625rem',
-                    border: '1px solid var(--border-primary)',
-                    backgroundColor: 'transparent',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <X style={{ width: '0.75rem', height: '0.75rem' }} /> Reset
-                </button>
-              )}
-            </div>
+          {/* Hostel Filter Dropdown (Staff only) */}
+          {canFilterHostel && availableHostels.length > 0 && (
+            <select
+              value={selectedHostel}
+              onChange={(e) => setSelectedHostel(e.target.value)}
+              style={{
+                padding: '0.5rem 1rem', borderRadius: '0.625rem',
+                border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)',
+                color: 'var(--text-primary)', fontSize: '0.8125rem', fontWeight: 600,
+                cursor: 'pointer', outline: 'none',
+              }}
+            >
+              <option value="ALL">All Hostels ({availableHostels.length})</option>
+              {availableHostels.map((h: any) => (
+                <option key={h.id} value={h.id}>{h.name}</option>
+              ))}
+            </select>
           )}
         </div>
-      )}
+      </div>
 
-      {/* Summary Cards */}
-      {fees.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-          {[
-            { label: 'Total Collected', value: money(totalPaid), sub: `${paidCount} payment${paidCount !== 1 ? 's' : ''}`, color: '#16a34a', bg: isDark ? 'rgba(22,163,74,0.1)' : '#f0fdf4', icon: CheckCircle2 },
-            { label: 'Pending Amount', value: money(totalPending), sub: `${pendingCount} pending`, color: '#f59e0b', bg: isDark ? 'rgba(245,158,11,0.1)' : '#fffbeb', icon: Clock },
-            { label: 'Total Records', value: String(fees.length), sub: 'all fee entries', color: '#3b82f6', bg: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff', icon: CreditCard },
-          ].map((s) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{
-              padding: '1.25rem', borderRadius: '0.875rem', backgroundColor: s.bg,
-              border: `1px solid ${isDark ? `${s.color}33` : `${s.color}22`}`,
-              display: 'flex', alignItems: 'center', gap: '1rem',
-            }}>
-              <s.icon style={{ width: '1.5rem', height: '1.5rem', color: s.color, flexShrink: 0 }} />
-              <div>
-                <p style={{ fontSize: '1.25rem', fontWeight: 800, color: s.color }}>{s.value}</p>
-                <p style={{ fontSize: '0.6875rem', fontWeight: 600, color: s.color, opacity: 0.8, marginTop: '0.125rem' }}>{s.label}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Fee Records */}
+      {/* ─── 3. Fee Records Ledger ─── */}
       {fees.length === 0 ? (
         <EmptyState
           icon={CreditCard}
-          title="No fee records"
-          description={isStudent ? 'Your fee records will appear here once generated.' : 'No fee records found in the system.'}
+          title="No fee records found"
+          description={isStudent ? 'Your fee records will appear here once generated by the administration.' : 'No fee entries matched your search filters.'}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           {fees.map((fee, i) => {
             const isExpanded = expandedId === fee.id;
-            const studentName = `${fee.student?.user?.firstName || ''} ${fee.student?.user?.lastName || ''}`.trim() || 'Unknown';
-            const studentEmail = fee.student?.user?.email || '—';
+            const studentName = `${fee.student?.user?.firstName || ''} ${fee.student?.user?.lastName || ''}`.trim() || 'Student';
             const isPaid = fee.status === 'PAID';
             const hostel = fee.allocation?.room?.floor?.block?.hostel?.name;
             const roomNum = fee.allocation?.room?.roomNumber;
@@ -230,88 +306,92 @@ export function FeesPage() {
                 key={fee.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-                style={cardStyle}
+                transition={{ delay: i * 0.03 }}
+                style={{
+                  ...cardStyle,
+                  border: isPaid
+                    ? (isDark ? '1px solid rgba(22,163,74,0.25)' : '1px solid #dcfce7')
+                    : '1px solid var(--border-primary)',
+                }}
               >
-                <button
+                <div
                   onClick={() => setExpandedId(isExpanded ? null : fee.id)}
-                  style={{ width: '100%', padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                  style={{
+                    padding: '1.25rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    flexWrap: 'wrap', gap: '1rem', cursor: 'pointer',
+                  }}
                 >
-                  {/* Status Icon */}
-                  <div style={{
-                    width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', flexShrink: 0,
-                    backgroundColor: isPaid
-                      ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
-                      : fee.status === 'FAILED'
-                        ? (isDark ? 'rgba(220,38,38,0.15)' : '#fee2e2')
+                  {/* Left: Status Icon & Details */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+                    <div style={{
+                      width: '3rem', height: '3rem', borderRadius: '1rem', flexShrink: 0,
+                      backgroundColor: isPaid
+                        ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
                         : (isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7'),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {isPaid
-                      ? <CheckCircle2 style={{ width: '1.25rem', height: '1.25rem', color: '#16a34a' }} />
-                      : fee.status === 'FAILED'
-                        ? <XCircle style={{ width: '1.25rem', height: '1.25rem', color: '#dc2626' }} />
-                        : <Clock style={{ width: '1.25rem', height: '1.25rem', color: '#f59e0b' }} />}
-                  </div>
-
-                  {/* Main Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {money(fee.amount)}
-                      </span>
-                      <span style={{
-                        fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5rem', borderRadius: '9999px',
-                        backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#dbeafe',
-                        color: isDark ? '#93c5fd' : '#1d4ed8',
-                        textTransform: 'uppercase',
-                      }}>
-                        {fee.type?.replace('_', ' ') || 'FEE'}
-                      </span>
-                      <StatusBadge status={fee.status} />
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {isPaid ? (
+                        <CheckCircle2 style={{ width: '1.5rem', height: '1.5rem', color: '#16a34a' }} />
+                      ) : (
+                        <Clock style={{ width: '1.5rem', height: '1.5rem', color: '#f59e0b' }} />
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.375rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                      {!isStudent && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <User style={{ width: '0.75rem', height: '0.75rem' }} />{studentName}
+
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                          {money(fee.amount)}
                         </span>
-                      )}
-                      {roomNum && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <BedDouble style={{ width: '0.75rem', height: '0.75rem' }} />Room {roomNum}
-                        </span>
-                      )}
-                      {hostel && (
                         <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.25rem',
-                          padding: '0.125rem 0.5rem',
-                          borderRadius: '0.375rem',
-                          backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
-                          color: isDark ? '#93c5fd' : '#1d4ed8',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
+                          fontSize: '0.6875rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: '9999px',
+                          backgroundColor: fee.type === 'MESS_FEE' ? (isDark ? 'rgba(168,85,247,0.2)' : '#faf5ff') : (isDark ? 'rgba(59,130,246,0.2)' : '#eff6ff'),
+                          color: fee.type === 'MESS_FEE' ? (isDark ? '#c084fc' : '#9333ea') : (isDark ? '#93c5fd' : '#2563eb'),
+                          textTransform: 'uppercase',
                         }}>
-                          <Building2 style={{ width: '0.75rem', height: '0.75rem' }} />
-                          {hostel}
+                          {fee.type?.replace('_', ' ') || 'FEE'}
                         </span>
-                      )}
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Calendar style={{ width: '0.75rem', height: '0.75rem' }} />
-                        Due: {fmt(fee.dueDate)}
-                      </span>
-                      {isPaid && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: isDark ? '#4ade80' : '#15803d', fontWeight: 600 }}>
-                          <CheckCircle2 style={{ width: '0.75rem', height: '0.75rem' }} />
-                          Paid: {fmt(fee.paidAt)}
+                        <StatusBadge status={fee.status} />
+                      </div>
+
+                      {/* Sub-details line */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.375rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                        {!isStudent && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600 }}>
+                            <User style={{ width: '0.8125rem', height: '0.8125rem' }} />{studentName}
+                          </span>
+                        )}
+                        {roomNum && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <BedDouble style={{ width: '0.8125rem', height: '0.8125rem' }} />Room {roomNum}
+                          </span>
+                        )}
+                        {hostel && (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                            padding: '0.1rem 0.5rem', borderRadius: '0.375rem',
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                            color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600,
+                          }}>
+                            <Building2 style={{ width: '0.75rem', height: '0.75rem' }} />{hostel}
+                          </span>
+                        )}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Calendar style={{ width: '0.8125rem', height: '0.8125rem' }} />
+                          Due: {fmt(fee.dueDate)}
                         </span>
-                      )}
+                        {isPaid && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#16a34a', fontWeight: 700 }}>
+                            <CheckCircle2 style={{ width: '0.8125rem', height: '0.8125rem' }} />
+                            Paid: {fmt(fee.paidAt)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {isPaid && (
+                  {/* Right: Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {isPaid ? (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -319,155 +399,90 @@ export function FeesPage() {
                           handleDownloadReceipt(fee.id, fee.receiptNumber);
                         }}
                         disabled={downloadingId === fee.id}
-                        title="Download Official Payment Receipt"
                         style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.375rem',
-                          padding: '0.375rem 0.75rem',
-                          borderRadius: '0.5rem',
-                          backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
-                          border: '1px solid rgba(59,130,246,0.3)',
-                          color: isDark ? '#93c5fd' : '#2563eb',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          cursor: downloadingId === fee.id ? 'wait' : 'pointer',
-                          flexShrink: 0,
+                          display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                          padding: '0.5rem 1rem', borderRadius: '0.625rem',
+                          backgroundColor: isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7',
+                          border: '1px solid #16a34a', color: isDark ? '#4ade80' : '#15803d',
+                          fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer',
                         }}
                       >
-                        <Download style={{ width: '0.75rem', height: '0.75rem' }} />
-                        <span>{downloadingId === fee.id ? '...' : 'Receipt'}</span>
+                        <Download style={{ width: '0.875rem', height: '0.875rem' }} />
+                        <span>{downloadingId === fee.id ? 'Generating...' : 'Receipt PDF'}</span>
                       </button>
-                    )}
+                    ) : isStudent ? (
+                      <Link
+                        to={fee.type === 'MESS_FEE' ? '/student/mess-fees' : '/student/rooms'}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                          padding: '0.5rem 1rem', borderRadius: '0.625rem',
+                          backgroundColor: '#2563eb', color: 'white',
+                          fontSize: '0.8125rem', fontWeight: 700, textDecoration: 'none',
+                          boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+                        }}
+                      >
+                        <span>Pay Online</span>
+                        <ArrowRight style={{ width: '0.875rem', height: '0.875rem' }} />
+                      </Link>
+                    ) : null}
 
                     <ChevronRight style={{
                       width: '1.25rem', height: '1.25rem', color: 'var(--text-muted)',
                       transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s',
                     }} />
                   </div>
-                </button>
+                </div>
 
+                {/* Expanded Details Panel */}
                 <AnimatePresence>
                   {isExpanded && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
-                      <div style={{ padding: '0 1.5rem 1.5rem', borderTop: '1px solid var(--border-primary)', paddingTop: '1.25rem' }}>
-                        {/* Student Info Card (for admin/warden/accountant) */}
-                        {!isStudent && (
-                          <div style={{
-                            display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem',
-                            borderRadius: '0.75rem', marginBottom: '1.25rem',
-                            backgroundColor: isDark ? 'rgba(59,130,246,0.05)' : '#f8fafc',
-                            border: '1px solid var(--border-primary)',
-                          }}>
-                            <div style={{
-                              width: '2.75rem', height: '2.75rem', borderRadius: '50%', flexShrink: 0,
-                              background: 'linear-gradient(135deg, #1e40af, #0d9488)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              color: 'white', fontSize: '0.75rem', fontWeight: 800,
-                            }}>
-                              {(fee.student?.user?.firstName?.[0] || '?')}{(fee.student?.user?.lastName?.[0] || '')}
-                            </div>
-                            <div style={{ flex: 1 }}>
-                              <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>{studentName}</p>
-                              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{studentEmail}</p>
-                            </div>
-                            {fee.student?.usn && (
-                              <span style={{
-                                fontSize: '0.75rem', fontWeight: 700, fontFamily: 'monospace',
-                                padding: '0.25rem 0.5rem', borderRadius: '0.375rem',
-                                backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff',
-                                color: isDark ? '#60a5fa' : '#2563eb',
-                              }}>{fee.student.usn}</span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Details Grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
-                          <InfoBlock label="Fee Type" value={fee.type?.replace('_', ' ') || '—'} icon={CreditCard} />
-                          <InfoBlock label="Amount" value={money(fee.amount)} icon={IndianRupee} />
-                          <InfoBlock label="Status" value={fee.status} icon={isPaid ? CheckCircle2 : Clock} />
-                          <InfoBlock label="Due Date" value={fmt(fee.dueDate)} icon={Calendar} />
-                          {fee.paidAt && <InfoBlock label="Paid Date" value={fmt(fee.paidAt)} icon={Calendar} />}
-                          {fee.paymentMethod && <InfoBlock label="Payment Method" value={fee.paymentMethod} icon={CreditCard} />}
-                          {fee.transactionId && <InfoBlock label="Transaction ID" value={fee.transactionId} icon={Receipt} />}
-                          {fee.receiptNumber && <InfoBlock label="Receipt No." value={fee.receiptNumber} icon={Receipt} />}
-                          {hostel && <InfoBlock label="Hostel" value={hostel} icon={Building2} />}
-                          {roomNum && <InfoBlock label="Room" value={roomNum} icon={BedDouble} />}
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+                      <div style={{ padding: '1.25rem 1.5rem 1.5rem', borderTop: '1px solid var(--border-primary)', backgroundColor: isDark ? 'rgba(255,255,255,0.01)' : '#fafafa' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.875rem' }}>
+                          <InfoBlock label="Fee Category" value={fee.type?.replace('_', ' ') || '—'} icon={CreditCard} />
+                          <InfoBlock label="Total Amount" value={money(fee.amount)} icon={IndianRupee} />
+                          <InfoBlock label="Payment Status" value={fee.status} icon={isPaid ? CheckCircle2 : Clock} />
+                          <InfoBlock label="Invoice Due Date" value={fmt(fee.dueDate)} icon={Calendar} />
+                          {fee.paidAt && <InfoBlock label="Payment Settled Date" value={fmt(fee.paidAt)} icon={Calendar} />}
+                          {fee.receiptNumber && <InfoBlock label="Official Receipt No" value={fee.receiptNumber} icon={Receipt} />}
+                          {hostel && <InfoBlock label="Hostel Allocation" value={hostel} icon={Building2} />}
+                          {roomNum && <InfoBlock label="Assigned Room" value={`Room ${roomNum}`} icon={BedDouble} />}
                         </div>
 
-                        {/* Payment Timeline */}
                         {isPaid && (
                           <div style={{
-                            marginTop: '1.25rem', padding: '1rem', borderRadius: '0.75rem',
-                            background: isDark
-                              ? 'linear-gradient(135deg, rgba(22,163,74,0.05), rgba(13,148,136,0.05))'
-                              : 'linear-gradient(135deg, #f0fdf4, #f0fdfa)',
-                            border: `1px solid ${isDark ? 'rgba(22,163,74,0.2)' : '#bbf7d0'}`,
+                            marginTop: '1.25rem', padding: '1rem 1.25rem', borderRadius: '0.75rem',
+                            backgroundColor: isDark ? 'rgba(22,163,74,0.1)' : '#f0fdf4',
+                            border: `1px solid ${isDark ? 'rgba(22,163,74,0.25)' : '#bbf7d0'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem',
                           }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                              <CheckCircle2 style={{ width: '1rem', height: '1rem', color: '#16a34a' }} />
-                              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#16a34a' }}>Payment Confirmed</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                              <ShieldCheck style={{ width: '1.25rem', height: '1.25rem', color: '#16a34a' }} />
+                              <div>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#16a34a' }}>
+                                  Electronic Payment Receipt Verified
+                                </span>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
+                                  Official BMSCE Hostel Administration transaction record
+                                </p>
+                              </div>
                             </div>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                              {money(fee.amount)} was paid on {fmt(fee.paidAt)}
-                              {fee.paymentMethod ? ` via ${fee.paymentMethod}` : ''}
-                              {fee.transactionId ? `. Transaction: ${fee.transactionId}` : ''}
-                              {!isStudent ? ` by ${studentName}` : ''}
-                            </p>
 
-                            <div style={{
-                              marginTop: '0.75rem',
-                              paddingTop: '0.75rem',
-                              borderTop: `1px solid ${isDark ? 'rgba(22,163,74,0.2)' : '#dcfce7'}`,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              flexWrap: 'wrap',
-                              gap: '0.5rem',
-                            }}>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                {fee.receiptNumber ? `Official Receipt: ${fee.receiptNumber}` : 'Official Electronic Receipt Verified'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleDownloadReceipt(fee.id, fee.receiptNumber)}
-                                disabled={downloadingId === fee.id}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.375rem',
-                                  padding: '0.375rem 0.875rem',
-                                  borderRadius: '0.5rem',
-                                  backgroundColor: '#16a34a',
-                                  color: 'white',
-                                  border: 'none',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 700,
-                                  cursor: downloadingId === fee.id ? 'wait' : 'pointer',
-                                  boxShadow: '0 2px 6px rgba(22,163,74,0.3)',
-                                }}
-                              >
-                                <Download style={{ width: '0.75rem', height: '0.75rem' }} />
-                                <span>{downloadingId === fee.id ? 'Generating PDF...' : 'Download Receipt (PDF)'}</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {fee.status === 'PENDING' && (
-                          <div style={{
-                            marginTop: '1.25rem', padding: '1rem', borderRadius: '0.75rem',
-                            backgroundColor: isDark ? 'rgba(245,158,11,0.05)' : '#fffbeb',
-                            border: `1px solid ${isDark ? 'rgba(245,158,11,0.2)' : '#fde68a'}`,
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <AlertCircle style={{ width: '1rem', height: '1rem', color: '#f59e0b' }} />
-                              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#f59e0b' }}>Payment Pending</span>
-                            </div>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.375rem' }}>
-                              {money(fee.amount)} due by {fmt(fee.dueDate)}
-                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadReceipt(fee.id, fee.receiptNumber)}
+                              disabled={downloadingId === fee.id}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                                padding: '0.5rem 1.125rem', borderRadius: '0.625rem',
+                                backgroundColor: '#16a34a', color: 'white', border: 'none',
+                                fontSize: '0.8125rem', fontWeight: 800, cursor: 'pointer',
+                              }}
+                            >
+                              <Download style={{ width: '0.875rem', height: '0.875rem' }} />
+                              Download Official PDF
+                            </button>
                           </div>
                         )}
                       </div>
@@ -479,18 +494,6 @@ export function FeesPage() {
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function InfoBlock({ label, value, icon: Icon }: { label: string; value: string; icon: any }) {
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
-        <Icon style={{ width: '0.75rem', height: '0.75rem', color: 'var(--text-muted)' }} />
-        <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      </div>
-      <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{value}</p>
     </div>
   );
 }

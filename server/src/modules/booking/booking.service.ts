@@ -102,7 +102,41 @@ export class BookingService {
       const allocation = await tx.roomAllocation.create({ data: { studentId, roomId: room.id, bedNumber, allocatedFrom: new Date() } });
       const occupiedBeds = room.occupiedBeds + 1;
       await tx.room.update({ where: { id: room.id }, data: { occupiedBeds, status: occupiedBeds >= room.capacity ? "FULL" : "PARTIALLY_OCCUPIED", version: { increment: 1 } } });
-      const fee = await tx.fee.create({ data: { studentId, allocationId: allocation.id, amount: room.feePerSemester, status: "PAID", transactionId: paymentId, paymentMethod: "RAZORPAY", paidAt: new Date(), dueDate: new Date() } });
+      const fee = await tx.fee.create({
+        data: {
+          studentId,
+          allocationId: allocation.id,
+          amount: room.feePerSemester,
+          type: "HOSTEL_FEE",
+          status: "PAID",
+          transactionId: paymentId,
+          paymentMethod: "RAZORPAY",
+          paidAt: new Date(),
+          dueDate: new Date(),
+        },
+      });
+
+      // Ensure PENDING mess fee invoice is created if none exists
+      const existingMessFee = await tx.fee.findFirst({
+        where: { studentId, type: "MESS_FEE" },
+      });
+      if (!existingMessFee) {
+        const messConfig = await tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } });
+        const messAmount = messConfig ? parseFloat(messConfig.value) : 78000;
+        const messDueDate = new Date();
+        messDueDate.setDate(messDueDate.getDate() + 30);
+        await tx.fee.create({
+          data: {
+            studentId,
+            allocationId: allocation.id,
+            amount: messAmount,
+            type: "MESS_FEE",
+            status: "PENDING",
+            dueDate: messDueDate,
+          },
+        });
+      }
+
       await tx.reservation.update({ where: { id: reservation.id }, data: { status: "CONVERTED" } });
       return { allocation, feeId: fee.id };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
