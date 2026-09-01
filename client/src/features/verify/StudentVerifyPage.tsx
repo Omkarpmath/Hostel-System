@@ -5,6 +5,7 @@ import { apiBaseUrl } from '@/api/axios';
 import {
   User, Building2, BedDouble, CreditCard, UtensilsCrossed,
   CheckCircle2, XCircle, Shield, Calendar, Heart, AlertTriangle,
+  Clock, ShieldAlert, ShieldX, RefreshCw,
 } from 'lucide-react';
 
 interface VerifyData {
@@ -46,10 +47,13 @@ export function StudentVerifyPage() {
 
   useEffect(() => {
     if (!token) { setError('No QR token provided'); setLoading(false); return; }
-    fetch(`${apiBaseUrl}/verify/student/${encodeURIComponent(token)}`)
+    fetch(`${apiBaseUrl}/verify/student/${encodeURIComponent(token)}`, {
+      cache: 'no-store',
+      headers: { 'Pragma': 'no-cache' },
+    })
       .then(async (res) => {
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json.message || 'Invalid QR code');
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) throw new Error(json.message || 'Invalid or expired QR code');
         setData(json.data);
       })
       .catch((err) => setError(err.message))
@@ -60,29 +64,115 @@ export function StudentVerifyPage() {
   if (loading) {
     return (
       <div style={pageStyle}>
-        <div style={{ ...cardStyle, textAlign: 'center', padding: '3rem' }}>
+        <div style={{ ...cardStyle, textAlign: 'center', padding: '3rem', maxWidth: '28rem', width: '100%' }}>
           <div style={{ width: '3rem', height: '3rem', margin: '0 auto', border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-          <p style={{ marginTop: '1rem', color: '#6b7280', fontWeight: 600 }}>Verifying student...</p>
+          <p style={{ marginTop: '1rem', color: '#6b7280', fontWeight: 600 }}>Verifying student QR passport...</p>
           <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
         </div>
       </div>
     );
   }
 
-  // ─── Error ───
+  // ─── Error / Expired / Invalid ───
   if (error || !data) {
+    const isExpired = error.toLowerCase().includes('expired') || error.toLowerCase().includes('static');
+
     return (
       <div style={pageStyle}>
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ ...cardStyle, textAlign: 'center', padding: '3rem', maxWidth: '28rem' }}>
-          <div style={{ width: '4rem', height: '4rem', margin: '0 auto', borderRadius: '50%', backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AlertTriangle style={{ width: '2rem', height: '2rem', color: '#dc2626' }} />
+        <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} style={{ ...cardStyle, maxWidth: '28rem', width: '100%', overflow: 'hidden', padding: 0 }}>
+          
+          {/* Header Banner */}
+          <div style={{
+            background: isExpired
+              ? 'linear-gradient(135deg, #c2410c, #ea580c)'
+              : 'linear-gradient(135deg, #991b1b, #dc2626)',
+            padding: '1.25rem 1.5rem',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+          }}>
+            {isExpired ? (
+              <ShieldAlert style={{ width: '1.75rem', height: '1.75rem', flexShrink: 0 }} />
+            ) : (
+              <ShieldX style={{ width: '1.75rem', height: '1.75rem', flexShrink: 0 }} />
+            )}
+            <div>
+              <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>BMSCE Hostel</h2>
+              <p style={{ fontSize: '0.75rem', opacity: 0.9, margin: 0, fontWeight: 500 }}>
+                {isExpired ? 'Anti-Screenshot Security Triggered' : 'Security Verification Failed'}
+              </p>
+            </div>
+            <span style={{
+              marginLeft: 'auto',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '9999px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              fontSize: '0.625rem',
+              fontWeight: 800,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+            }}>
+              {isExpired ? 'EXPIRED' : 'INVALID'}
+            </span>
           </div>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1f2937', marginTop: '1.25rem' }}>
-            Invalid or Unrecognized QR Code
-          </h1>
-          <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem', lineHeight: 1.6 }}>
-            {error || 'This QR code could not be verified. It may be invalid or the student profile may not exist.'}
-          </p>
+
+          <div style={{ padding: '1.75rem 1.5rem', textAlign: 'center' }}>
+            {/* Status Icon */}
+            <div style={{
+              width: '4.5rem', height: '4.5rem', margin: '0 auto 1.25rem', borderRadius: '50%',
+              backgroundColor: isExpired ? '#ffedd5' : '#fee2e2',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: `2px solid ${isExpired ? '#fdba74' : '#fca5a5'}`,
+            }}>
+              {isExpired ? (
+                <Clock style={{ width: '2.25rem', height: '2.25rem', color: '#ea580c' }} />
+              ) : (
+                <AlertTriangle style={{ width: '2.25rem', height: '2.25rem', color: '#dc2626' }} />
+              )}
+            </div>
+
+            {/* Error Title */}
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: '0 0 0.5rem' }}>
+              {isExpired ? 'Verification Failed: QR Expired' : 'Verification Failed: Invalid QR'}
+            </h1>
+
+            {/* Error Message */}
+            <p style={{ fontSize: '0.875rem', color: '#64748b', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
+              {error || (isExpired
+                ? 'This dynamic QR code has expired. Screenshots cannot be used for campus verification.'
+                : 'This QR code could not be verified by the server.')}
+            </p>
+
+            {/* Action Card / Instructions */}
+            <div style={{
+              backgroundColor: isExpired ? '#fff7ed' : '#fef2f2',
+              border: `1px solid ${isExpired ? '#fed7aa' : '#fecaca'}`,
+              borderRadius: '0.75rem',
+              padding: '1rem',
+              textAlign: 'left',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
+              fontSize: '0.8125rem',
+              color: isExpired ? '#9a3412' : '#991b1b',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700 }}>
+                <Shield style={{ width: '1rem', height: '1rem', flexShrink: 0 }} />
+                <span>Next Steps for Security Personnel:</span>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.25rem', lineHeight: 1.5, fontSize: '0.75rem', color: '#475569' }}>
+                <li>Ask the student to unlock their mobile phone.</li>
+                <li>Ensure they are showing the <strong>live rotating dashboard screen</strong>.</li>
+                <li>Scan the fresh dynamic QR code directly from their active screen.</li>
+              </ul>
+            </div>
+
+            {/* Scan Timestamp */}
+            <p style={{ fontSize: '0.6875rem', color: '#94a3b8', marginTop: '1.25rem', marginBottom: 0 }}>
+              Attempted verification at {new Date().toLocaleTimeString('en-IN')}
+            </p>
+          </div>
         </motion.div>
       </div>
     );

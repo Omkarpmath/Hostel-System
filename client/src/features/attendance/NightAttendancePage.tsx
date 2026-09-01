@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 type ScanResult = {
-  status: 'PRESENT' | 'ON_LEAVE' | 'ALREADY_MARKED' | 'WRONG_HOSTEL' | 'INVALID' | 'ERROR';
+  status: 'PRESENT' | 'ON_LEAVE' | 'ALREADY_MARKED' | 'WRONG_HOSTEL' | 'INVALID' | 'EXPIRED' | 'ERROR';
   message: string;
   studentName?: string;
   usn?: string;
@@ -20,6 +20,7 @@ const statusConfig: Record<string, { color: string; bg: string; icon: typeof Che
   PRESENT: { color: '#16a34a', bg: 'rgba(22, 163, 74, 0.12)', icon: CheckCircle2 },
   ON_LEAVE: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', icon: CalendarOff },
   ALREADY_MARKED: { color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.12)', icon: UserCheck },
+  EXPIRED: { color: '#ea580c', bg: 'rgba(234, 88, 12, 0.15)', icon: AlertTriangle },
   WRONG_HOSTEL: { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.12)', icon: XCircle },
   INVALID: { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.12)', icon: XCircle },
   ERROR: { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.12)', icon: AlertTriangle },
@@ -66,11 +67,12 @@ export function NightAttendancePage() {
       if (result.status === 'PRESENT') {
         setScannedCount((c) => c + 1);
       }
-      // Auto-clear result after 1.8 seconds
+      // Auto-clear result: keep warnings/errors slightly longer (2.5s) for readability
+      const duration = (result.status === 'EXPIRED' || result.status === 'WRONG_HOSTEL') ? 2800 : 1800;
       setTimeout(() => {
         setScanResult(null);
         lastScanRef.current = '';
-      }, 1800);
+      }, duration);
     },
     onError: () => {
       setScanResult({ status: 'ERROR', message: 'Failed to process scan.' });
@@ -100,7 +102,8 @@ export function NightAttendancePage() {
     if (decodedText === lastScanRef.current) return;
 
     let token = decodedText;
-    const match = decodedText.match(/\/verify\/student\/([a-f0-9-]+)/i);
+    // Match both dynamic DQR tokens (base64url) and legacy UUID tokens from URL
+    const match = decodedText.match(/\/verify\/student\/([A-Za-z0-9_\-\.]+)/i);
     if (match) token = match[1];
 
     lastScanRef.current = decodedText;

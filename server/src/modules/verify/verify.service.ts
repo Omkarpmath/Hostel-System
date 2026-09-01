@@ -1,18 +1,38 @@
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { verifyQrToken } from "../../utils/dynamicQr.js";
 
 export class VerifyService {
   /**
-   * Public verification: look up a student by their unique QR token
-   * and return non-sensitive verification data including hostel & fee status.
+   * Public verification: look up a student by their unique dynamic QR token
+   * (or legacy UUID token) and return non-sensitive verification data including hostel & fee status.
    */
   async verifyStudent(token: string) {
     if (!token || token.length < 10) {
       throw ApiError.notFound("Invalid or unrecognized QR code");
     }
 
+    const check = verifyQrToken(token);
+
+    if (!check.valid) {
+      if (check.error === "EXPIRED") {
+        throw ApiError.badRequest(
+          check.message || "This QR code has expired. Please ask the student to present the live QR on their phone."
+        );
+      }
+      if (check.error === "TAMPERED") {
+        throw ApiError.badRequest("QR code verification failed. This token appears to be modified or invalid.");
+      }
+      throw ApiError.notFound("Invalid or unrecognized QR code");
+    }
+
+    // Determine query filter: either by student ID (from dynamic token) or static qrCodeToken
+    const whereClause = check.isDynamic && check.studentProfileId
+      ? { id: check.studentProfileId }
+      : { qrCodeToken: token };
+
     const student = await prisma.studentProfile.findUnique({
-      where: { qrCodeToken: token },
+      where: whereClause,
       include: {
         user: {
           select: {
@@ -52,7 +72,7 @@ export class VerifyService {
     });
 
     if (!student) {
-      throw ApiError.notFound("Invalid or unrecognized QR code");
+      throw ApiError.notFound("Student record not found for this QR code");
     }
 
     const allocation = student.roomAllocations[0] || null;

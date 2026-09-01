@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -10,7 +10,7 @@ import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
 import {
   CreditCard, ClipboardList, QrCode, Download,
   Building2, CheckCircle2, Clock, UtensilsCrossed,
-  Megaphone, ChevronRight, X,
+  Megaphone, ChevronRight, X, RotateCw, ShieldCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { announcementApi } from '@/api/announcement.api';
@@ -25,6 +25,9 @@ export function StudentDashboard() {
   const { data: profileData } = useQuery({ queryKey: ['profile'], queryFn: authApi.getProfile });
 
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [dynamicToken, setDynamicToken] = useState<string>('');
+  const [timeLeft, setTimeLeft] = useState<number>(30);
+  const [isRotating, setIsRotating] = useState<boolean>(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
 
   // Fetch announcements targeted to this student
@@ -47,28 +50,58 @@ export function StudentDashboard() {
   const overview = (data?.data as any)?.data;
   const profile = (profileData?.data as any)?.data;
   const allocation = overview?.profile?.roomAllocations?.[0];
-  const qrToken = overview?.profile?.qrCodeToken || profile?.studentProfile?.qrCodeToken;
 
   // Fee status from overview
   const fees: any[] = overview?.fees || [];
   const hostelFeePaid = fees.some((f: any) => f.type === 'HOSTEL_FEE' && f.status === 'PAID');
   const messFeePaid = fees.some((f: any) => f.type === 'MESS_FEE' && f.status === 'PAID');
 
-  // Generate QR code
+  // Fetch Dynamic QR Token from Server
+  const fetchNewDynamicQr = useCallback(async () => {
+    try {
+      setIsRotating(true);
+      const res = await authApi.getDynamicQr();
+      const token = (res.data as any)?.data?.token;
+      if (token) {
+        setDynamicToken(token);
+        setTimeLeft(30);
+
+        const publicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL?.replace(/\/$/, '') || window.location.origin;
+        const url = `${publicAppUrl}/verify/student/${token}`;
+        const dataUrl = await QRCode.toDataURL(url, {
+          width: 256,
+          margin: 2,
+          color: { dark: '#0f172a', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        });
+        setQrDataUrl(dataUrl);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dynamic QR token:', err);
+    } finally {
+      setIsRotating(false);
+    }
+  }, []);
+
+  // Initial fetch on component mount
   useEffect(() => {
-    if (!qrToken) return;
-    // localhost only works on the device displaying the QR.  Set
-    // VITE_PUBLIC_APP_URL to this computer's LAN/deployed URL so scanners can
-    // open the verification page from another device.
-    const publicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL?.replace(/\/$/, '') || window.location.origin;
-    const url = `${publicAppUrl}/verify/student/${qrToken}`;
-    QRCode.toDataURL(url, {
-      width: 256,
-      margin: 2,
-      color: { dark: '#1e293b', light: '#ffffff' },
-      errorCorrectionLevel: 'H',
-    }).then(setQrDataUrl).catch(console.error);
-  }, [qrToken]);
+    fetchNewDynamicQr();
+  }, [fetchNewDynamicQr]);
+
+  // 1-second countdown ticker for 30s dynamic rotation
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          fetchNewDynamicQr();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [fetchNewDynamicQr]);
 
   if (isLoading) return <PageSkeleton />;
 
@@ -98,77 +131,158 @@ export function StudentDashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
 
-        {/* ─── QR Code Card ─── */}
-        {qrToken && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{
-              ...cardStyle,
-              gridRow: 'span 2',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              background: isDark
-                ? 'linear-gradient(135deg, rgba(30,64,175,0.08), rgba(13,148,136,0.05))'
-                : 'linear-gradient(135deg, #f0f9ff, #f0fdfa)',
-              border: `1px solid ${isDark ? 'rgba(59,130,246,0.2)' : '#bfdbfe'}`,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', width: '100%' }}>
+        {/* ─── Dynamic Rotating QR Code Card ─── */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            ...cardStyle,
+            gridRow: 'span 2',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            background: isDark
+              ? 'linear-gradient(135deg, rgba(30,64,175,0.08), rgba(13,148,136,0.05))'
+              : 'linear-gradient(135deg, #f0f9ff, #f0fdfa)',
+            border: `1px solid ${isDark ? 'rgba(59,130,246,0.2)' : '#bfdbfe'}`,
+            position: 'relative',
+          }}
+        >
+          {/* Card Header with Live Badge & Refresh Button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
               <QrCode style={{ width: '1.25rem', height: '1.25rem', color: isDark ? '#60a5fa' : '#2563eb' }} />
-              <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>My QR Code</h3>
+              <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>My QR Code</h3>
             </div>
 
-            {/* QR Image */}
+            {/* Live Indicator Badge */}
             <div style={{
-              backgroundColor: 'white',
-              borderRadius: '0.875rem',
-              padding: '1rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-              border: '1px solid #e5e7eb',
-              marginBottom: '1rem',
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.2rem 0.5rem', borderRadius: '9999px',
+              backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#dcfce7',
+              border: `1px solid ${isDark ? 'rgba(16,185,129,0.3)' : '#bbf7d0'}`,
+              fontSize: '0.6875rem', fontWeight: 700, color: isDark ? '#4ade80' : '#15803d',
             }}>
-              {qrDataUrl ? (
-                <img src={qrDataUrl} alt="Student QR Code" style={{ width: '12rem', height: '12rem', display: 'block' }} />
-              ) : (
-                <div style={{ width: '12rem', height: '12rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-                  Generating…
-                </div>
-              )}
+              <span style={{
+                width: '0.45rem', height: '0.45rem', borderRadius: '50%',
+                backgroundColor: '#22c55e', display: 'inline-block',
+                boxShadow: '0 0 6px rgba(34, 197, 94, 0.8)',
+              }} />
+              <span>LIVE DYNAMIC</span>
+            </div>
+          </div>
+
+          {/* QR Image Frame */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.875rem',
+            padding: '0.875rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            border: '1px solid #e5e7eb',
+            marginBottom: '0.75rem',
+            position: 'relative',
+          }}>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="Dynamic Student QR Code"
+                style={{
+                  width: '11.5rem',
+                  height: '11.5rem',
+                  display: 'block',
+                  opacity: isRotating ? 0.6 : 1,
+                  transition: 'opacity 0.2s ease',
+                }}
+              />
+            ) : (
+              <div style={{ width: '11.5rem', height: '11.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.8125rem' }}>
+                <Clock style={{ width: '1.25rem', height: '1.25rem', animation: 'spin 2s linear infinite', marginRight: '0.35rem' }} />
+                Generating…
+              </div>
+            )}
+          </div>
+
+          {/* Student Info */}
+          <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 0.15rem' }}>
+            {user?.firstName} {user?.lastName}
+          </p>
+          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'monospace', margin: '0 0 0.75rem' }}>
+            {profile?.studentProfile?.usn || overview?.profile?.usn || ''}
+          </p>
+
+          {/* Dynamic 30s Countdown Bar */}
+          <div style={{
+            width: '100%',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+            borderRadius: '0.625rem',
+            padding: '0.5rem 0.75rem',
+            border: '1px solid var(--border-primary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.35rem',
+            marginBottom: '0.75rem',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.6875rem' }}>
+              <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
+                <Clock style={{ width: '0.75rem', height: '0.75rem', color: '#3b82f6' }} />
+                Refreshes in:
+              </span>
+              <span style={{ fontWeight: 800, color: timeLeft <= 5 ? '#ef4444' : '#2563eb', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                {timeLeft}s
+              </span>
             </div>
 
-            {/* Student Info */}
-            <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center' }}>
-              {user?.firstName} {user?.lastName}
-            </p>
-            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'monospace', marginTop: '0.25rem' }}>
-              {profile?.studentProfile?.usn || overview?.profile?.usn || ''}
-            </p>
+            {/* Progress Bar */}
+            <div style={{ width: '100%', height: '4px', backgroundColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${(timeLeft / 30) * 100}%`,
+                  backgroundColor: timeLeft <= 5 ? '#ef4444' : '#2563eb',
+                  transition: 'width 1s linear, background-color 0.3s ease',
+                }}
+              />
+            </div>
+          </div>
 
-            {/* Download Button */}
+          {/* Anti-Screenshot Notice & Force Refresh Button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}>
+            <span style={{
+              fontSize: '0.625rem',
+              color: isDark ? '#94a3b8' : '#64748b',
+              lineHeight: 1.3,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}>
+              <ShieldCheck style={{ width: '0.875rem', height: '0.875rem', color: '#10b981', flexShrink: 0 }} />
+              Anti-screenshot protected
+            </span>
+
             <button
-              onClick={downloadQR}
+              onClick={fetchNewDynamicQr}
+              disabled={isRotating}
+              title="Refresh QR immediately"
               style={{
-                marginTop: '1rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.375rem',
-                padding: '0.5rem 1rem',
-                borderRadius: '0.625rem',
+                gap: '0.25rem',
+                padding: '0.35rem 0.65rem',
+                borderRadius: '0.5rem',
                 border: '1px solid var(--border-primary)',
                 backgroundColor: 'transparent',
                 color: 'var(--text-primary)',
-                fontSize: '0.75rem',
+                fontSize: '0.6875rem',
                 fontWeight: 600,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}
             >
-              <Download style={{ width: '0.875rem', height: '0.875rem' }} /> Download QR
+              <RotateCw style={{ width: '0.75rem', height: '0.75rem', animation: isRotating ? 'spin 1s linear infinite' : 'none' }} />
+              Refresh
             </button>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
 
         {/* ─── Room & Hostel Card ─── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} style={cardStyle}>

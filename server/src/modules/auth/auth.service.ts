@@ -216,6 +216,27 @@ export class AuthService {
     const { passwordHash: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
+
+  async getDynamicQr(userId: string) {
+    const student = await prisma.studentProfile.findUnique({
+      where: { userId },
+      select: { id: true, usn: true, userId: true },
+    });
+
+    if (!student) {
+      throw ApiError.notFound("Student profile not found. Complete your profile first.");
+    }
+
+    const { generateDynamicQrToken } = await import("../../utils/dynamicQr.js");
+    const { token, expiresInSeconds, expiresAt } = generateDynamicQrToken(student);
+
+    return {
+      token,
+      expiresInSeconds,
+      expiresAt: expiresAt.toISOString(),
+      usn: student.usn,
+    };
+  }
 }
 
 export const authService = new AuthService();

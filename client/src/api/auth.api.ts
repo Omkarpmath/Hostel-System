@@ -19,4 +19,7 @@ export const authApi = {
 
   getProfile: () =>
     api.get<ApiResponse<User>>('/auth/profile'),
+
+  getDynamicQr: () =>
+    api.get<ApiResponse<{ token: string; expiresInSeconds: number; expiresAt: string; usn: string }>>('/auth/dynamic-qr'),
 };
