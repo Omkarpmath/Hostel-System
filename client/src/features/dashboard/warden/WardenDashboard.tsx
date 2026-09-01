@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { StatCard } from '@/components/shared/StatCard';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
 import { useTheme } from '@/providers/ThemeProvider';
 import {
   Users, ClipboardList, MessageSquareWarning,
@@ -17,13 +18,13 @@ export function WardenDashboard() {
   const isDark = theme === 'dark';
 
   // Fetch dashboard stats from backend
-  const { data: statsData } = useQuery({
+  const { data: statsData, isLoading: isStatsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
-    queryFn: () => hostelApi.getDashboardStats(),
+    queryFn: async () => (await hostelApi.getDashboardStats()).data,
     retry: 1,
   });
 
-  const stats = (statsData?.data as any)?.data || null;
+  const stats = (statsData as any)?.data || (statsData as any) || null;
 
   // Fetch students list
   const { data: studentsData } = useQuery({
@@ -46,6 +47,8 @@ export function WardenDashboard() {
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
     overflow: 'hidden',
   };
+
+  if (isStatsLoading) return <PageSkeleton />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

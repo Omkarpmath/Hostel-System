@@ -13,8 +13,9 @@ import {
   User, ChevronRight, CheckCircle2,
   Wrench, Zap, Droplets, Wifi, Trash2, HelpCircle,
   Paperclip, Film, Search, Clock,
-  Calendar, BedDouble, Play, Image as ImageIcon,
+  Calendar, BedDouble, Play, Image as ImageIcon, Building2,
 } from 'lucide-react';
+import { hostelApi } from '@/api/hostel.api';
 
 const isVideoUrl = (url?: string | null) =>
   typeof url === 'string' && (url.startsWith('data:video/') || /\.(mp4|webm|mov|m4v)$/i.test(url));
@@ -53,12 +54,23 @@ export function ComplaintsPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
+  const [selectedHostel, setSelectedHostel] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [resolvingComplaint, setResolvingComplaint] = useState<any | null>(null);
 
+  const canFilterHostel = user?.role === 'ADMIN' || user?.role === 'WARDEN';
+
+  // Fetch available hostels for filter
+  const { data: hostelsData } = useQuery({
+    queryKey: ['hostels-list'],
+    queryFn: () => hostelApi.getAll(),
+    enabled: canFilterHostel,
+  });
+  const availableHostels: any[] = (hostelsData?.data as any)?.data || [];
+
   const { data, isLoading, isError, error } = useQuery<any>({
-    queryKey: ['complaints'],
-    queryFn: operationsApi.complaints,
+    queryKey: ['complaints', selectedHostel],
+    queryFn: () => operationsApi.complaints({ hostelId: selectedHostel !== 'ALL' ? selectedHostel : undefined }),
     retry: 1,
   });
   const complaints: any[] = (data?.data as any)?.data || [];
@@ -297,9 +309,36 @@ export function ComplaintsPage() {
             ))}
           </select>
 
-          {(statusFilter !== 'ALL' || categoryFilter !== 'ALL' || priorityFilter !== 'ALL' || searchQuery) && (
+          {/* Hostel Filter (Admin/Warden) */}
+          {canFilterHostel && availableHostels.length > 0 && (
+            <select
+              value={selectedHostel}
+              onChange={(e) => setSelectedHostel(e.target.value)}
+              style={{
+                padding: '0.5rem 0.875rem',
+                borderRadius: '0.625rem',
+                border: '1px solid var(--border-primary)',
+                backgroundColor: 'var(--bg-input)',
+                color: 'var(--text-primary)',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none',
+                fontFamily: 'inherit',
+              }}
+            >
+              <option value="ALL">All Hostels ({availableHostels.length})</option>
+              {availableHostels.map((h: any) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {(statusFilter !== 'ALL' || categoryFilter !== 'ALL' || priorityFilter !== 'ALL' || selectedHostel !== 'ALL' || searchQuery) && (
             <button
-              onClick={() => { setStatusFilter('ALL'); setCategoryFilter('ALL'); setPriorityFilter('ALL'); setSearchQuery(''); }}
+              onClick={() => { setStatusFilter('ALL'); setCategoryFilter('ALL'); setPriorityFilter('ALL'); setSelectedHostel('ALL'); setSearchQuery(''); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -481,6 +520,24 @@ export function ComplaintsPage() {
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-muted)' }}>
                           <BedDouble style={{ width: '0.75rem', height: '0.75rem' }} />
                           Room {roomNumber}
+                        </span>
+                      )}
+
+                      {/* Hostel info badge */}
+                      {hostelName && (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          padding: '0.125rem 0.5rem',
+                          borderRadius: '0.375rem',
+                          backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
+                          color: isDark ? '#93c5fd' : '#1d4ed8',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                        }}>
+                          <Building2 style={{ width: '0.75rem', height: '0.75rem' }} />
+                          {hostelName}
                         </span>
                       )}
                     </div>

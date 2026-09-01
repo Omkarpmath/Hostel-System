@@ -6,6 +6,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { operationsApi } from '@/api/operations.api';
+import { loadRazorpayScript } from '@/lib/razorpay';
 import {
   UtensilsCrossed, CheckCircle2, Clock, IndianRupee,
   CreditCard, Calendar, AlertCircle, Receipt, Download,
@@ -88,9 +89,10 @@ export function MessFeePage() {
       const res = await messFeeApi.createOrder();
       const order = (res.data as any)?.data;
       if (!order) throw new Error('Could not create payment order.');
-      setOrderInfo({ orderId: order.orderId, reused: order.reused });
-
-      if (!(window as any).Razorpay) throw new Error('Razorpay Checkout has not loaded. Refresh and try again.');
+      const loaded = await loadRazorpayScript();
+      if (!loaded || !(window as any).Razorpay) {
+        throw new Error('Razorpay Checkout could not be loaded. Please check your internet connection and try again.');
+      }
 
       const checkout = new (window as any).Razorpay({
         key: order.keyId,

@@ -2,7 +2,43 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
 
-const studentInclude = { student: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } } } } as const;
+const studentInclude = {
+  student: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
+        },
+      },
+      roomAllocations: {
+        where: { status: "ACTIVE" as const },
+        take: 1,
+        include: {
+          room: {
+            include: {
+              floor: {
+                include: {
+                  block: {
+                    include: {
+                      hostel: {
+                        select: { id: true, name: true, type: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
 
 function roomInclude() {
   return { room: { include: { floor: { include: { block: { include: { hostel: { select: { id: true, name: true, type: true } } } } } } } } };
@@ -43,8 +79,24 @@ const visitorStudentInclude = {
 };
 
 export class OperationsService {
-  private wardenStudents(wardenId: string): Prisma.StudentProfileWhereInput {
-    return { roomAllocations: { some: { status: "ACTIVE", room: { floor: { block: { hostel: { wardenId } } } } } } };
+  private wardenStudents(wardenId: string, specificHostelId?: string): Prisma.StudentProfileWhereInput {
+    const hostelCondition = specificHostelId
+      ? { id: specificHostelId, OR: [{ wardenId }, { warden: { id: wardenId } }] }
+      : { OR: [{ wardenId }, { warden: { id: wardenId } }] };
+    return {
+      roomAllocations: {
+        some: {
+          status: "ACTIVE",
+          room: {
+            floor: {
+              block: {
+                hostel: hostelCondition,
+              },
+            },
+          },
+        },
+      },
+    };
   }
   private async studentId(userId: string) {
     const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } });
@@ -92,8 +144,35 @@ export class OperationsService {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
-  async listLeaves(userId: string, role: string) {
-    const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : role === "WARDEN" ? { student: this.wardenStudents(userId) } : {};
+  async listLeaves(userId: string, role: string, filters?: { hostelId?: string }) {
+    let where: Prisma.LeaveRequestWhereInput = {};
+    const selectedHostelId = filters?.hostelId && filters.hostelId !== "ALL" ? filters.hostelId : undefined;
+
+    if (role === "STUDENT") {
+      where = { studentId: await this.studentId(userId) };
+    } else if (role === "WARDEN") {
+      where = { student: this.wardenStudents(userId, selectedHostelId) };
+    } else {
+      // ADMIN / ACCOUNTANT
+      if (selectedHostelId) {
+        where = {
+          student: {
+            roomAllocations: {
+              some: {
+                status: "ACTIVE",
+                room: {
+                  floor: {
+                    block: {
+                      hostelId: selectedHostelId,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        };
+      }
+    }
     return prisma.leaveRequest.findMany({ where, include: studentInclude, orderBy: { createdAt: "desc" } });
   }
   async createLeave(userId: string, data: any) { return prisma.leaveRequest.create({ data: { studentId: await this.studentId(userId), ...data }, include: studentInclude }); }
@@ -104,8 +183,35 @@ export class OperationsService {
     return prisma.leaveRequest.update({ where: { id }, data: { status: data.status, rejectionReason: data.status === "REJECTED" ? data.rejectionReason : null, approvedBy: approverId, approvedAt: new Date() }, include: studentInclude });
   }
 
-  async listComplaints(userId: string, role: string) {
-    const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : role === "WARDEN" ? { student: this.wardenStudents(userId) } : {};
+  async listComplaints(userId: string, role: string, filters?: { hostelId?: string }) {
+    let where: Prisma.ComplaintWhereInput = {};
+    const selectedHostelId = filters?.hostelId && filters.hostelId !== "ALL" ? filters.hostelId : undefined;
+
+    if (role === "STUDENT") {
+      where = { studentId: await this.studentId(userId) };
+    } else if (role === "WARDEN") {
+      where = { student: this.wardenStudents(userId, selectedHostelId) };
+    } else {
+      // ADMIN / ACCOUNTANT
+      if (selectedHostelId) {
+        where = {
+          student: {
+            roomAllocations: {
+              some: {
+                status: "ACTIVE",
+                room: {
+                  floor: {
+                    block: {
+                      hostelId: selectedHostelId,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        };
+      }
+    }
     return prisma.complaint.findMany({ where, include: { ...studentInclude, images: true }, orderBy: { createdAt: "desc" } });
   }
   async createComplaint(userId: string, data: any, files?: Express.Multer.File[]) {
@@ -335,9 +441,90 @@ export class OperationsService {
     });
   }
 
-  async listFees(userId: string, role: string) {
-    const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : {};
-    return prisma.fee.findMany({ where, include: { ...studentInclude, allocation: { include: roomInclude() } }, orderBy: { createdAt: "desc" } });
+  async listFees(userId: string, role: string, filters?: { hostelId?: string }) {
+    let where: Prisma.FeeWhereInput = {};
+    const selectedHostelId = filters?.hostelId && filters.hostelId !== "ALL" ? filters.hostelId : undefined;
+
+    if (role === "STUDENT") {
+      where = { studentId: await this.studentId(userId) };
+    } else if (role === "WARDEN") {
+      const hostelCondition = selectedHostelId
+        ? { id: selectedHostelId, OR: [{ wardenId: userId }, { warden: { id: userId } }] }
+        : { OR: [{ wardenId: userId }, { warden: { id: userId } }] };
+
+      where = {
+        OR: [
+          {
+            allocation: {
+              room: {
+                floor: {
+                  block: {
+                    hostel: hostelCondition,
+                  },
+                },
+              },
+            },
+          },
+          {
+            student: {
+              roomAllocations: {
+                some: {
+                  status: "ACTIVE",
+                  room: {
+                    floor: {
+                      block: {
+                        hostel: hostelCondition,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      };
+    } else {
+      // ADMIN / ACCOUNTANT
+      if (selectedHostelId) {
+        where = {
+          OR: [
+            {
+              allocation: {
+                room: {
+                  floor: {
+                    block: {
+                      hostelId: selectedHostelId,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              student: {
+                roomAllocations: {
+                  some: {
+                    status: "ACTIVE",
+                    room: {
+                      floor: {
+                        block: {
+                          hostelId: selectedHostelId,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        };
+      }
+    }
+
+    return prisma.fee.findMany({
+      where,
+      include: { ...studentInclude, allocation: { include: roomInclude() } },
+      orderBy: { createdAt: "desc" },
+    });
   }
 }
 export const operationsService = new OperationsService();

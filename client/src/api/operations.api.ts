@@ -5,10 +5,10 @@ export const operationsApi = {
   overview: () => api.get<ApiResponse<{ profile: any; fees: Fee[]; leaves: LeaveRequest[]; complaints: Complaint[]; visitors: Visitor[] }>>('/me/overview'),
   allocations: () => api.get<ApiResponse<RoomAllocation[]>>('/allocations'),
   allocate: (data: { studentId: string; roomId: string; bedNumber?: number }) => api.post<ApiResponse<RoomAllocation>>('/allocations', data),
-  leaves: () => api.get<ApiResponse<LeaveRequest[]>>('/leaves'),
+  leaves: (params?: { hostelId?: string }) => api.get<ApiResponse<LeaveRequest[]>>('/leaves', { params }),
   createLeave: (data: Record<string, unknown>) => api.post<ApiResponse<LeaveRequest>>('/leaves', data),
   decideLeave: (id: string, data: Record<string, unknown>) => api.patch<ApiResponse<LeaveRequest>>(`/leaves/${id}`, data),
-  complaints: () => api.get<ApiResponse<Complaint[]>>('/complaints'),
+  complaints: (params?: { hostelId?: string }) => api.get<ApiResponse<Complaint[]>>('/complaints', { params }),
   createComplaint: (data: FormData | Record<string, unknown>) => {
     if (data instanceof FormData) {
       return api.post<ApiResponse<Complaint>>('/complaints', data, {
@@ -27,6 +27,6 @@ export const operationsApi = {
   visitors: (params?: { hostelId?: string; date?: string }) => api.get<ApiResponse<Visitor[]>>('/visitors', { params }),
   createVisitor: (data: Record<string, unknown>) => api.post<ApiResponse<Visitor>>('/visitors', data),
   hostelStudents: (params?: { hostelId?: string }) => api.get<ApiResponse<any[]>>('/visitors/students', { params }),
-  fees: () => api.get<ApiResponse<Fee[]>>('/fees'),
+  fees: (params?: { hostelId?: string }) => api.get<ApiResponse<Fee[]>>('/fees', { params }),
   downloadReceipt: (feeId: string) => api.get(`/fees/${feeId}/receipt`, { responseType: 'blob' }),
 };

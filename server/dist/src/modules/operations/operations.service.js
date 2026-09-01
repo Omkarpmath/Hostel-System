@@ -5,12 +5,35 @@ const studentInclude = {
     student: {
         include: {
             user: {
-                select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true },
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    phone: true,
+                    avatarUrl: true,
+                },
             },
             roomAllocations: {
                 where: { status: "ACTIVE" },
                 take: 1,
-                include: roomInclude(),
+                include: {
+                    room: {
+                        include: {
+                            floor: {
+                                include: {
+                                    block: {
+                                        include: {
+                                            hostel: {
+                                                select: { id: true, name: true, type: true },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             },
         },
     },
@@ -52,7 +75,10 @@ const visitorStudentInclude = {
     },
 };
 export class OperationsService {
-    wardenStudents(wardenId, targetHostelId) {
+    wardenStudents(wardenId, specificHostelId) {
+        const hostelCondition = specificHostelId
+            ? { id: specificHostelId, OR: [{ wardenId }, { warden: { id: wardenId } }] }
+            : { OR: [{ wardenId }, { warden: { id: wardenId } }] };
         return {
             roomAllocations: {
                 some: {
@@ -60,8 +86,7 @@ export class OperationsService {
                     room: {
                         floor: {
                             block: {
-                                hostelId: targetHostelId || undefined,
-                                hostel: targetHostelId ? undefined : { wardenId },
+                                hostel: hostelCondition,
                             },
                         },
                     },
@@ -120,41 +145,30 @@ export class OperationsService {
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     }
     async listLeaves(userId, role, filters) {
-        const where = {};
+        let where = {};
+        const selectedHostelId = filters?.hostelId && filters.hostelId !== "ALL" ? filters.hostelId : undefined;
         if (role === "STUDENT") {
-            where.studentId = await this.studentId(userId);
+            where = { studentId: await this.studentId(userId) };
         }
         else if (role === "WARDEN") {
-            const warden = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { wardenHostels: { where: { deletedAt: null }, select: { id: true } } },
-            });
-            const assignedIds = warden?.wardenHostels.map((h) => h.id) || [];
-            if (assignedIds.length === 0)
-                return [];
-            let targetHostelFilter = { in: assignedIds };
-            if (filters?.hostelId && filters.hostelId !== "ALL") {
-                if (!assignedIds.includes(filters.hostelId)) {
-                    throw ApiError.forbidden("You do not have access to leave requests for this hostel");
-                }
-                targetHostelFilter = filters.hostelId;
-            }
-            where.student = {
-                roomAllocations: {
-                    some: {
-                        status: "ACTIVE",
-                        room: { floor: { block: { hostelId: targetHostelFilter } } },
-                    },
-                },
-            };
+            where = { student: this.wardenStudents(userId, selectedHostelId) };
         }
-        else if (role === "ADMIN") {
-            if (filters?.hostelId && filters.hostelId !== "ALL") {
-                where.student = {
-                    roomAllocations: {
-                        some: {
-                            status: "ACTIVE",
-                            room: { floor: { block: { hostelId: filters.hostelId } } },
+        else {
+            // ADMIN / ACCOUNTANT
+            if (selectedHostelId) {
+                where = {
+                    student: {
+                        roomAllocations: {
+                            some: {
+                                status: "ACTIVE",
+                                room: {
+                                    floor: {
+                                        block: {
+                                            hostelId: selectedHostelId,
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
                 };
@@ -172,41 +186,30 @@ export class OperationsService {
         return prisma.leaveRequest.update({ where: { id }, data: { status: data.status, rejectionReason: data.status === "REJECTED" ? data.rejectionReason : null, approvedBy: approverId, approvedAt: new Date() }, include: studentInclude });
     }
     async listComplaints(userId, role, filters) {
-        const where = {};
+        let where = {};
+        const selectedHostelId = filters?.hostelId && filters.hostelId !== "ALL" ? filters.hostelId : undefined;
         if (role === "STUDENT") {
-            where.studentId = await this.studentId(userId);
+            where = { studentId: await this.studentId(userId) };
         }
         else if (role === "WARDEN") {
-            const warden = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { wardenHostels: { where: { deletedAt: null }, select: { id: true } } },
-            });
-            const assignedIds = warden?.wardenHostels.map((h) => h.id) || [];
-            if (assignedIds.length === 0)
-                return [];
-            let targetHostelFilter = { in: assignedIds };
-            if (filters?.hostelId && filters.hostelId !== "ALL") {
-                if (!assignedIds.includes(filters.hostelId)) {
-                    throw ApiError.forbidden("You do not have access to complaints for this hostel");
-                }
-                targetHostelFilter = filters.hostelId;
-            }
-            where.student = {
-                roomAllocations: {
-                    some: {
-                        status: "ACTIVE",
-                        room: { floor: { block: { hostelId: targetHostelFilter } } },
-                    },
-                },
-            };
+            where = { student: this.wardenStudents(userId, selectedHostelId) };
         }
-        else if (role === "ADMIN") {
-            if (filters?.hostelId && filters.hostelId !== "ALL") {
-                where.student = {
-                    roomAllocations: {
-                        some: {
-                            status: "ACTIVE",
-                            room: { floor: { block: { hostelId: filters.hostelId } } },
+        else {
+            // ADMIN / ACCOUNTANT
+            if (selectedHostelId) {
+                where = {
+                    student: {
+                        roomAllocations: {
+                            some: {
+                                status: "ACTIVE",
+                                room: {
+                                    floor: {
+                                        block: {
+                                            hostelId: selectedHostelId,
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
                 };
@@ -434,49 +437,26 @@ export class OperationsService {
         });
     }
     async listFees(userId, role, filters) {
-        const where = {};
+        let where = {};
+        const selectedHostelId = filters?.hostelId && filters.hostelId !== "ALL" ? filters.hostelId : undefined;
         if (role === "STUDENT") {
-            where.studentId = await this.studentId(userId);
+            where = { studentId: await this.studentId(userId) };
         }
         else if (role === "WARDEN") {
-            const warden = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { wardenHostels: { where: { deletedAt: null }, select: { id: true } } },
-            });
-            const assignedIds = warden?.wardenHostels.map((h) => h.id) || [];
-            if (assignedIds.length === 0)
-                return [];
-            let targetHostelFilter = { in: assignedIds };
-            if (filters?.hostelId && filters.hostelId !== "ALL") {
-                if (!assignedIds.includes(filters.hostelId)) {
-                    throw ApiError.forbidden("You do not have access to fees for this hostel");
-                }
-                targetHostelFilter = filters.hostelId;
-            }
-            where.OR = [
-                {
-                    allocation: {
-                        room: { floor: { block: { hostelId: targetHostelFilter } } },
-                    },
-                },
-                {
-                    student: {
-                        roomAllocations: {
-                            some: {
-                                status: "ACTIVE",
-                                room: { floor: { block: { hostelId: targetHostelFilter } } },
-                            },
-                        },
-                    },
-                },
-            ];
-        }
-        else if (role === "ADMIN" || role === "ACCOUNTANT") {
-            if (filters?.hostelId && filters.hostelId !== "ALL") {
-                where.OR = [
+            const hostelCondition = selectedHostelId
+                ? { id: selectedHostelId, OR: [{ wardenId: userId }, { warden: { id: userId } }] }
+                : { OR: [{ wardenId: userId }, { warden: { id: userId } }] };
+            where = {
+                OR: [
                     {
                         allocation: {
-                            room: { floor: { block: { hostelId: filters.hostelId } } },
+                            room: {
+                                floor: {
+                                    block: {
+                                        hostel: hostelCondition,
+                                    },
+                                },
+                            },
                         },
                     },
                     {
@@ -484,20 +464,59 @@ export class OperationsService {
                             roomAllocations: {
                                 some: {
                                     status: "ACTIVE",
-                                    room: { floor: { block: { hostelId: filters.hostelId } } },
+                                    room: {
+                                        floor: {
+                                            block: {
+                                                hostel: hostelCondition,
+                                            },
+                                        },
+                                    },
                                 },
                             },
                         },
                     },
-                ];
+                ],
+            };
+        }
+        else {
+            // ADMIN / ACCOUNTANT
+            if (selectedHostelId) {
+                where = {
+                    OR: [
+                        {
+                            allocation: {
+                                room: {
+                                    floor: {
+                                        block: {
+                                            hostelId: selectedHostelId,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        {
+                            student: {
+                                roomAllocations: {
+                                    some: {
+                                        status: "ACTIVE",
+                                        room: {
+                                            floor: {
+                                                block: {
+                                                    hostelId: selectedHostelId,
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                };
             }
         }
         return prisma.fee.findMany({
             where,
-            include: {
-                ...studentInclude,
-                allocation: { include: roomInclude() },
-            },
+            include: { ...studentInclude, allocation: { include: roomInclude() } },
             orderBy: { createdAt: "desc" },
         });
     }

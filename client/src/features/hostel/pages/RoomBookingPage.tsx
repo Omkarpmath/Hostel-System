@@ -10,6 +10,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { motion } from 'framer-motion';
 import { bookingApi } from '@/api/booking.api';
+import { loadRazorpayScript } from '@/lib/razorpay';
 
 export function RoomBookingPage() {
   const { user } = useAuth();
@@ -131,8 +132,10 @@ export function RoomBookingPage() {
       setMessage('');
       const order = (await bookingApi.createOrder(reservation.id)).data.data;
       if (!order) throw new Error('Payment order could not be created.');
-      setOrderInfo({ orderId: order.orderId, reused: (order as any).reused });
-      if (!(window as any).Razorpay) throw new Error('Razorpay Checkout has not loaded. Refresh and try again.');
+      const loaded = await loadRazorpayScript();
+      if (!loaded || !(window as any).Razorpay) {
+        throw new Error('Razorpay Checkout could not be loaded. Please check your internet connection and try again.');
+      }
       const checkout = new (window as any).Razorpay({
         key: order.keyId,
         amount: order.amount,

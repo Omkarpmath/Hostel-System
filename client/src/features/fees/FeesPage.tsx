@@ -10,8 +10,9 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import {
   CreditCard, ChevronRight, User, Calendar, Building2,
   BedDouble, Receipt, IndianRupee, Clock, CheckCircle2, XCircle, AlertCircle,
-  Download,
+  Download, X,
 } from 'lucide-react';
+import { hostelApi } from '@/api/hostel.api';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const money = (v?: number | string) => {
@@ -29,6 +30,15 @@ export function FeesPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const isStudent = user?.role === 'STUDENT';
+  const canFilterHostel = !isStudent;
+  const [selectedHostel, setSelectedHostel] = useState<string>('ALL');
+
+  const { data: hostelsData } = useQuery({
+    queryKey: ['hostels-list'],
+    queryFn: () => hostelApi.getAll(),
+    enabled: canFilterHostel,
+  });
+  const availableHostels: any[] = (hostelsData?.data as any)?.data || [];
 
   const handleDownloadReceipt = async (feeId: string, receiptNumber?: string) => {
     try {
@@ -50,8 +60,8 @@ export function FeesPage() {
   };
 
   const { data, isError, error } = useQuery<any>({
-    queryKey: ['fees'],
-    queryFn: operationsApi.fees,
+    queryKey: ['fees', selectedHostel],
+    queryFn: () => operationsApi.fees({ hostelId: selectedHostel !== 'ALL' ? selectedHostel : undefined }),
     retry: 1,
   });
   const allFees: any[] = (data?.data as any)?.data || [];
@@ -89,37 +99,89 @@ export function FeesPage() {
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Fees' }]}
       />
 
-      {/* Tab Bar — Admin/Accountant/Warden only */}
+      {/* Controls Bar: Tab Switcher + Hostel Filter (Staff only) */}
       {!isStudent && (
-        <div style={{ display: 'flex', gap: '0.25rem', padding: '0.25rem', borderRadius: '0.75rem', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', width: 'fit-content' }}>
-          {([
-            { key: 'HOSTEL_FEE' as const, label: 'Hostel Fees' },
-            { key: 'MESS_FEE' as const, label: 'Mess Fees' },
-          ]).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setExpandedId(null); }}
-              style={{
-                padding: '0.625rem 1.25rem',
-                borderRadius: '0.625rem',
-                border: 'none',
-                fontFamily: 'inherit',
-                fontSize: '0.875rem',
-                fontWeight: activeTab === tab.key ? 700 : 500,
-                cursor: 'pointer',
-                backgroundColor: activeTab === tab.key
-                  ? (isDark ? 'rgba(59,130,246,0.2)' : 'white')
-                  : 'transparent',
-                color: activeTab === tab.key
-                  ? (isDark ? '#60a5fa' : '#1d4ed8')
-                  : 'var(--text-secondary)',
-                boxShadow: activeTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.2s',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.25rem', padding: '0.25rem', borderRadius: '0.75rem', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9', width: 'fit-content' }}>
+            {([
+              { key: 'HOSTEL_FEE' as const, label: 'Hostel Fees' },
+              { key: 'MESS_FEE' as const, label: 'Mess Fees' },
+            ]).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => { setActiveTab(tab.key); setExpandedId(null); }}
+                style={{
+                  padding: '0.625rem 1.25rem',
+                  borderRadius: '0.625rem',
+                  border: 'none',
+                  fontFamily: 'inherit',
+                  fontSize: '0.875rem',
+                  fontWeight: activeTab === tab.key ? 700 : 500,
+                  cursor: 'pointer',
+                  backgroundColor: activeTab === tab.key
+                    ? (isDark ? 'rgba(59,130,246,0.2)' : 'white')
+                    : 'transparent',
+                  color: activeTab === tab.key
+                    ? (isDark ? '#60a5fa' : '#1d4ed8')
+                    : 'var(--text-secondary)',
+                  boxShadow: activeTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Hostel Filter Dropdown */}
+          {availableHostels.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <select
+                value={selectedHostel}
+                onChange={(e) => setSelectedHostel(e.target.value)}
+                style={{
+                  padding: '0.625rem 1rem',
+                  borderRadius: '0.625rem',
+                  border: '1px solid var(--border-primary)',
+                  backgroundColor: 'var(--bg-card)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <option value="ALL">All Hostels ({availableHostels.length})</option>
+                {availableHostels.map((h: any) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+
+              {selectedHostel !== 'ALL' && (
+                <button
+                  onClick={() => setSelectedHostel('ALL')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '0.625rem',
+                    border: '1px solid var(--border-primary)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <X style={{ width: '0.75rem', height: '0.75rem' }} /> Reset
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -212,6 +274,27 @@ export function FeesPage() {
                       {!isStudent && (
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <User style={{ width: '0.75rem', height: '0.75rem' }} />{studentName}
+                        </span>
+                      )}
+                      {roomNum && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <BedDouble style={{ width: '0.75rem', height: '0.75rem' }} />Room {roomNum}
+                        </span>
+                      )}
+                      {hostel && (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          padding: '0.125rem 0.5rem',
+                          borderRadius: '0.375rem',
+                          backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
+                          color: isDark ? '#93c5fd' : '#1d4ed8',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                        }}>
+                          <Building2 style={{ width: '0.75rem', height: '0.75rem' }} />
+                          {hostel}
                         </span>
                       )}
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
