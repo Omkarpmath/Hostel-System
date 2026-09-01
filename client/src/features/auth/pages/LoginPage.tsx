@@ -372,10 +372,10 @@ export function LoginPage() {
                     autoComplete="email"
                     style={{
                       width: '100%',
+                      height: '2.75rem',
+                      boxSizing: 'border-box',
                       paddingLeft: '2.75rem',
                       paddingRight: '1rem',
-                      paddingTop: '0.75rem',
-                      paddingBottom: '0.75rem',
                       borderRadius: '0.75rem',
                       border: '1px solid rgba(255, 255, 255, 0.35)',
                       backgroundColor: isDark ? 'rgba(0, 0, 0, 0.40)' : 'rgba(255, 255, 255, 0.25)',
@@ -426,10 +426,10 @@ export function LoginPage() {
                     autoComplete="current-password"
                     style={{
                       width: '100%',
+                      height: '2.75rem',
+                      boxSizing: 'border-box',
                       paddingLeft: '2.75rem',
                       paddingRight: '2.75rem',
-                      paddingTop: '0.75rem',
-                      paddingBottom: '0.75rem',
                       borderRadius: '0.75rem',
                       border: '1px solid rgba(255, 255, 255, 0.35)',
                       backgroundColor: isDark ? 'rgba(0, 0, 0, 0.40)' : 'rgba(255, 255, 255, 0.25)',

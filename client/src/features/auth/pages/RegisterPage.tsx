@@ -66,10 +66,10 @@ export function RegisterPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
+    height: '2.75rem',
+    boxSizing: 'border-box',
     paddingLeft: '2.5rem',
     paddingRight: '1rem',
-    paddingTop: '0.6875rem',
-    paddingBottom: '0.6875rem',
     borderRadius: '0.75rem',
     border: '1px solid rgba(255, 255, 255, 0.35)',
     backgroundColor: isDark ? 'rgba(0, 0, 0, 0.40)' : 'rgba(255, 255, 255, 0.25)',
