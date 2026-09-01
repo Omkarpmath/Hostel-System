@@ -1,7 +1,20 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
-const studentInclude = { student: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } } } };
+const studentInclude = {
+    student: {
+        include: {
+            user: {
+                select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true },
+            },
+            roomAllocations: {
+                where: { status: "ACTIVE" },
+                take: 1,
+                include: roomInclude(),
+            },
+        },
+    },
+};
 function roomInclude() {
     return { room: { include: { floor: { include: { block: { include: { hostel: { select: { id: true, name: true, type: true } } } } } } } } };
 }
@@ -39,8 +52,22 @@ const visitorStudentInclude = {
     },
 };
 export class OperationsService {
-    wardenStudents(wardenId) {
-        return { roomAllocations: { some: { status: "ACTIVE", room: { floor: { block: { hostel: { wardenId } } } } } } };
+    wardenStudents(wardenId, targetHostelId) {
+        return {
+            roomAllocations: {
+                some: {
+                    status: "ACTIVE",
+                    room: {
+                        floor: {
+                            block: {
+                                hostelId: targetHostelId || undefined,
+                                hostel: targetHostelId ? undefined : { wardenId },
+                            },
+                        },
+                    },
+                },
+            },
+        };
     }
     async studentId(userId) {
         const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } });
@@ -92,8 +119,47 @@ export class OperationsService {
             return allocation;
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     }
-    async listLeaves(userId, role) {
-        const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : role === "WARDEN" ? { student: this.wardenStudents(userId) } : {};
+    async listLeaves(userId, role, filters) {
+        const where = {};
+        if (role === "STUDENT") {
+            where.studentId = await this.studentId(userId);
+        }
+        else if (role === "WARDEN") {
+            const warden = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { wardenHostels: { where: { deletedAt: null }, select: { id: true } } },
+            });
+            const assignedIds = warden?.wardenHostels.map((h) => h.id) || [];
+            if (assignedIds.length === 0)
+                return [];
+            let targetHostelFilter = { in: assignedIds };
+            if (filters?.hostelId && filters.hostelId !== "ALL") {
+                if (!assignedIds.includes(filters.hostelId)) {
+                    throw ApiError.forbidden("You do not have access to leave requests for this hostel");
+                }
+                targetHostelFilter = filters.hostelId;
+            }
+            where.student = {
+                roomAllocations: {
+                    some: {
+                        status: "ACTIVE",
+                        room: { floor: { block: { hostelId: targetHostelFilter } } },
+                    },
+                },
+            };
+        }
+        else if (role === "ADMIN") {
+            if (filters?.hostelId && filters.hostelId !== "ALL") {
+                where.student = {
+                    roomAllocations: {
+                        some: {
+                            status: "ACTIVE",
+                            room: { floor: { block: { hostelId: filters.hostelId } } },
+                        },
+                    },
+                };
+            }
+        }
         return prisma.leaveRequest.findMany({ where, include: studentInclude, orderBy: { createdAt: "desc" } });
     }
     async createLeave(userId, data) { return prisma.leaveRequest.create({ data: { studentId: await this.studentId(userId), ...data }, include: studentInclude }); }
@@ -105,8 +171,47 @@ export class OperationsService {
             throw ApiError.conflict("Only pending leave requests can be decided");
         return prisma.leaveRequest.update({ where: { id }, data: { status: data.status, rejectionReason: data.status === "REJECTED" ? data.rejectionReason : null, approvedBy: approverId, approvedAt: new Date() }, include: studentInclude });
     }
-    async listComplaints(userId, role) {
-        const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : role === "WARDEN" ? { student: this.wardenStudents(userId) } : {};
+    async listComplaints(userId, role, filters) {
+        const where = {};
+        if (role === "STUDENT") {
+            where.studentId = await this.studentId(userId);
+        }
+        else if (role === "WARDEN") {
+            const warden = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { wardenHostels: { where: { deletedAt: null }, select: { id: true } } },
+            });
+            const assignedIds = warden?.wardenHostels.map((h) => h.id) || [];
+            if (assignedIds.length === 0)
+                return [];
+            let targetHostelFilter = { in: assignedIds };
+            if (filters?.hostelId && filters.hostelId !== "ALL") {
+                if (!assignedIds.includes(filters.hostelId)) {
+                    throw ApiError.forbidden("You do not have access to complaints for this hostel");
+                }
+                targetHostelFilter = filters.hostelId;
+            }
+            where.student = {
+                roomAllocations: {
+                    some: {
+                        status: "ACTIVE",
+                        room: { floor: { block: { hostelId: targetHostelFilter } } },
+                    },
+                },
+            };
+        }
+        else if (role === "ADMIN") {
+            if (filters?.hostelId && filters.hostelId !== "ALL") {
+                where.student = {
+                    roomAllocations: {
+                        some: {
+                            status: "ACTIVE",
+                            room: { floor: { block: { hostelId: filters.hostelId } } },
+                        },
+                    },
+                };
+            }
+        }
         return prisma.complaint.findMany({ where, include: { ...studentInclude, images: true }, orderBy: { createdAt: "desc" } });
     }
     async createComplaint(userId, data, files) {
@@ -328,9 +433,73 @@ export class OperationsService {
             orderBy: { user: { firstName: "asc" } },
         });
     }
-    async listFees(userId, role) {
-        const where = role === "STUDENT" ? { studentId: await this.studentId(userId) } : {};
-        return prisma.fee.findMany({ where, include: { ...studentInclude, allocation: { include: roomInclude() } }, orderBy: { createdAt: "desc" } });
+    async listFees(userId, role, filters) {
+        const where = {};
+        if (role === "STUDENT") {
+            where.studentId = await this.studentId(userId);
+        }
+        else if (role === "WARDEN") {
+            const warden = await prisma.user.findUnique({
+                where: { id: userId },
+                include: { wardenHostels: { where: { deletedAt: null }, select: { id: true } } },
+            });
+            const assignedIds = warden?.wardenHostels.map((h) => h.id) || [];
+            if (assignedIds.length === 0)
+                return [];
+            let targetHostelFilter = { in: assignedIds };
+            if (filters?.hostelId && filters.hostelId !== "ALL") {
+                if (!assignedIds.includes(filters.hostelId)) {
+                    throw ApiError.forbidden("You do not have access to fees for this hostel");
+                }
+                targetHostelFilter = filters.hostelId;
+            }
+            where.OR = [
+                {
+                    allocation: {
+                        room: { floor: { block: { hostelId: targetHostelFilter } } },
+                    },
+                },
+                {
+                    student: {
+                        roomAllocations: {
+                            some: {
+                                status: "ACTIVE",
+                                room: { floor: { block: { hostelId: targetHostelFilter } } },
+                            },
+                        },
+                    },
+                },
+            ];
+        }
+        else if (role === "ADMIN" || role === "ACCOUNTANT") {
+            if (filters?.hostelId && filters.hostelId !== "ALL") {
+                where.OR = [
+                    {
+                        allocation: {
+                            room: { floor: { block: { hostelId: filters.hostelId } } },
+                        },
+                    },
+                    {
+                        student: {
+                            roomAllocations: {
+                                some: {
+                                    status: "ACTIVE",
+                                    room: { floor: { block: { hostelId: filters.hostelId } } },
+                                },
+                            },
+                        },
+                    },
+                ];
+            }
+        }
+        return prisma.fee.findMany({
+            where,
+            include: {
+                ...studentInclude,
+                allocation: { include: roomInclude() },
+            },
+            orderBy: { createdAt: "desc" },
+        });
     }
 }
 export const operationsService = new OperationsService();

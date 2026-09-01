@@ -291,12 +291,31 @@ export class UserService {
         // Query User, not StudentProfile: accounts can exist before an administrator
         // completes their profile, and must not disappear from the admin roster.
         const where = { role: "STUDENT" };
+        if (wardenId) {
+            where.studentProfile = {
+                roomAllocations: {
+                    some: {
+                        status: "ACTIVE",
+                        room: {
+                            floor: {
+                                block: {
+                                    hostel: {
+                                        OR: [
+                                            { wardenId },
+                                            { warden: { id: wardenId } },
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+        }
         if (filters?.department)
             where.studentProfile = { department: filters.department };
         if (filters?.year)
             where.studentProfile = { year: filters.year };
-        if (wardenId)
-            where.studentProfile = { roomAllocations: { some: { status: "ACTIVE", room: { floor: { block: { hostel: { wardenId } } } } } } };
         if (filters?.search) {
             where.OR = [
                 { firstName: { contains: filters.search, mode: "insensitive" } },

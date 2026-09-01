@@ -24,13 +24,16 @@ export class OperationsController {
     catch (e) {
         next(e);
     } }
-    async leaves(req, res, next) { try {
-        const u = this.user(req);
-        ApiResponse.success({ res, data: await operationsService.listLeaves(u.userId, u.role) });
+    async leaves(req, res, next) {
+        try {
+            const u = this.user(req);
+            const filters = { hostelId: req.query.hostelId };
+            ApiResponse.success({ res, data: await operationsService.listLeaves(u.userId, u.role, filters) });
+        }
+        catch (e) {
+            next(e);
+        }
     }
-    catch (e) {
-        next(e);
-    } }
     async createLeave(req, res, next) { try {
         const u = this.user(req);
         ApiResponse.created({ res, message: "Leave request submitted", data: await operationsService.createLeave(u.userId, req.body) });
@@ -45,13 +48,16 @@ export class OperationsController {
     catch (e) {
         next(e);
     } }
-    async complaints(req, res, next) { try {
-        const u = this.user(req);
-        ApiResponse.success({ res, data: await operationsService.listComplaints(u.userId, u.role) });
+    async complaints(req, res, next) {
+        try {
+            const u = this.user(req);
+            const filters = { hostelId: req.query.hostelId };
+            ApiResponse.success({ res, data: await operationsService.listComplaints(u.userId, u.role, filters) });
+        }
+        catch (e) {
+            next(e);
+        }
     }
-    catch (e) {
-        next(e);
-    } }
     async createComplaint(req, res, next) { try {
         const u = this.user(req);
         const files = req.files;
@@ -98,13 +104,16 @@ export class OperationsController {
             next(e);
         }
     }
-    async fees(req, res, next) { try {
-        const u = this.user(req);
-        ApiResponse.success({ res, data: await operationsService.listFees(u.userId, u.role) });
+    async fees(req, res, next) {
+        try {
+            const u = this.user(req);
+            const filters = { hostelId: req.query.hostelId };
+            ApiResponse.success({ res, data: await operationsService.listFees(u.userId, u.role, filters) });
+        }
+        catch (e) {
+            next(e);
+        }
     }
-    catch (e) {
-        next(e);
-    } }
     async downloadReceipt(req, res, next) {
         try {
             const u = this.user(req);
