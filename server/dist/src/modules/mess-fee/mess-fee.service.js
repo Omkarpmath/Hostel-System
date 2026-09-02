@@ -32,12 +32,22 @@ export class MessFeeService {
     async getMyStatus(userId) {
         const studentId = await this.studentId(userId);
         const amount = await this.getAmount();
-        // Find any MESS_FEE records for this student
+        // Check if a paid mess fee exists
+        const paidFee = await prisma.fee.findFirst({
+            where: { studentId, type: "MESS_FEE", status: "PAID" },
+            orderBy: { paidAt: "desc" },
+        });
+        // If paid, clean up any duplicate orphaned PENDING mess fees
+        if (paidFee) {
+            await prisma.fee.deleteMany({
+                where: { studentId, type: "MESS_FEE", status: "PENDING" },
+            });
+        }
+        // Find all MESS_FEE records for this student
         const fees = await prisma.fee.findMany({
             where: { studentId, type: "MESS_FEE" },
             orderBy: { createdAt: "desc" },
         });
-        const paidFee = fees.find((f) => f.status === "PAID");
         return {
             annualAmount: amount,
             isPaid: !!paidFee,
@@ -60,9 +70,10 @@ export class MessFeeService {
         });
         if (paid)
             throw ApiError.conflict("Mess fee has already been paid");
-        // Check for existing PENDING order (reuse it like hostel fee does)
+        // Check for ANY existing PENDING mess fee invoice
         const pending = await prisma.fee.findFirst({
-            where: { studentId, type: "MESS_FEE", status: "PENDING", razorpayOrderId: { not: null } },
+            where: { studentId, type: "MESS_FEE", status: "PENDING" },
+            orderBy: { createdAt: "desc" },
         });
         if (pending?.razorpayOrderId) {
             return {
@@ -80,7 +91,7 @@ export class MessFeeService {
             receipt: `mess_${studentId.slice(0, 20)}`,
             notes: { studentId, type: "MESS_FEE" },
         });
-        // Create or update the PENDING fee record
+        // Attach order to existing PENDING fee record if one exists, or create a new one
         if (pending) {
             await prisma.fee.update({
                 where: { id: pending.id },
@@ -124,8 +135,13 @@ export class MessFeeService {
         const existing = await prisma.fee.findFirst({
             where: { transactionId: paymentId, type: "MESS_FEE", status: "PAID" },
         });
-        if (existing)
+        if (existing) {
+            // Clean up any remaining orphaned pending mess fee records
+            await prisma.fee.deleteMany({
+                where: { studentId, type: "MESS_FEE", status: "PENDING" },
+            });
             return existing;
+        }
         // Find the pending fee with this order ID
         const fee = await prisma.fee.findFirst({
             where: { studentId, razorpayOrderId: orderId, type: "MESS_FEE", status: "PENDING" },
@@ -136,8 +152,13 @@ export class MessFeeService {
         const alreadyPaid = await prisma.fee.findFirst({
             where: { studentId, type: "MESS_FEE", status: "PAID" },
         });
-        if (alreadyPaid)
+        if (alreadyPaid) {
+            // Clean up leftover pending mess fee records
+            await prisma.fee.deleteMany({
+                where: { studentId, type: "MESS_FEE", status: "PENDING" },
+            });
             throw ApiError.conflict("Mess fee has already been paid");
+        }
         // Mark as paid
         const updatedFee = await prisma.fee.update({
             where: { id: fee.id },
@@ -146,6 +167,15 @@ export class MessFeeService {
                 transactionId: paymentId,
                 paymentMethod: "RAZORPAY",
                 paidAt: new Date(),
+            },
+        });
+        // Clean up any other leftover orphaned PENDING mess fee records for this student
+        await prisma.fee.deleteMany({
+            where: {
+                studentId,
+                type: "MESS_FEE",
+                status: "PENDING",
+                id: { not: updatedFee.id },
             },
         });
         // Trigger PDF generation and Resend email delivery (non-blocking, fail-safe)
