@@ -67,12 +67,16 @@ export class AttendanceService {
 
     return prisma.attendanceSession.findUnique({
       where: { hostelId_date: { hostelId, date } },
-      include: {
+      select: {
+        id: true,
+        hostelId: true,
+        securityId: true,
+        date: true,
+        status: true,
+        startedAt: true,
+        endedAt: true,
         hostel: { select: { name: true } },
         _count: { select: { records: true } },
-        records: {
-          select: { id: true, studentId: true, scannedAt: true },
-        },
       },
     });
   }
@@ -141,16 +145,19 @@ export class AttendanceService {
 
   /** Scan a student's QR token and return the result. Optimized for minimal DB round-trips. */
   async scanStudent(securityUserId: string, qrToken: string) {
+    const t0 = performance.now();
     const today = new Date();
     const date = this.todayDate();
 
     // 0. Validate token (dynamic QR expiration and signature check)
     const check = verifyQrToken(qrToken);
+    const tQr = performance.now();
+
     if (!check.valid) {
       if (check.error === "EXPIRED") {
         return {
           status: "EXPIRED",
-          message: check.message || "QR Code expired. Please ask the student to present the live QR on their phone.",
+          message: check.message || "QR code has expired. Please scan the live QR code on the student's screen.",
         };
       }
       if (check.error === "TAMPERED") {
@@ -166,7 +173,7 @@ export class AttendanceService {
       ? { id: check.studentProfileId }
       : { qrCodeToken: qrToken };
 
-    // 1. Fetch security user & student profile with leaves in parallel (1 DB round-trip)
+    // 1. Fetch security user & student profile with leaves in parallel (1 lean DB round-trip)
     const [securityUser, student] = await Promise.all([
       prisma.user.findUnique({
         where: { id: securityUserId },
@@ -174,18 +181,23 @@ export class AttendanceService {
       }),
       prisma.studentProfile.findUnique({
         where: studentWhere,
-        include: {
+        select: {
+          id: true,
+          usn: true,
           user: { select: { firstName: true, lastName: true } },
           roomAllocations: {
             where: { status: "ACTIVE" },
             take: 1,
-            include: {
+            select: {
               room: {
-                include: {
+                select: {
                   floor: {
-                    include: {
+                    select: {
                       block: {
-                        include: { hostel: { select: { id: true, name: true } } },
+                        select: {
+                          hostelId: true,
+                          hostel: { select: { id: true, name: true } },
+                        },
                       },
                     },
                   },
@@ -200,10 +212,12 @@ export class AttendanceService {
               toDate: { gte: today },
             },
             take: 1,
+            select: { id: true },
           },
         },
       }),
     ]);
+    const tRead = performance.now();
 
     if (!securityUser?.assignedHostelId) {
       throw ApiError.forbidden("You are not assigned to any hostel. Contact admin.");
@@ -220,7 +234,7 @@ export class AttendanceService {
       return { status: "ERROR", message: `${student.user.firstName} has no active room allocation.` };
     }
 
-    const studentHostelId = allocation.room.floor.block.hostel.id;
+    const studentHostelId = allocation.room.floor.block.hostelId;
     if (studentHostelId !== hostelId) {
       return {
         status: "WRONG_HOSTEL",
@@ -238,30 +252,43 @@ export class AttendanceService {
       };
     }
 
-    // 4. Find the active session for today
+    // 4. Find the active session for today (lean select)
     const session = await prisma.attendanceSession.findUnique({
       where: { hostelId_date: { hostelId, date } },
       select: { id: true, status: true },
     });
+    const tSession = performance.now();
+
     if (!session || session.status !== "ACTIVE") {
       throw ApiError.badRequest("No active attendance session. Start one first.");
     }
 
     // 5. Create attendance record directly (handles duplicate via unique constraint)
+    let writeStatus: "PRESENT" | "ALREADY_MARKED" = "PRESENT";
     try {
       await prisma.attendanceRecord.create({
         data: { sessionId: session.id, studentId: student.id },
       });
     } catch (err: any) {
       if (err?.code === "P2002") {
-        return {
-          status: "ALREADY_MARKED",
-          message: `${student.user.firstName} ${student.user.lastName} is already marked present.`,
-          studentName: `${student.user.firstName} ${student.user.lastName}`,
-          usn: student.usn,
-        };
+        writeStatus = "ALREADY_MARKED";
+      } else {
+        throw err;
       }
-      throw err;
+    }
+    const tWrite = performance.now();
+
+    console.log(
+      `[SCAN PERF] qrValidation: ${(tQr - t0).toFixed(1)}ms | dbRead: ${(tRead - tQr).toFixed(1)}ms | sessionLookup: ${(tSession - tRead).toFixed(1)}ms | dbWrite: ${(tWrite - tSession).toFixed(1)}ms | total: ${(tWrite - t0).toFixed(1)}ms | status: ${writeStatus}`
+    );
+
+    if (writeStatus === "ALREADY_MARKED") {
+      return {
+        status: "ALREADY_MARKED",
+        message: `${student.user.firstName} ${student.user.lastName} is already marked present.`,
+        studentName: `${student.user.firstName} ${student.user.lastName}`,
+        usn: student.usn,
+      };
     }
 
     return {

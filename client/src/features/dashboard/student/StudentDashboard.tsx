@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuth } from '@/providers/AuthProvider';
@@ -55,14 +55,23 @@ export function StudentDashboard() {
   const hostelFeePaid = fees.some((f: any) => f.type === 'HOSTEL_FEE' && f.status === 'PAID');
   const messFeePaid = fees.some((f: any) => f.type === 'MESS_FEE' && f.status === 'PAID');
 
+  const expiresAtRef = useRef<number>(0);
+  const isFetchingRef = useRef<boolean>(false);
+
   // Fetch Dynamic QR Token from Server
   const fetchNewDynamicQr = useCallback(async () => {
+    if (isFetchingRef.current) return;
     try {
+      isFetchingRef.current = true;
       setIsRotating(true);
       const res = await authApi.getDynamicQr();
-      const token = (res.data as any)?.data?.token;
+      const qrData = (res.data as any)?.data;
+      const token = qrData?.token;
       if (token) {
-        setTimeLeft(30);
+        const expTime = qrData.expiresAt ? new Date(qrData.expiresAt).getTime() : Date.now() + 30000;
+        expiresAtRef.current = expTime;
+        const initialRemaining = Math.max(0, Math.ceil((expTime - Date.now()) / 1000));
+        setTimeLeft(initialRemaining || 30);
 
         const publicAppUrl = import.meta.env.VITE_PUBLIC_APP_URL?.replace(/\/$/, '') || window.location.origin;
         const url = `${publicAppUrl}/verify/student/${token}`;
@@ -78,6 +87,7 @@ export function StudentDashboard() {
       console.error('Failed to fetch dynamic QR token:', err);
     } finally {
       setIsRotating(false);
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -86,19 +96,50 @@ export function StudentDashboard() {
     fetchNewDynamicQr();
   }, [fetchNewDynamicQr]);
 
-  // 1-second countdown ticker for 30s dynamic rotation
+  // Wall-clock synchronized 1-second countdown ticker
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
+      if (expiresAtRef.current > 0) {
+        const remaining = Math.max(0, Math.ceil((expiresAtRef.current - Date.now()) / 1000));
+        setTimeLeft(remaining);
+        if (remaining <= 1 && !isFetchingRef.current) {
           fetchNewDynamicQr();
-          return 30;
         }
-        return prev - 1;
-      });
+      }
     }, 1000);
 
     return () => clearInterval(timer);
+  }, [fetchNewDynamicQr]);
+
+  // Immediately refresh if student returns to tab or unlocks phone with an expired/near-expiry token
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const remaining = Math.max(0, Math.ceil((expiresAtRef.current - Date.now()) / 1000));
+        if (remaining <= 3 && !isFetchingRef.current) {
+          fetchNewDynamicQr();
+        } else {
+          setTimeLeft(remaining);
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      const remaining = Math.max(0, Math.ceil((expiresAtRef.current - Date.now()) / 1000));
+      if (remaining <= 3 && !isFetchingRef.current) {
+        fetchNewDynamicQr();
+      } else {
+        setTimeLeft(remaining);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fetchNewDynamicQr]);
 
   if (isLoading) return <PageSkeleton />;

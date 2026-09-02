@@ -39,8 +39,8 @@ export function NightAttendancePage() {
 
   const scannerRef = useRef<any>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
-  const lastScanRef = useRef<string>('');
-  const scanCooldownRef = useRef(false);
+  const lastProcessedTokenRef = useRef<string>('');
+  const isVerifyingRef = useRef<boolean>(false);
 
   // Check for active session
   const { data: sessionData, refetch: refetchSession } = useQuery({
@@ -62,21 +62,26 @@ export function NightAttendancePage() {
   const scanMutation = useMutation({
     mutationFn: (token: string) => attendanceApi.scanStudent(token),
     onSuccess: (res) => {
+      isVerifyingRef.current = false;
       const result = (res.data as any)?.data as ScanResult;
       setScanResult(result);
       if (result.status === 'PRESENT') {
         setScannedCount((c) => c + 1);
       }
-      // Auto-clear result: keep warnings/errors slightly longer (2.5s) for readability
-      const duration = (result.status === 'EXPIRED' || result.status === 'WRONG_HOSTEL') ? 2800 : 1800;
+      // Keep result visible and prevent rescanning the same QR immediately
+      const duration = (result.status === 'EXPIRED' || result.status === 'WRONG_HOSTEL') ? 2500 : 1800;
       setTimeout(() => {
         setScanResult(null);
-        lastScanRef.current = '';
+        lastProcessedTokenRef.current = '';
       }, duration);
     },
     onError: () => {
+      isVerifyingRef.current = false;
       setScanResult({ status: 'ERROR', message: 'Failed to process scan.' });
-      setTimeout(() => setScanResult(null), 1800);
+      setTimeout(() => {
+        setScanResult(null);
+        lastProcessedTokenRef.current = '';
+      }, 1800);
     },
   });
 
@@ -84,7 +89,6 @@ export function NightAttendancePage() {
     mutationFn: () => attendanceApi.endSession(),
     onSuccess: (res) => {
       const data = (res.data as any)?.data;
-      // data = { session, summary: { hostel, summary: { total, present, onLeave, absent }, register } }
       setSummaryData(data?.summary?.summary);
       setShowSummary(true);
       setScanning(false);
@@ -96,19 +100,19 @@ export function NightAttendancePage() {
   const [cameraBlocked, setCameraBlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Scanner logic ────────────────────────────────────────
+  // ─── Scanner logic with strict in-flight verification lock ──
   const handleQrResult = useCallback((decodedText: string) => {
-    if (scanCooldownRef.current) return;
-    if (decodedText === lastScanRef.current) return;
+    // 1. Strict lock: reject any camera frame if verification is in-flight or cooldown active
+    if (isVerifyingRef.current || scanMutation.isPending) return;
+    if (!decodedText || decodedText === lastProcessedTokenRef.current) return;
 
     let token = decodedText;
     // Match both dynamic DQR tokens (base64url) and legacy UUID tokens from URL
     const match = decodedText.match(/\/verify\/student\/([A-Za-z0-9_\-\.]+)/i);
     if (match) token = match[1];
 
-    lastScanRef.current = decodedText;
-    scanCooldownRef.current = true;
-    setTimeout(() => { scanCooldownRef.current = false; }, 1500);
+    isVerifyingRef.current = true;
+    lastProcessedTokenRef.current = decodedText;
 
     scanMutation.mutate(token);
   }, [scanMutation]);
@@ -349,7 +353,7 @@ export function NightAttendancePage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              style={{ ...cardStyle, overflow: 'hidden' }}
+              style={{ ...cardStyle, overflow: 'hidden', position: 'relative' }}
             >
               <div
                 id="qr-scanner-container"
@@ -360,6 +364,43 @@ export function NightAttendancePage() {
                   backgroundColor: isDark ? '#0a0a0a' : '#111',
                 }}
               />
+
+              {/* In-Flight Verification Overlay */}
+              <AnimatePresence>
+                {scanMutation.isPending && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                      backdropFilter: 'blur(4px)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '3rem',
+                        height: '3rem',
+                        border: '3px solid rgba(255, 255, 255, 0.2)',
+                        borderTopColor: '#38bdf8',
+                        borderRadius: '50%',
+                        animation: 'spin 0.8s linear infinite',
+                      }}
+                    />
+                    <p style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9375rem', marginTop: '1rem', letterSpacing: '0.01em' }}>
+                      Verifying Attendance...
+                    </p>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
 
             {/* Scan result overlay */}

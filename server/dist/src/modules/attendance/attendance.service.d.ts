@@ -25,29 +25,21 @@ export declare class AttendanceService {
         endedAt: Date | null;
     }>;
     /** Get the active session (if any) for the security user's hostel today. */
-    getActiveSession(securityUserId: string): Promise<({
+    getActiveSession(securityUserId: string): Promise<{
+        id: string;
         hostel: {
             name: string;
         };
-        _count: {
-            records: number;
-        };
-        records: {
-            id: string;
-            studentId: string;
-            scannedAt: Date;
-        }[];
-    } & {
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
         status: import("@prisma/client").$Enums.AttendanceSessionStatus;
         securityId: string;
         hostelId: string;
         date: Date;
         startedAt: Date;
         endedAt: Date | null;
-    }) | null>;
+        _count: {
+            records: number;
+        };
+    } | null>;
     /** End the active session and return a summary. */
     endSession(securityUserId: string): Promise<{
         session: {
