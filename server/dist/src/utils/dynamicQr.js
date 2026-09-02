@@ -71,7 +71,7 @@ export function verifyQrToken(rawToken) {
                     valid: false,
                     isDynamic: true,
                     error: "EXPIRED",
-                    message: `QR code expired at ${expiresAt.toLocaleTimeString("en-IN")}. Please scan the live QR code on the student's screen.`,
+                    message: "QR code has expired. Please scan the live QR code on the student's screen.",
                     issuedAt,
                     expiresAt,
                 };

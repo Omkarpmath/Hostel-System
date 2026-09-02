@@ -13,7 +13,7 @@ export class VerifyService {
         const check = verifyQrToken(token);
         if (!check.valid) {
             if (check.error === "EXPIRED") {
-                throw ApiError.badRequest(check.message || "This QR code has expired. Please ask the student to present the live QR on their phone.");
+                throw ApiError.badRequest(check.message || "QR code has expired. Please scan the live QR code on the student's screen.");
             }
             if (check.error === "TAMPERED") {
                 throw ApiError.badRequest("QR code verification failed. This token appears to be modified or invalid.");

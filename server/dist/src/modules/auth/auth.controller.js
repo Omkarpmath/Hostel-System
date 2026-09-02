@@ -1,16 +1,18 @@
 import { authService } from "./auth.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+const getRefreshTokenCookieOptions = () => ({
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: "/",
+});
 export class AuthController {
     async login(req, res, next) {
         try {
             const result = await authService.login(req.body);
-            // Set refresh token in httpOnly cookie
-            res.cookie("refreshToken", result.refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-            });
+            // Set refresh token in persistent httpOnly cookie (7 days)
+            res.cookie("refreshToken", result.refreshToken, getRefreshTokenCookieOptions());
             ApiResponse.success({
                 res,
                 message: "Login successful",
@@ -44,12 +46,8 @@ export class AuthController {
                 return ApiResponse.error(res, 401, "Refresh token is required");
             }
             const result = await authService.refreshToken(token);
-            res.cookie("refreshToken", result.refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                maxAge: 7 * 24 * 60 * 60 * 1000,
-            });
+            // Rotate refresh token cookie
+            res.cookie("refreshToken", result.refreshToken, getRefreshTokenCookieOptions());
             ApiResponse.success({
                 res,
                 message: "Token refreshed successfully",
@@ -66,7 +64,13 @@ export class AuthController {
             if (token) {
                 await authService.logout(token);
             }
-            res.clearCookie("refreshToken");
+            // Clear the refresh token cookie with matching options
+            res.clearCookie("refreshToken", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+                path: "/",
+            });
             ApiResponse.success({
                 res,
                 message: "Logged out successfully",

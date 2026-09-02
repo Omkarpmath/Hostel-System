@@ -140,7 +140,7 @@ export function StudentVerifyPage() {
             {/* Error Message */}
             <p style={{ fontSize: '0.875rem', color: '#64748b', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
               {error || (isExpired
-                ? 'This dynamic QR code has expired. Screenshots cannot be used for campus verification.'
+                ? "QR code has expired. Please scan the live QR code on the student's screen."
                 : 'This QR code could not be verified by the server.')}
             </p>
 

@@ -17,7 +17,7 @@ export class VerifyService {
     if (!check.valid) {
       if (check.error === "EXPIRED") {
         throw ApiError.badRequest(
-          check.message || "This QR code has expired. Please ask the student to present the live QR on their phone."
+          check.message || "QR code has expired. Please scan the live QR code on the student's screen."
         );
       }
       if (check.error === "TAMPERED") {
