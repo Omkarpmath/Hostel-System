@@ -182,10 +182,22 @@ export class AuthService {
     async getDynamicQr(userId) {
         const student = await prisma.studentProfile.findUnique({
             where: { userId },
-            select: { id: true, usn: true, userId: true },
+            select: {
+                id: true,
+                usn: true,
+                userId: true,
+                roomAllocations: {
+                    where: { status: "ACTIVE" },
+                    select: { id: true },
+                    take: 1,
+                },
+            },
         });
         if (!student) {
             throw ApiError.notFound("Student profile not found. Complete your profile first.");
+        }
+        if (!student.roomAllocations || student.roomAllocations.length === 0) {
+            throw ApiError.badRequest("You do not have an active room allocation. Please book a room first.");
         }
         const { generateDynamicQrToken } = await import("../../utils/dynamicQr.js");
         const { token, expiresInSeconds, expiresAt } = generateDynamicQrToken(student);

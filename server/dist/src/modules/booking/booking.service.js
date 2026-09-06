@@ -5,7 +5,7 @@ import { env } from "../../config/env.js";
 import { razorpayClient } from "../../config/razorpay.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { receiptService } from "../receipt/receipt.service.js";
-const roomInclude = { floor: { include: { block: { include: { hostel: { select: { id: true, name: true } } } } } } };
+const roomInclude = { floor: { include: { block: { include: { hostel: { select: { id: true, name: true, type: true, allowedYears: true, isActive: true } } } } } } };
 export class BookingService {
     async studentId(userId) {
         const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } });
@@ -13,11 +13,18 @@ export class BookingService {
             throw ApiError.badRequest("Complete your student profile before booking a room");
         return student.id;
     }
+    async studentProfile(userId) {
+        const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true, gender: true, year: true } });
+        if (!student)
+            throw ApiError.badRequest("Complete your student profile before booking a room");
+        return student;
+    }
     async expireReservations(studentId) {
         await prisma.reservation.updateMany({ where: { status: "PENDING", expiresAt: { lte: new Date() }, ...(studentId ? { studentId } : {}) }, data: { status: "EXPIRED" } });
     }
     async reserve(userId, roomId) {
-        const studentId = await this.studentId(userId);
+        const student = await this.studentProfile(userId);
+        const studentId = student.id;
         await this.expireReservations(studentId);
         return prisma.$transaction(async (tx) => {
             const [allocation, existing, room] = await Promise.all([
@@ -31,6 +38,20 @@ export class BookingService {
                 return existing;
             if (!room || !room.isActive || !["AVAILABLE", "PARTIALLY_OCCUPIED"].includes(room.status))
                 throw ApiError.badRequest("This room is not available");
+            const hostel = room.floor?.block?.hostel;
+            if (!hostel || hostel.isActive === false)
+                throw ApiError.badRequest("This hostel is currently not available");
+            // Strict gender segregation
+            if (student.gender === "FEMALE" && hostel.type !== "GIRLS") {
+                throw ApiError.badRequest("Female students cannot book rooms in a Boys hostel");
+            }
+            if (student.gender === "MALE" && hostel.type !== "BOYS") {
+                throw ApiError.badRequest("Male students cannot book rooms in a Girls hostel");
+            }
+            // Academic year enforcement
+            if (hostel.allowedYears && hostel.allowedYears.length > 0 && !hostel.allowedYears.includes(student.year)) {
+                throw ApiError.badRequest(`This hostel is not open for Year ${student.year} students`);
+            }
             const held = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
             if (room.occupiedBeds + held >= room.capacity)
                 throw ApiError.conflict("This room has just been reserved by another student");

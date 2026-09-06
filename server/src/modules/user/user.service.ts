@@ -6,13 +6,13 @@ import { Prisma, Role } from "@prisma/client";
 export class UserService {
   async createStudent(data: {
     email: string; password: string; firstName: string; lastName: string; phone?: string;
-    usn: string; department: string; year: number; semester: number; guardianName: string;
-    guardianPhone: string; permanentAddress: string; dateOfBirth: string; gender: "MALE" | "FEMALE" | "OTHER";
+    usn: string; department: string; year: number; semester: number; guardianName?: string;
+    guardianPhone?: string; permanentAddress: string; dateOfBirth: string; gender: "MALE" | "FEMALE" | "OTHER";
   }) {
     const passwordHash = await hashPassword(data.password);
     return prisma.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { email: data.email, passwordHash, firstName: data.firstName, lastName: data.lastName, phone: data.phone, role: "STUDENT" } });
-      return tx.studentProfile.create({ data: { userId: user.id, usn: data.usn, department: data.department, year: data.year, semester: data.semester, guardianName: data.guardianName, guardianPhone: data.guardianPhone, permanentAddress: data.permanentAddress, dateOfBirth: new Date(data.dateOfBirth), gender: data.gender }, include: { user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } } });
+      return tx.studentProfile.create({ data: { userId: user.id, usn: data.usn, department: data.department, year: data.year, semester: data.semester, guardianName: data.guardianName || null, guardianPhone: data.guardianPhone || null, permanentAddress: data.permanentAddress, dateOfBirth: new Date(data.dateOfBirth), gender: data.gender }, include: { user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } } } });
     });
   }
 
@@ -34,15 +34,15 @@ export class UserService {
         id: null,
         userId: user.id,
         user,
-        usn: "",
-        department: "",
-        year: 1,
-        semester: 1,
-        guardianName: "",
-        guardianPhone: "",
-        permanentAddress: "",
+        usn: null,
+        department: null,
+        year: null,
+        semester: null,
+        guardianName: null,
+        guardianPhone: null,
+        permanentAddress: null,
         bloodGroup: null,
-        gender: "MALE",
+        gender: null,
         dateOfBirth: null,
         roomAllocations: [],
         isProfileIncomplete: true,
@@ -204,8 +204,8 @@ export class UserService {
     department: string;
     year: number;
     semester: number;
-    guardianName: string;
-    guardianPhone: string;
+    guardianName?: string;
+    guardianPhone?: string;
     permanentAddress: string;
     bloodGroup?: string;
     dateOfBirth: string;
@@ -225,8 +225,8 @@ export class UserService {
         department: data.department,
         year: data.year,
         semester: data.semester,
-        guardianName: data.guardianName,
-        guardianPhone: data.guardianPhone,
+        guardianName: data.guardianName || null,
+        guardianPhone: data.guardianPhone || null,
         permanentAddress: data.permanentAddress,
         bloodGroup: data.bloodGroup,
         dateOfBirth: new Date(data.dateOfBirth),
@@ -281,8 +281,8 @@ export class UserService {
           if (data.department !== undefined && data.department.trim()) profileData.department = data.department.trim();
           if (data.year !== undefined && !isNaN(Number(data.year))) profileData.year = Number(data.year);
           if (data.semester !== undefined && !isNaN(Number(data.semester))) profileData.semester = Number(data.semester);
-          if (data.guardianName !== undefined) profileData.guardianName = data.guardianName.trim();
-          if (data.guardianPhone !== undefined) profileData.guardianPhone = data.guardianPhone.trim();
+          if (data.guardianName !== undefined) profileData.guardianName = data.guardianName.trim() || null;
+          if (data.guardianPhone !== undefined) profileData.guardianPhone = data.guardianPhone.trim() || null;
           if (data.permanentAddress !== undefined) profileData.permanentAddress = data.permanentAddress.trim();
           if (data.bloodGroup !== undefined) profileData.bloodGroup = data.bloodGroup ? data.bloodGroup.trim() : null;
           if (data.gender !== undefined) profileData.gender = data.gender;
@@ -299,20 +299,27 @@ export class UserService {
             },
           });
         } else {
-          const generatedUsn = data.usn?.trim() ? data.usn.trim().toUpperCase() : `1BM${new Date().getFullYear().toString().slice(-2)}CS${Math.floor(100 + Math.random() * 900)}`;
+          if (!data.usn?.trim()) throw ApiError.badRequest("USN / Roll Number is required");
+          if (!data.department?.trim()) throw ApiError.badRequest("Department / Branch is required");
+          if (!data.gender) throw ApiError.badRequest("Gender is required");
+          if (!data.year || isNaN(Number(data.year))) throw ApiError.badRequest("Academic year is required");
+          if (!data.semester || isNaN(Number(data.semester))) throw ApiError.badRequest("Semester is required");
+          if (!data.permanentAddress?.trim()) throw ApiError.badRequest("Permanent address is required");
+          if (!data.dateOfBirth) throw ApiError.badRequest("Date of birth is required");
+
           return tx.studentProfile.create({
             data: {
               userId,
-              usn: generatedUsn,
-              department: data.department?.trim() || "Computer Science",
-              year: Number(data.year) || 1,
-              semester: Number(data.semester) || 1,
-              guardianName: data.guardianName?.trim() || "Guardian",
-              guardianPhone: data.guardianPhone?.trim() || data.phone?.trim() || "0000000000",
-              permanentAddress: data.permanentAddress?.trim() || "Bangalore",
+              usn: data.usn.trim().toUpperCase(),
+              department: data.department.trim(),
+              year: Number(data.year),
+              semester: Number(data.semester),
+              guardianName: data.guardianName?.trim() || null,
+              guardianPhone: data.guardianPhone?.trim() || null,
+              permanentAddress: data.permanentAddress.trim(),
               bloodGroup: data.bloodGroup?.trim() || null,
-              gender: data.gender || "MALE",
-              dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : new Date("2003-01-01"),
+              gender: data.gender,
+              dateOfBirth: new Date(data.dateOfBirth),
             },
             include: {
               user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true } },

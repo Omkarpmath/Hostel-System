@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BedDouble, CheckCircle2, Building2, Users, MapPin, ArrowLeft, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
 import { hostelApi } from '@/api/hostel.api';
 import { authApi } from '@/api/auth.api';
 import { useAuth } from '@/providers/AuthProvider';
@@ -23,7 +24,7 @@ export function RoomBookingPage() {
   const [selectedHostelId, setSelectedHostelId] = useState<string | null>(null);
 
   // ─── Student profile & allocation ───
-  const { data: profileData } = useQuery({
+  const { data: profileData, isLoading: profileLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: () => authApi.getProfile(),
     enabled: isStudent,
@@ -41,14 +42,18 @@ export function RoomBookingPage() {
   });
   const allHostels: any[] = (hostelsData?.data as any)?.data || [];
 
-  // Filter to eligible hostels for students
-  const eligibleHostels = isStudent && studentProfile
-    ? allHostels.filter((h: any) =>
-      h.isActive !== false &&
-      h.allowedYears?.includes(studentProfile.year) &&
-      ((studentProfile.gender === 'MALE' && h.type === 'BOYS') ||
-        (studentProfile.gender === 'FEMALE' && h.type === 'GIRLS'))
-    )
+  const isPageLoading = hostelsLoading || (isStudent && profileLoading);
+
+  // Filter to eligible hostels for students (strictly empty if student profile is not yet loaded)
+  const eligibleHostels = isStudent
+    ? (studentProfile
+        ? allHostels.filter((h: any) =>
+          h.isActive !== false &&
+          h.allowedYears?.includes(studentProfile.year) &&
+          ((studentProfile.gender === 'MALE' && h.type === 'BOYS') ||
+            (studentProfile.gender === 'FEMALE' && h.type === 'GIRLS'))
+        )
+        : [])
     : allHostels.filter((h: any) => h.isActive !== false);
 
   const selectedHostel = eligibleHostels.find((h: any) => h.id === selectedHostelId);
@@ -86,6 +91,13 @@ export function RoomBookingPage() {
       setSelectedHostelId(reservation.room.floor.block.hostel.id);
     }
   }, [reservation?.room?.floor?.block?.hostel?.id]);
+
+  // Reset selected hostel if student has an ineligible hostel selected
+  useEffect(() => {
+    if (isStudent && selectedHostelId && !isPageLoading && !selectedHostel) {
+      setSelectedHostelId(null);
+    }
+  }, [isStudent, selectedHostelId, isPageLoading, selectedHostel]);
 
   const reserve = useMutation({
     mutationFn: bookingApi.reserve,
@@ -188,6 +200,40 @@ export function RoomBookingPage() {
     padding: '1.25rem',
     boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
   };
+
+  // ═══════════════════════════════════════
+  // Loading state: Student profile loading
+  // ═══════════════════════════════════════
+  if (isStudent && profileLoading) {
+    return <PageSkeleton />;
+  }
+
+  // ═══════════════════════════════════════
+  // Profile Incomplete Guard
+  // ═══════════════════════════════════════
+  if (isStudent && !studentProfile) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <PageHeader
+          title="Select a Hostel"
+          description="Complete your student profile to view eligible hostels."
+          breadcrumbs={[
+            { label: 'Dashboard', href: '/student/dashboard' },
+            { label: 'Browse Rooms' },
+          ]}
+        />
+        <EmptyState
+          icon={Building2}
+          title="Student Profile Required"
+          description="Your student profile (gender and academic year) must be set up before you can browse and book rooms in hostels."
+          action={{
+            label: "Complete My Profile",
+            onClick: () => { window.location.href = '/student/profile'; }
+          }}
+        />
+      </div>
+    );
+  }
 
   // ═══════════════════════════════════════
   // CASE A: Student already allocated
@@ -341,7 +387,7 @@ export function RoomBookingPage() {
           ]}
         />
 
-        {hostelsLoading ? (
+        {isPageLoading ? (
           <div
             style={{
               display: 'grid',
@@ -364,10 +410,22 @@ export function RoomBookingPage() {
         ) : eligibleHostels.length === 0 ? (
           <EmptyState
             icon={Building2}
-            title="No hostels available"
+            title={
+              isStudent
+                ? studentProfile?.gender === 'FEMALE'
+                  ? 'No Girls Hostels Available'
+                  : studentProfile?.gender === 'MALE'
+                    ? 'No Boys Hostels Available'
+                    : 'No Hostels Available'
+                : 'No hostels available'
+            }
             description={
               isStudent
-                ? `No hostel is currently configured for your ${studentProfile?.gender === 'MALE' ? 'male' : 'female'} Year ${studentProfile?.year} profile. Contact the administrator.`
+                ? studentProfile?.gender === 'FEMALE'
+                  ? `No Girls Hostels are currently available for your academic year${studentProfile?.year ? ` (Year ${studentProfile.year})` : ''}. Please contact administration.`
+                  : studentProfile?.gender === 'MALE'
+                    ? `No Boys Hostels are currently available for your academic year${studentProfile?.year ? ` (Year ${studentProfile.year})` : ''}. Please contact administration.`
+                    : 'No hostels are currently configured for your profile. Please contact administration.'
                 : 'No active hostels found. Create one from the Hostels page.'
             }
           />

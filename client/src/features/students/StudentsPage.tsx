@@ -286,9 +286,9 @@ function AddStudentModal({ onClose }: { onClose: () => void }) {
             <div><label style={labelStyle}>Year</label><input name="year" type="number" min="1" max="5" style={inputStyle} required /></div>
             <div><label style={labelStyle}>Semester</label><input name="semester" type="number" min="1" max="10" style={inputStyle} required /></div>
             <div><label style={labelStyle}>Date of Birth</label><input name="dateOfBirth" type="date" style={inputStyle} required /></div>
-            <div><label style={labelStyle}>Guardian Name</label><input name="guardianName" style={inputStyle} required /></div>
-            <div><label style={labelStyle}>Guardian Phone</label><input name="guardianPhone" type="tel" style={inputStyle} required /></div>
-            <div><label style={labelStyle}>Gender</label><select name="gender" style={inputStyle} required><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></div>
+            <div><label style={labelStyle}>Guardian Name (Optional)</label><input name="guardianName" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Guardian Phone (Optional)</label><input name="guardianPhone" type="tel" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Gender</label><select name="gender" style={inputStyle} required defaultValue=""><option value="" disabled>Select Gender</option><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></div>
             <div><label style={labelStyle}>Permanent Address</label><input name="permanentAddress" style={inputStyle} required /></div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem' }}>
@@ -345,9 +345,9 @@ function ProfileCompletionModal({ userId, onClose }: { userId: string; onClose: 
             <div><label style={labelStyle}>Year</label><input name="year" type="number" min="1" max="5" style={inputStyle} required /></div>
             <div><label style={labelStyle}>Semester</label><input name="semester" type="number" min="1" max="10" style={inputStyle} required /></div>
             <div><label style={labelStyle}>Date of Birth</label><input name="dateOfBirth" type="date" style={inputStyle} required /></div>
-            <div><label style={labelStyle}>Gender</label><select name="gender" style={inputStyle} required><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></div>
-            <div><label style={labelStyle}>Guardian Name</label><input name="guardianName" style={inputStyle} required /></div>
-            <div><label style={labelStyle}>Guardian Phone</label><input name="guardianPhone" type="tel" style={inputStyle} required /></div>
+            <div><label style={labelStyle}>Gender</label><select name="gender" style={inputStyle} required defaultValue=""><option value="" disabled>Select Gender</option><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></div>
+            <div><label style={labelStyle}>Guardian Name (Optional)</label><input name="guardianName" style={inputStyle} /></div>
+            <div><label style={labelStyle}>Guardian Phone (Optional)</label><input name="guardianPhone" type="tel" style={inputStyle} /></div>
           </div>
           <div><label style={labelStyle}>Permanent Address</label><input name="permanentAddress" style={inputStyle} required /></div>
           <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem' }}>

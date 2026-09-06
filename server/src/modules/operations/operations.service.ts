@@ -155,12 +155,43 @@ export class OperationsService {
     return prisma.$transaction(async (tx) => {
       const [student, room, current] = await Promise.all([
         tx.studentProfile.findUnique({ where: { id: studentId } }),
-        tx.room.findUnique({ where: { id: roomId } }),
+        tx.room.findUnique({
+          where: { id: roomId },
+          include: {
+            floor: {
+              include: {
+                block: {
+                  include: {
+                    hostel: {
+                      select: { id: true, name: true, type: true, allowedYears: true, isActive: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
         tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } }),
       ]);
       if (!student) throw ApiError.notFound("Student not found");
       if (!room || !room.isActive) throw ApiError.notFound("Room not found");
       if (current) throw ApiError.conflict("This student already has an active room allocation");
+
+      const hostel = room.floor?.block?.hostel;
+      if (!hostel || hostel.isActive === false) throw ApiError.badRequest("Hostel is inactive or not found");
+
+      // Strict gender segregation
+      if (student.gender === "FEMALE" && hostel.type !== "GIRLS") {
+        throw ApiError.badRequest("Female students cannot be allocated to a Boys hostel");
+      }
+      if (student.gender === "MALE" && hostel.type !== "BOYS") {
+        throw ApiError.badRequest("Male students cannot be allocated to a Girls hostel");
+      }
+
+      // Academic year enforcement
+      if (hostel.allowedYears && hostel.allowedYears.length > 0 && !hostel.allowedYears.includes(student.year)) {
+        throw ApiError.badRequest(`This hostel is not open for Year ${student.year} students`);
+      }
       if (["MAINTENANCE", "RESERVED"].includes(room.status)) throw ApiError.badRequest("This room is not available for allocation");
       if (room.occupiedBeds >= room.capacity) throw ApiError.conflict("This room is already full");
       const pendingReservations = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });

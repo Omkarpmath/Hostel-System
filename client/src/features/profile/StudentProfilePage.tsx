@@ -52,9 +52,9 @@ export function StudentProfilePage() {
     phone: '',
     usn: '',
     department: '',
-    year: 1,
-    semester: 1,
-    gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
+    year: '' as unknown as number,
+    semester: '' as unknown as number,
+    gender: '' as unknown as 'MALE' | 'FEMALE' | 'OTHER',
     bloodGroup: '',
     dateOfBirth: '',
     guardianName: '',
@@ -84,9 +84,9 @@ export function StudentProfilePage() {
         phone: u?.phone || '',
         usn: profile?.usn || '',
         department: profile?.department || '',
-        year: profile?.year || 1,
-        semester: profile?.semester || 1,
-        gender: profile?.gender || 'MALE',
+        year: profile?.year != null ? profile.year : ('' as any),
+        semester: profile?.semester != null ? profile.semester : ('' as any),
+        gender: profile?.gender || ('' as any),
         bloodGroup: profile?.bloodGroup || '',
         dateOfBirth: profile?.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : '',
         guardianName: profile?.guardianName || '',
@@ -190,7 +190,7 @@ export function StudentProfilePage() {
   const roomNumber = allocation?.room?.roomNumber || null;
   const bedNumber = allocation?.bedNumber || null;
 
-  const isProfileIncomplete = !profile?.usn || !profile?.department;
+  const isProfileIncomplete = !profile?.usn || !profile?.department || !profile?.gender || !profile?.year || !profile?.semester;
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: 'var(--bg-card)',
@@ -511,7 +511,7 @@ export function StudentProfilePage() {
                 <div style={{ padding: '0.75rem 1rem', borderRadius: '0.625rem', backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc', border: '1px solid var(--border-primary)' }}>
                   <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Floor</div>
                   <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.125rem' }}>
-                    {floorNum || 'Floor 0'}
+                    {floorNum || '—'}
                   </div>
                 </div>
               </div>
@@ -858,12 +858,14 @@ export function StudentProfilePage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Gender</label>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Gender *</label>
                       <select
-                        value={formData.gender}
+                        required
+                        value={formData.gender || ''}
                         onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
                         style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                       >
+                        <option value="" disabled>Select Gender</option>
                         <option value="MALE">Male</option>
                         <option value="FEMALE">Female</option>
                         <option value="OTHER">Other</option>
@@ -877,7 +879,7 @@ export function StudentProfilePage() {
                         onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
                         style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                       >
-                        <option value="">Select Blood Group</option>
+                        <option value="">Select Blood Group (Optional)</option>
                         {BLOOD_GROUPS.map((bg) => (
                           <option key={bg} value={bg}>{bg}</option>
                         ))}
@@ -886,9 +888,9 @@ export function StudentProfilePage() {
                   </div>
 
                   <div style={{ marginTop: '0.75rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Date of Birth</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Date of Birth *</label>
                     <input
-                      type="date" value={formData.dateOfBirth}
+                      type="date" required value={formData.dateOfBirth}
                       onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
                       style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                     />
@@ -918,7 +920,7 @@ export function StudentProfilePage() {
                         onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                         style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                       >
-                        <option value="">Select Branch</option>
+                        <option value="" disabled>Select Branch</option>
                         {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
@@ -926,12 +928,14 @@ export function StudentProfilePage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Academic Year</label>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Academic Year *</label>
                       <select
-                        value={formData.year}
-                        onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
+                        required
+                        value={formData.year || ''}
+                        onChange={(e) => setFormData({ ...formData, year: e.target.value ? Number(e.target.value) : ('' as any) })}
                         style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                       >
+                        <option value="" disabled>Select Year</option>
                         <option value={1}>1st Year</option>
                         <option value={2}>2nd Year</option>
                         <option value={3}>3rd Year</option>
@@ -940,12 +944,14 @@ export function StudentProfilePage() {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Semester</label>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Semester *</label>
                       <select
-                        value={formData.semester}
-                        onChange={(e) => setFormData({ ...formData, semester: Number(e.target.value) })}
+                        required
+                        value={formData.semester || ''}
+                        onChange={(e) => setFormData({ ...formData, semester: e.target.value ? Number(e.target.value) : ('' as any) })}
                         style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                       >
+                        <option value="" disabled>Select Semester</option>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                           <option key={s} value={s}>Semester {s}</option>
                         ))}
@@ -961,16 +967,16 @@ export function StudentProfilePage() {
                   </h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Student Phone</label>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Student Phone *</label>
                       <input
-                        type="tel" value={formData.phone}
+                        type="tel" required value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         placeholder="+91 98765 43210"
                         style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Guardian Name</label>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Guardian Name (Optional)</label>
                       <input
                         type="text" value={formData.guardianName}
                         onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
@@ -981,7 +987,7 @@ export function StudentProfilePage() {
                   </div>
 
                   <div style={{ marginTop: '0.75rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Guardian Phone</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Guardian Phone (Optional)</label>
                     <input
                       type="tel" value={formData.guardianPhone}
                       onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
@@ -991,9 +997,10 @@ export function StudentProfilePage() {
                   </div>
 
                   <div style={{ marginTop: '0.75rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Permanent Address</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>Permanent Address *</label>
                     <textarea
                       rows={2}
+                      required
                       value={formData.permanentAddress}
                       onChange={(e) => setFormData({ ...formData, permanentAddress: e.target.value })}
                       placeholder="House No, Street, City, State, PIN"

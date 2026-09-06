@@ -235,8 +235,8 @@ model StudentProfile {
   department       String
   year             Int      // 1, 2, 3, 4
   semester         Int
-  guardianName     String   @map("guardian_name")
-  guardianPhone    String   @map("guardian_phone")
+  guardianName     String?  @map("guardian_name")
+  guardianPhone    String?  @map("guardian_phone")
   permanentAddress String   @map("permanent_address")
   bloodGroup       String?  @map("blood_group")
   dateOfBirth      DateTime @map("date_of_birth")

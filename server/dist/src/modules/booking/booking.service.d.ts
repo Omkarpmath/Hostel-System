@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 export declare class BookingService {
     private studentId;
+    private studentProfile;
     private expireReservations;
     reserve(userId: string, roomId: string): Promise<{
         room: {
@@ -9,6 +10,9 @@ export declare class BookingService {
                     hostel: {
                         name: string;
                         id: string;
+                        isActive: boolean;
+                        type: import("@prisma/client").$Enums.HostelType;
+                        allowedYears: number[];
                     };
                 } & {
                     name: string;
@@ -59,6 +63,9 @@ export declare class BookingService {
                     hostel: {
                         name: string;
                         id: string;
+                        isActive: boolean;
+                        type: import("@prisma/client").$Enums.HostelType;
+                        allowedYears: number[];
                     };
                 } & {
                     name: string;

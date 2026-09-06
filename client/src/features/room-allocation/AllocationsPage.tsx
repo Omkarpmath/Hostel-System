@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { operationsApi } from '@/api/operations.api';
@@ -246,6 +246,25 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
   });
   const rooms: any[] = (roomsData?.data as any)?.data || [];
 
+  const selectedStudent = students.find((s) => s.id === studentId);
+  const eligibleRooms = selectedStudent
+    ? rooms.filter((r) => {
+        const h = r.floor?.block?.hostel;
+        if (!h) return false;
+        const genderMatch =
+          (selectedStudent.gender === 'MALE' && h.type === 'BOYS') ||
+          (selectedStudent.gender === 'FEMALE' && h.type === 'GIRLS');
+        const yearMatch = !h.allowedYears?.length || h.allowedYears.includes(selectedStudent.year);
+        return genderMatch && yearMatch;
+      })
+    : rooms;
+
+  useEffect(() => {
+    if (roomId && selectedStudent && !eligibleRooms.some((r) => r.id === roomId)) {
+      setRoomId('');
+    }
+  }, [studentId, roomId, selectedStudent, eligibleRooms]);
+
   const mutation = useMutation({
     mutationFn: () => operationsApi.allocate({ studentId, roomId }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['allocations'] }); qc.invalidateQueries({ queryKey: ['available-rooms'] }); onClose(); },
@@ -282,7 +301,7 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
               <option value="">Choose a student...</option>
               {students.filter((s) => s.usn && !(s.roomAllocations?.some((a: any) => a.status === 'ACTIVE'))).map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.usn} — {s.user?.firstName} {s.user?.lastName}
+                  {s.usn} — {s.user?.firstName} {s.user?.lastName} ({s.gender || '—'}, Year {s.year || '—'})
                 </option>
               ))}
             </select>
@@ -292,12 +311,17 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
             <label style={labelStyle}>Select Room</label>
             <select value={roomId} onChange={(e) => setRoomId(e.target.value)} style={inputStyle}>
               <option value="">Choose an available room...</option>
-              {rooms.map((r) => (
+              {eligibleRooms.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.floor?.block?.hostel?.name} — Room {r.roomNumber} ({r.capacity - r.occupiedBeds} available)
+                  [{r.floor?.block?.hostel?.type || 'HOSTEL'}] {r.floor?.block?.hostel?.name} — Room {r.roomNumber} ({r.capacity - r.occupiedBeds} available)
                 </option>
               ))}
             </select>
+            {selectedStudent && eligibleRooms.length === 0 && (
+              <p style={{ fontSize: '0.75rem', color: isDark ? '#fca5a5' : '#dc2626', marginTop: '0.375rem' }}>
+                No available rooms found in {selectedStudent.gender === 'FEMALE' ? 'Girls' : 'Boys'} hostels for Year {selectedStudent.year}.
+              </p>
+            )}
           </div>
 
           {/* Visual preview */}

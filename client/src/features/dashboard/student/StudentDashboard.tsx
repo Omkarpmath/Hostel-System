@@ -48,7 +48,10 @@ export function StudentDashboard() {
 
   const overview = (data?.data as any)?.data;
   const profile = (profileData?.data as any)?.data;
-  const allocation = overview?.profile?.roomAllocations?.[0];
+  const allocation = overview?.profile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE') ||
+    overview?.profile?.roomAllocations?.[0] ||
+    profile?.studentProfile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE');
+  const hasActiveAllocation = Boolean(allocation);
 
   // Fee status from overview
   const fees: any[] = overview?.fees || [];
@@ -58,9 +61,9 @@ export function StudentDashboard() {
   const expiresAtRef = useRef<number>(0);
   const isFetchingRef = useRef<boolean>(false);
 
-  // Fetch Dynamic QR Token from Server
+  // Fetch Dynamic QR Token from Server (only if student has an active room allocation)
   const fetchNewDynamicQr = useCallback(async () => {
-    if (isFetchingRef.current) return;
+    if (!hasActiveAllocation || isFetchingRef.current) return;
     try {
       isFetchingRef.current = true;
       setIsRotating(true);
@@ -93,11 +96,14 @@ export function StudentDashboard() {
 
   // Initial fetch on component mount
   useEffect(() => {
-    fetchNewDynamicQr();
-  }, [fetchNewDynamicQr]);
+    if (hasActiveAllocation) {
+      fetchNewDynamicQr();
+    }
+  }, [hasActiveAllocation, fetchNewDynamicQr]);
 
   // Wall-clock synchronized 1-second countdown ticker
   useEffect(() => {
+    if (!hasActiveAllocation) return;
     const timer = setInterval(() => {
       if (expiresAtRef.current > 0) {
         const remaining = Math.max(0, Math.ceil((expiresAtRef.current - Date.now()) / 1000));
@@ -109,10 +115,11 @@ export function StudentDashboard() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [fetchNewDynamicQr]);
+  }, [hasActiveAllocation, fetchNewDynamicQr]);
 
   // Immediately refresh if student returns to tab or unlocks phone with an expired/near-expiry token
   useEffect(() => {
+    if (!hasActiveAllocation) return;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         const remaining = Math.max(0, Math.ceil((expiresAtRef.current - Date.now()) / 1000));
@@ -140,7 +147,7 @@ export function StudentDashboard() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [fetchNewDynamicQr]);
+  }, [hasActiveAllocation, fetchNewDynamicQr]);
 
   if (isLoading) return <PageSkeleton />;
 
@@ -179,140 +186,228 @@ export function StudentDashboard() {
             position: 'relative',
           }}
         >
-          {/* Card Header with Live Badge & Refresh Button */}
+          {/* Card Header with Live Badge / Inactive Badge */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
               <QrCode style={{ width: '1.25rem', height: '1.25rem', color: isDark ? '#60a5fa' : '#2563eb' }} />
               <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>My QR Code</h3>
             </div>
 
-            {/* Live Indicator Badge */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '0.35rem',
-              padding: '0.2rem 0.5rem', borderRadius: '9999px',
-              backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#dcfce7',
-              border: `1px solid ${isDark ? 'rgba(16,185,129,0.3)' : '#bbf7d0'}`,
-              fontSize: '0.6875rem', fontWeight: 700, color: isDark ? '#4ade80' : '#15803d',
-            }}>
-              <span style={{
-                width: '0.45rem', height: '0.45rem', borderRadius: '50%',
-                backgroundColor: '#22c55e', display: 'inline-block',
-                boxShadow: '0 0 6px rgba(34, 197, 94, 0.8)',
-              }} />
-              <span>LIVE DYNAMIC</span>
-            </div>
-          </div>
-
-          {/* QR Image Frame */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '0.875rem',
-            padding: '0.875rem',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-            border: '1px solid #e5e7eb',
-            marginBottom: '0.75rem',
-            position: 'relative',
-          }}>
-            {qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt="Dynamic Student QR Code"
-                style={{
-                  width: '11.5rem',
-                  height: '11.5rem',
-                  display: 'block',
-                  opacity: isRotating ? 0.6 : 1,
-                  transition: 'opacity 0.2s ease',
-                }}
-              />
+            {hasActiveAllocation ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.2rem 0.5rem', borderRadius: '9999px',
+                backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : '#dcfce7',
+                border: `1px solid ${isDark ? 'rgba(16,185,129,0.3)' : '#bbf7d0'}`,
+                fontSize: '0.6875rem', fontWeight: 700, color: isDark ? '#4ade80' : '#15803d',
+              }}>
+                <span style={{
+                  width: '0.45rem', height: '0.45rem', borderRadius: '50%',
+                  backgroundColor: '#22c55e', display: 'inline-block',
+                  boxShadow: '0 0 6px rgba(34, 197, 94, 0.8)',
+                }} />
+                <span>LIVE DYNAMIC</span>
+              </div>
             ) : (
-              <div style={{ width: '11.5rem', height: '11.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.8125rem' }}>
-                <Clock style={{ width: '1.25rem', height: '1.25rem', animation: 'spin 2s linear infinite', marginRight: '0.35rem' }} />
-                Generating…
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                padding: '0.2rem 0.55rem', borderRadius: '9999px',
+                backgroundColor: isDark ? 'rgba(234,179,8,0.15)' : '#fef9c3',
+                border: `1px solid ${isDark ? 'rgba(234,179,8,0.3)' : '#fef08a'}`,
+                fontSize: '0.6875rem', fontWeight: 700, color: isDark ? '#facc15' : '#a16207',
+              }}>
+                <span style={{
+                  width: '0.45rem', height: '0.45rem', borderRadius: '50%',
+                  backgroundColor: '#eab308', display: 'inline-block',
+                }} />
+                <span>NO ACTIVE ROOM</span>
               </div>
             )}
           </div>
 
-          {/* Student Info */}
-          <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 0.15rem' }}>
-            {user?.firstName} {user?.lastName}
-          </p>
-          <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'monospace', margin: '0 0 0.75rem' }}>
-            {profile?.studentProfile?.usn || overview?.profile?.usn || ''}
-          </p>
+          {hasActiveAllocation ? (
+            <>
+              {/* QR Image Frame */}
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '0.875rem',
+                padding: '0.875rem',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                border: '1px solid #e5e7eb',
+                marginBottom: '0.75rem',
+                position: 'relative',
+              }}>
+                {qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="Dynamic Student QR Code"
+                    style={{
+                      width: '11.5rem',
+                      height: '11.5rem',
+                      display: 'block',
+                      opacity: isRotating ? 0.6 : 1,
+                      transition: 'opacity 0.2s ease',
+                    }}
+                  />
+                ) : (
+                  <div style={{ width: '11.5rem', height: '11.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.8125rem' }}>
+                    <Clock style={{ width: '1.25rem', height: '1.25rem', animation: 'spin 2s linear infinite', marginRight: '0.35rem' }} />
+                    Generating…
+                  </div>
+                )}
+              </div>
 
-          {/* Dynamic 30s Countdown Bar */}
-          <div style={{
-            width: '100%',
-            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
-            borderRadius: '0.625rem',
-            padding: '0.5rem 0.75rem',
-            border: '1px solid var(--border-primary)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.35rem',
-            marginBottom: '0.75rem',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.6875rem' }}>
-              <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
-                <Clock style={{ width: '0.75rem', height: '0.75rem', color: '#3b82f6' }} />
-                Refreshes in:
-              </span>
-              <span style={{ fontWeight: 800, color: timeLeft <= 5 ? '#ef4444' : '#2563eb', fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                {timeLeft}s
-              </span>
-            </div>
+              {/* Student Info */}
+              <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 0.15rem' }}>
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'monospace', margin: '0 0 0.75rem' }}>
+                {profile?.studentProfile?.usn || overview?.profile?.usn || ''}
+              </p>
 
-            {/* Progress Bar */}
-            <div style={{ width: '100%', height: '4px', backgroundColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
-              <div
-                style={{
-                  height: '100%',
-                  width: `${(timeLeft / 30) * 100}%`,
-                  backgroundColor: timeLeft <= 5 ? '#ef4444' : '#2563eb',
-                  transition: 'width 1s linear, background-color 0.3s ease',
-                }}
-              />
-            </div>
-          </div>
+              {/* Dynamic 30s Countdown Bar */}
+              <div style={{
+                width: '100%',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+                borderRadius: '0.625rem',
+                padding: '0.5rem 0.75rem',
+                border: '1px solid var(--border-primary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem',
+                marginBottom: '0.75rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.6875rem' }}>
+                  <span style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 500 }}>
+                    <Clock style={{ width: '0.75rem', height: '0.75rem', color: '#3b82f6' }} />
+                    Refreshes in:
+                  </span>
+                  <span style={{ fontWeight: 800, color: timeLeft <= 5 ? '#ef4444' : '#2563eb', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                    {timeLeft}s
+                  </span>
+                </div>
 
-          {/* Anti-Screenshot Notice & Force Refresh Button */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}>
-            <span style={{
-              fontSize: '0.625rem',
-              color: isDark ? '#94a3b8' : '#64748b',
-              lineHeight: 1.3,
+                {/* Progress Bar */}
+                <div style={{ width: '100%', height: '4px', backgroundColor: isDark ? '#334155' : '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${(timeLeft / 30) * 100}%`,
+                      backgroundColor: timeLeft <= 5 ? '#ef4444' : '#2563eb',
+                      transition: 'width 1s linear, background-color 0.3s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Anti-Screenshot Notice & Force Refresh Button */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.5rem' }}>
+                <span style={{
+                  fontSize: '0.625rem',
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  lineHeight: 1.3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                }}>
+                  <ShieldCheck style={{ width: '0.875rem', height: '0.875rem', color: '#10b981', flexShrink: 0 }} />
+                  Anti-screenshot protected
+                </span>
+
+                <button
+                  onClick={fetchNewDynamicQr}
+                  disabled={isRotating}
+                  title="Refresh QR immediately"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--border-primary)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <RotateCw style={{ width: '0.75rem', height: '0.75rem', animation: isRotating ? 'spin 1s linear infinite' : 'none' }} />
+                  Refresh
+                </button>
+              </div>
+            </>
+          ) : (
+            /* No Active Room Allocation State */
+            <div style={{
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              gap: '0.25rem',
+              justifyContent: 'center',
+              padding: '1.25rem 0.5rem',
+              textAlign: 'center',
+              width: '100%',
+              flex: 1,
             }}>
-              <ShieldCheck style={{ width: '0.875rem', height: '0.875rem', color: '#10b981', flexShrink: 0 }} />
-              Anti-screenshot protected
-            </span>
-
-            <button
-              onClick={fetchNewDynamicQr}
-              disabled={isRotating}
-              title="Refresh QR immediately"
-              style={{
+              <div style={{
+                width: '4.25rem',
+                height: '4.25rem',
+                borderRadius: '1rem',
+                backgroundColor: isDark ? 'rgba(59,130,246,0.1)' : '#eff6ff',
+                border: `1px solid ${isDark ? 'rgba(59,130,246,0.25)' : '#bfdbfe'}`,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.25rem',
-                padding: '0.35rem 0.65rem',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--border-primary)',
-                backgroundColor: 'transparent',
-                color: 'var(--text-primary)',
-                fontSize: '0.6875rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              <RotateCw style={{ width: '0.75rem', height: '0.75rem', animation: isRotating ? 'spin 1s linear infinite' : 'none' }} />
-              Refresh
-            </button>
-          </div>
+                justifyContent: 'center',
+                marginBottom: '1rem',
+              }}>
+                <Building2 style={{ width: '2.25rem', height: '2.25rem', color: isDark ? '#60a5fa' : '#2563eb' }} />
+              </div>
+
+              <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 0.35rem' }}>
+                Room Booking Required
+              </h4>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0 0 1.25rem', maxWidth: '17rem' }}>
+                You must book a room first. Your live dynamic attendance QR code will be activated as soon as your room is allocated.
+              </p>
+
+              <Link
+                to="/student/rooms"
+                className="gradient-bg"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.65rem 1.25rem',
+                  borderRadius: '0.75rem',
+                  color: '#ffffff',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
+                  marginBottom: '1.25rem',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Building2 style={{ width: '0.95rem', height: '0.95rem' }} />
+                <span>Browse & Book Room</span>
+              </Link>
+
+              {/* Student identity info */}
+              <div style={{
+                borderTop: '1px solid var(--border-primary)',
+                paddingTop: '0.75rem',
+                width: '100%',
+              }}>
+                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  {user?.firstName} {user?.lastName}
+                </p>
+                <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'monospace', margin: '0.15rem 0 0' }}>
+                  {profile?.studentProfile?.usn || overview?.profile?.usn || user?.email}
+                </p>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* ─── Room & Hostel Card ─── */}

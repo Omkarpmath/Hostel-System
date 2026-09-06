@@ -27,8 +27,8 @@ export interface StudentProfile {
   department: string;
   year: number;
   semester: number;
-  guardianName: string;
-  guardianPhone: string;
+  guardianName?: string | null;
+  guardianPhone?: string | null;
   permanentAddress: string;
   bloodGroup?: string;
   dateOfBirth: string;

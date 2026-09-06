@@ -7,7 +7,7 @@ import { ApiError } from "../../utils/ApiError.js";
 
 import { receiptService } from "../receipt/receipt.service.js";
 
-const roomInclude = { floor: { include: { block: { include: { hostel: { select: { id: true, name: true } } } } } } } as const;
+const roomInclude = { floor: { include: { block: { include: { hostel: { select: { id: true, name: true, type: true, allowedYears: true, isActive: true } } } } } } } as const;
 
 export class BookingService {
   private async studentId(userId: string) {
@@ -16,12 +16,19 @@ export class BookingService {
     return student.id;
   }
 
+  private async studentProfile(userId: string) {
+    const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true, gender: true, year: true } });
+    if (!student) throw ApiError.badRequest("Complete your student profile before booking a room");
+    return student;
+  }
+
   private async expireReservations(studentId?: string) {
     await prisma.reservation.updateMany({ where: { status: "PENDING", expiresAt: { lte: new Date() }, ...(studentId ? { studentId } : {}) }, data: { status: "EXPIRED" } });
   }
 
   async reserve(userId: string, roomId: string) {
-    const studentId = await this.studentId(userId);
+    const student = await this.studentProfile(userId);
+    const studentId = student.id;
     await this.expireReservations(studentId);
     return prisma.$transaction(async (tx) => {
       const [allocation, existing, room] = await Promise.all([
@@ -32,6 +39,23 @@ export class BookingService {
       if (allocation) throw ApiError.conflict("You already have an active room allocation");
       if (existing) return existing;
       if (!room || !room.isActive || !["AVAILABLE", "PARTIALLY_OCCUPIED"].includes(room.status)) throw ApiError.badRequest("This room is not available");
+
+      const hostel = room.floor?.block?.hostel;
+      if (!hostel || hostel.isActive === false) throw ApiError.badRequest("This hostel is currently not available");
+
+      // Strict gender segregation
+      if (student.gender === "FEMALE" && hostel.type !== "GIRLS") {
+        throw ApiError.badRequest("Female students cannot book rooms in a Boys hostel");
+      }
+      if (student.gender === "MALE" && hostel.type !== "BOYS") {
+        throw ApiError.badRequest("Male students cannot book rooms in a Girls hostel");
+      }
+
+      // Academic year enforcement
+      if (hostel.allowedYears && hostel.allowedYears.length > 0 && !hostel.allowedYears.includes(student.year)) {
+        throw ApiError.badRequest(`This hostel is not open for Year ${student.year} students`);
+      }
+
       const held = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
       if (room.occupiedBeds + held >= room.capacity) throw ApiError.conflict("This room has just been reserved by another student");
       return tx.reservation.create({ data: { studentId, roomId, expiresAt: new Date(Date.now() + 10 * 60 * 1000) }, include: { room: { include: roomInclude } } });
