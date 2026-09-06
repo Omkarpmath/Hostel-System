@@ -27,6 +27,7 @@ export function StudentDashboard() {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
   const [isRotating, setIsRotating] = useState<boolean>(false);
+  const [qrError, setQrError] = useState<string | null>(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
 
   // Fetch announcements targeted to this student
@@ -48,10 +49,17 @@ export function StudentDashboard() {
 
   const overview = (data?.data as any)?.data;
   const profile = (profileData?.data as any)?.data;
-  const allocation = overview?.profile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE') ||
+  const allocation =
+    overview?.profile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE') ||
     overview?.profile?.roomAllocations?.[0] ||
-    profile?.studentProfile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE');
-  const hasActiveAllocation = Boolean(allocation);
+    profile?.studentProfile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE') ||
+    profile?.studentProfile?.roomAllocations?.[0];
+  const hasActiveAllocation = Boolean(allocation && (allocation.status === 'ACTIVE' || !allocation.status));
+
+  const hasActiveAllocationRef = useRef<boolean>(hasActiveAllocation);
+  useEffect(() => {
+    hasActiveAllocationRef.current = hasActiveAllocation;
+  }, [hasActiveAllocation]);
 
   // Fee status from overview
   const fees: any[] = overview?.fees || [];
@@ -63,10 +71,12 @@ export function StudentDashboard() {
 
   // Fetch Dynamic QR Token from Server (only if student has an active room allocation)
   const fetchNewDynamicQr = useCallback(async () => {
-    if (!hasActiveAllocation || isFetchingRef.current) return;
+    if (isFetchingRef.current) return;
+    if (!hasActiveAllocationRef.current) return;
     try {
       isFetchingRef.current = true;
       setIsRotating(true);
+      setQrError(null);
       const res = await authApi.getDynamicQr();
       const qrData = (res.data as any)?.data;
       const token = qrData?.token;
@@ -86,15 +96,17 @@ export function StudentDashboard() {
         });
         setQrDataUrl(dataUrl);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch dynamic QR token:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Failed to generate QR';
+      setQrError(msg);
     } finally {
       setIsRotating(false);
       isFetchingRef.current = false;
     }
   }, []);
 
-  // Initial fetch on component mount
+  // Initial fetch on component mount or when allocation becomes active
   useEffect(() => {
     if (hasActiveAllocation) {
       fetchNewDynamicQr();
@@ -249,6 +261,38 @@ export function StudentDashboard() {
                       transition: 'opacity 0.2s ease',
                     }}
                   />
+                ) : qrError ? (
+                  <div style={{
+                    width: '11.5rem',
+                    height: '11.5rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.75rem',
+                    textAlign: 'center',
+                    gap: '0.5rem',
+                  }}>
+                    <p style={{ fontSize: '0.75rem', color: '#ef4444', margin: 0, lineHeight: 1.4 }}>
+                      {qrError}
+                    </p>
+                    <button
+                      onClick={fetchNewDynamicQr}
+                      disabled={isRotating}
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Retry
+                    </button>
+                  </div>
                 ) : (
                   <div style={{ width: '11.5rem', height: '11.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '0.8125rem' }}>
                     <Clock style={{ width: '1.25rem', height: '1.25rem', animation: 'spin 2s linear infinite', marginRight: '0.35rem' }} />

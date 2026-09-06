@@ -4,6 +4,7 @@ import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { LoginInput, RegisterInput, ResetPasswordInput } from "./auth.schema.js";
 import { v4 as uuidv4 } from "uuid";
+import { generateDynamicQrToken } from "../../utils/dynamicQr.js";
 
 export class AuthService {
   async login(data: LoginInput) {
@@ -240,7 +241,6 @@ export class AuthService {
       throw ApiError.badRequest("You do not have an active room allocation. Please book a room first.");
     }
 
-    const { generateDynamicQrToken } = await import("../../utils/dynamicQr.js");
     const { token, expiresInSeconds, expiresAt } = generateDynamicQrToken(student);
 
     return {

@@ -2,6 +2,7 @@ import { prisma } from "../../config/db.js";
 import { hashPassword, comparePassword } from "../../utils/hash.js";
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { generateDynamicQrToken } from "../../utils/dynamicQr.js";
 export class AuthService {
     async login(data) {
         const user = await prisma.user.findUnique({
@@ -199,7 +200,6 @@ export class AuthService {
         if (!student.roomAllocations || student.roomAllocations.length === 0) {
             throw ApiError.badRequest("You do not have an active room allocation. Please book a room first.");
         }
-        const { generateDynamicQrToken } = await import("../../utils/dynamicQr.js");
         const { token, expiresInSeconds, expiresAt } = generateDynamicQrToken(student);
         return {
             token,
