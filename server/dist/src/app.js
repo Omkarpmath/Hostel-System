@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
 import { env } from "./config/env.js";
@@ -38,6 +39,7 @@ app.use(cors({
     },
     credentials: true,
 }));
+app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

@@ -1,7 +1,7 @@
 export declare class AttendanceService {
     /**
      * Get the hostelId a security user is assigned to.
-     * Throws if the user is not assigned to any hostel.
+     * Cached in-memory with a 5-minute TTL to reduce repeated DB queries.
      */
     private getSecurityHostelId;
     /**

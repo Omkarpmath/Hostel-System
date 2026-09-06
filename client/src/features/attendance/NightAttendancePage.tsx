@@ -26,6 +26,49 @@ const statusConfig: Record<string, { color: string; bg: string; icon: typeof Che
   ERROR: { color: '#dc2626', bg: 'rgba(220, 38, 38, 0.12)', icon: AlertTriangle },
 };
 
+// Web Audio API feedback for security personnel
+function playScanAudio(status: string) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (status === 'PRESENT') {
+      // Pleasant high double-beep for success (880Hz -> 1320Hz)
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.22);
+    } else if (status === 'ALREADY_MARKED') {
+      // Notification mid-tone (587Hz)
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(587, ctx.currentTime);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    } else {
+      // Low dual-tone error buzz (220Hz -> 175Hz)
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      osc.frequency.setValueAtTime(175, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch {
+    // AudioContext blocked by browser policy prior to user interaction
+  }
+}
+
 export function NightAttendancePage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -33,6 +76,7 @@ export function NightAttendancePage() {
 
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [pendingScanUsn, setPendingScanUsn] = useState<string>('');
   const [scannedCount, setScannedCount] = useState(0);
   const [showSummary, setShowSummary] = useState(false);
   const [summaryData, setSummaryData] = useState<any>(null);
@@ -63,13 +107,21 @@ export function NightAttendancePage() {
     mutationFn: (token: string) => attendanceApi.scanStudent(token),
     onSuccess: (res) => {
       isVerifyingRef.current = false;
+      setPendingScanUsn('');
       const result = (res.data as any)?.data as ScanResult;
       setScanResult(result);
+      playScanAudio(result.status);
+
       if (result.status === 'PRESENT') {
         setScannedCount((c) => c + 1);
       }
-      // Keep result visible and prevent rescanning the same QR immediately
-      const duration = (result.status === 'EXPIRED' || result.status === 'WRONG_HOSTEL') ? 2500 : 1800;
+      // Fast cooldown: 1100ms for PRESENT, 1400ms for ALREADY_MARKED, 2200ms for errors
+      const duration = result.status === 'PRESENT'
+        ? 1100
+        : (result.status === 'EXPIRED' || result.status === 'WRONG_HOSTEL' || result.status === 'INVALID')
+          ? 2200
+          : 1400;
+
       setTimeout(() => {
         setScanResult(null);
         lastProcessedTokenRef.current = '';
@@ -77,11 +129,13 @@ export function NightAttendancePage() {
     },
     onError: () => {
       isVerifyingRef.current = false;
+      setPendingScanUsn('');
+      playScanAudio('ERROR');
       setScanResult({ status: 'ERROR', message: 'Failed to process scan.' });
       setTimeout(() => {
         setScanResult(null);
         lastProcessedTokenRef.current = '';
-      }, 1800);
+      }, 1600);
     },
   });
 
@@ -100,7 +154,7 @@ export function NightAttendancePage() {
   const [cameraBlocked, setCameraBlocked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Scanner logic with strict in-flight verification lock ──
+  // ─── Scanner logic with optimistic USN extraction ──
   const handleQrResult = useCallback((decodedText: string) => {
     // 1. Strict lock: reject any camera frame if verification is in-flight or cooldown active
     if (isVerifyingRef.current || scanMutation.isPending) return;
@@ -110,6 +164,18 @@ export function NightAttendancePage() {
     // Match both dynamic DQR tokens (base64url) and legacy UUID tokens from URL
     const match = decodedText.match(/\/verify\/student\/([A-Za-z0-9_\-\.]+)/i);
     if (match) token = match[1];
+
+    // Optimistically extract USN from client-side dynamic token payload for immediate UI feedback
+    if (token.startsWith('DQR_')) {
+      try {
+        const payloadBase64 = token.slice(4).split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+        const payloadJson = atob(payloadBase64);
+        const parsed = JSON.parse(payloadJson);
+        if (parsed?.usn) {
+          setPendingScanUsn(parsed.usn);
+        }
+      } catch {}
+    }
 
     isVerifyingRef.current = true;
     lastProcessedTokenRef.current = decodedText;
@@ -365,42 +431,67 @@ export function NightAttendancePage() {
                 }}
               />
 
-              {/* In-Flight Verification Overlay */}
+              {/* High-Tech Non-Blocking HUD Overlay */}
               <AnimatePresence>
                 {scanMutation.isPending && (
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    initial={{ opacity: 0, y: -12, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
                     style={{
                       position: 'absolute',
-                      inset: 0,
-                      backgroundColor: 'rgba(15, 23, 42, 0.75)',
-                      backdropFilter: 'blur(4px)',
+                      top: '1rem',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                      backdropFilter: 'blur(8px)',
+                      color: '#38bdf8',
+                      padding: '0.45rem 1.25rem',
+                      borderRadius: '9999px',
+                      fontSize: '0.8125rem',
+                      fontWeight: 700,
                       display: 'flex',
-                      flexDirection: 'column',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 10,
+                      gap: '0.6rem',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+                      zIndex: 20,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     <div
                       style={{
-                        width: '3rem',
-                        height: '3rem',
-                        border: '3px solid rgba(255, 255, 255, 0.2)',
+                        width: '0.85rem',
+                        height: '0.85rem',
+                        border: '2px solid rgba(56, 189, 248, 0.25)',
                         borderTopColor: '#38bdf8',
                         borderRadius: '50%',
-                        animation: 'spin 0.8s linear infinite',
+                        animation: 'spin 0.6s linear infinite',
                       }}
                     />
-                    <p style={{ color: '#f8fafc', fontWeight: 700, fontSize: '0.9375rem', marginTop: '1rem', letterSpacing: '0.01em' }}>
-                      Verifying Attendance...
-                    </p>
+                    <span>Verifying{pendingScanUsn ? ` ${pendingScanUsn}` : ''}...</span>
                     <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Viewfinder Target Frame */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: '2rem',
+                  pointerEvents: 'none',
+                  borderRadius: '1rem',
+                  border: scanMutation.isPending
+                    ? '2px solid rgba(56, 189, 248, 0.8)'
+                    : '2px dashed rgba(255, 255, 255, 0.25)',
+                  boxShadow: scanMutation.isPending
+                    ? '0 0 20px rgba(56, 189, 248, 0.3) inset'
+                    : 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              />
             </motion.div>
 
             {/* Scan result overlay */}

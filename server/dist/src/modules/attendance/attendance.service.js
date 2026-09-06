@@ -1,13 +1,22 @@
 import { prisma } from "../../config/db.js";
+import { Prisma } from "@prisma/client";
+import { v4 as uuidv4 } from "uuid";
 import { ApiError } from "../../utils/ApiError.js";
 import { notificationService } from "../notification/notification.service.js";
 import { verifyQrToken } from "../../utils/dynamicQr.js";
+// In-memory cache for security hostel assignments and active sessions
+const securityHostelCache = new Map();
+const activeSessionCache = new Map();
 export class AttendanceService {
     /**
      * Get the hostelId a security user is assigned to.
-     * Throws if the user is not assigned to any hostel.
+     * Cached in-memory with a 5-minute TTL to reduce repeated DB queries.
      */
     async getSecurityHostelId(userId) {
+        const cached = securityHostelCache.get(userId);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.hostelId;
+        }
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: { assignedHostelId: true },
@@ -15,6 +24,10 @@ export class AttendanceService {
         if (!user?.assignedHostelId) {
             throw ApiError.forbidden("You are not assigned to any hostel. Contact admin.");
         }
+        securityHostelCache.set(userId, {
+            hostelId: user.assignedHostelId,
+            expiresAt: Date.now() + 300_000, // 5 min TTL
+        });
         return user.assignedHostelId;
     }
     /**
@@ -29,6 +42,8 @@ export class AttendanceService {
     async startSession(securityUserId) {
         const hostelId = await this.getSecurityHostelId(securityUserId);
         const date = this.todayDate();
+        const sessionKey = `${hostelId}_${date.toISOString().slice(0, 10)}`;
+        activeSessionCache.delete(sessionKey);
         // Check if a session already exists for this hostel + date
         const existing = await prisma.attendanceSession.findUnique({
             where: { hostelId_date: { hostelId, date } },
@@ -75,6 +90,8 @@ export class AttendanceService {
     async endSession(securityUserId) {
         const hostelId = await this.getSecurityHostelId(securityUserId);
         const date = this.todayDate();
+        const sessionKey = `${hostelId}_${date.toISOString().slice(0, 10)}`;
+        activeSessionCache.delete(sessionKey);
         const session = await prisma.attendanceSession.findUnique({
             where: { hostelId_date: { hostelId, date } },
         });
@@ -152,34 +169,144 @@ export class AttendanceService {
             }
             return { status: "INVALID", message: "Invalid or unrecognized QR code." };
         }
+        // 1. Resolve security hostel ID (in-memory cached, 0ms on repeat scans)
+        const hostelId = await this.getSecurityHostelId(securityUserId);
+        // 2. Resolve active session (in-memory cached, 0ms on repeat scans)
+        const sessionKey = `${hostelId}_${date.toISOString().slice(0, 10)}`;
+        let session = activeSessionCache.get(sessionKey)?.session;
+        if (!session || session.status !== "ACTIVE") {
+            const dbSession = await prisma.attendanceSession.findUnique({
+                where: { hostelId_date: { hostelId, date } },
+                select: { id: true, status: true },
+            });
+            if (!dbSession || dbSession.status !== "ACTIVE") {
+                throw ApiError.badRequest("No active attendance session. Start one first.");
+            }
+            session = dbSession;
+            activeSessionCache.set(sessionKey, { session: dbSession, expiresAt: Date.now() + 60_000 });
+        }
+        const tSession = performance.now();
+        // 3. Fast-path: Single database round-trip for student lookup, allocation check, leave check, and attendance insert
+        try {
+            const recordId = uuidv4();
+            const isDynamic = Boolean(check.isDynamic && check.studentProfileId);
+            const whereClause = isDynamic
+                ? Prisma.sql `sp.id = ${check.studentProfileId}`
+                : Prisma.sql `sp.qr_code_token = ${qrToken}`;
+            const rows = await prisma.$queryRaw `
+        WITH student_data AS (
+          SELECT
+            sp.id as student_id,
+            sp.usn,
+            u.first_name,
+            u.last_name,
+            b.hostel_id as student_hostel_id,
+            h.name as hostel_name,
+            EXISTS(
+              SELECT 1 FROM leave_requests lr
+              WHERE lr.student_id = sp.id
+                AND lr.status = 'APPROVED'
+                AND lr.from_date <= ${today}
+                AND lr.to_date >= ${today}
+            ) as on_leave
+          FROM student_profiles sp
+          JOIN users u ON u.id = sp.user_id
+          LEFT JOIN room_allocations ra ON ra.student_id = sp.id AND ra.status = 'ACTIVE'
+          LEFT JOIN rooms r ON r.id = ra.room_id
+          LEFT JOIN floors f ON f.id = r.floor_id
+          LEFT JOIN blocks b ON b.id = f.block_id
+          LEFT JOIN hostels h ON h.id = b.hostel_id
+          WHERE ${whereClause}
+          LIMIT 1
+        ),
+        insert_record AS (
+          INSERT INTO attendance_records (id, session_id, student_id, scanned_at, created_at)
+          SELECT ${recordId}, ${session.id}, sd.student_id, NOW(), NOW()
+          FROM student_data sd
+          WHERE sd.student_hostel_id = ${hostelId}
+            AND NOT sd.on_leave
+          ON CONFLICT (session_id, student_id) DO NOTHING
+          RETURNING id
+        )
+        SELECT
+          sd.student_id,
+          sd.usn,
+          sd.first_name,
+          sd.last_name,
+          sd.student_hostel_id,
+          sd.hostel_name,
+          sd.on_leave,
+          (SELECT id FROM insert_record) as inserted_record_id,
+          EXISTS(
+            SELECT 1 FROM attendance_records ar
+            WHERE ar.session_id = ${session.id} AND ar.student_id = sd.student_id
+          ) as already_marked
+        FROM student_data sd;
+      `;
+            const tDb = performance.now();
+            if (rows.length === 0) {
+                return { status: "INVALID", message: "Invalid or unrecognized QR code." };
+            }
+            const row = rows[0];
+            if (!row.student_hostel_id) {
+                return { status: "ERROR", message: `${row.first_name} has no active room allocation.` };
+            }
+            if (row.student_hostel_id !== hostelId) {
+                return {
+                    status: "WRONG_HOSTEL",
+                    message: `${row.first_name} belongs to ${row.hostel_name}, not your hostel.`,
+                };
+            }
+            if (row.on_leave) {
+                return {
+                    status: "ON_LEAVE",
+                    message: `${row.first_name} ${row.last_name} is on approved leave.`,
+                    studentName: `${row.first_name} ${row.last_name}`,
+                    usn: row.usn,
+                };
+            }
+            if (row.inserted_record_id) {
+                console.log(`[SCAN PERF FAST-PATH] qrValidation: ${(tQr - t0).toFixed(1)}ms | sessionLookup: ${(tSession - tQr).toFixed(1)}ms | singleDbTrip: ${(tDb - tSession).toFixed(1)}ms | total: ${(tDb - t0).toFixed(1)}ms | status: PRESENT`);
+                return {
+                    status: "PRESENT",
+                    message: `${row.first_name} ${row.last_name} marked PRESENT.`,
+                    studentName: `${row.first_name} ${row.last_name}`,
+                    usn: row.usn,
+                };
+            }
+            console.log(`[SCAN PERF FAST-PATH] qrValidation: ${(tQr - t0).toFixed(1)}ms | sessionLookup: ${(tSession - tQr).toFixed(1)}ms | singleDbTrip: ${(tDb - tSession).toFixed(1)}ms | total: ${(tDb - t0).toFixed(1)}ms | status: ALREADY_MARKED`);
+            return {
+                status: "ALREADY_MARKED",
+                message: `${row.first_name} ${row.last_name} is already marked present.`,
+                studentName: `${row.first_name} ${row.last_name}`,
+                usn: row.usn,
+            };
+        }
+        catch (err) {
+            console.warn("[SCAN FALLBACK] Fast-path failed, executing safe fallback:", err);
+        }
+        // ─── SAFE FALLBACK: Original Prisma queries (guarantees zero breakage risk) ───
         const studentWhere = check.isDynamic && check.studentProfileId
             ? { id: check.studentProfileId }
             : { qrCodeToken: qrToken };
-        // 1. Fetch security user & student profile with leaves in parallel (1 lean DB round-trip)
-        const [securityUser, student] = await Promise.all([
-            prisma.user.findUnique({
-                where: { id: securityUserId },
-                select: { assignedHostelId: true },
-            }),
-            prisma.studentProfile.findUnique({
-                where: studentWhere,
-                select: {
-                    id: true,
-                    usn: true,
-                    user: { select: { firstName: true, lastName: true } },
-                    roomAllocations: {
-                        where: { status: "ACTIVE" },
-                        take: 1,
-                        select: {
-                            room: {
-                                select: {
-                                    floor: {
-                                        select: {
-                                            block: {
-                                                select: {
-                                                    hostelId: true,
-                                                    hostel: { select: { id: true, name: true } },
-                                                },
+        const student = await prisma.studentProfile.findUnique({
+            where: studentWhere,
+            select: {
+                id: true,
+                usn: true,
+                user: { select: { firstName: true, lastName: true } },
+                roomAllocations: {
+                    where: { status: "ACTIVE" },
+                    take: 1,
+                    select: {
+                        room: {
+                            select: {
+                                floor: {
+                                    select: {
+                                        block: {
+                                            select: {
+                                                hostelId: true,
+                                                hostel: { select: { id: true, name: true } },
                                             },
                                         },
                                     },
@@ -187,27 +314,21 @@ export class AttendanceService {
                             },
                         },
                     },
-                    leaveRequests: {
-                        where: {
-                            status: "APPROVED",
-                            fromDate: { lte: today },
-                            toDate: { gte: today },
-                        },
-                        take: 1,
-                        select: { id: true },
-                    },
                 },
-            }),
-        ]);
-        const tRead = performance.now();
-        if (!securityUser?.assignedHostelId) {
-            throw ApiError.forbidden("You are not assigned to any hostel. Contact admin.");
-        }
-        const hostelId = securityUser.assignedHostelId;
+                leaveRequests: {
+                    where: {
+                        status: "APPROVED",
+                        fromDate: { lte: today },
+                        toDate: { gte: today },
+                    },
+                    take: 1,
+                    select: { id: true },
+                },
+            },
+        });
         if (!student) {
             return { status: "INVALID", message: "Invalid or unrecognized QR code." };
         }
-        // 2. Verify active room allocation & hostel
         const allocation = student.roomAllocations[0];
         if (!allocation) {
             return { status: "ERROR", message: `${student.user.firstName} has no active room allocation.` };
@@ -219,7 +340,6 @@ export class AttendanceService {
                 message: `${student.user.firstName} belongs to ${allocation.room.floor.block.hostel.name}, not your hostel.`,
             };
         }
-        // 3. Check for approved leave covering today (already fetched in parallel)
         if (student.leaveRequests && student.leaveRequests.length > 0) {
             return {
                 status: "ON_LEAVE",
@@ -228,16 +348,6 @@ export class AttendanceService {
                 usn: student.usn,
             };
         }
-        // 4. Find the active session for today (lean select)
-        const session = await prisma.attendanceSession.findUnique({
-            where: { hostelId_date: { hostelId, date } },
-            select: { id: true, status: true },
-        });
-        const tSession = performance.now();
-        if (!session || session.status !== "ACTIVE") {
-            throw ApiError.badRequest("No active attendance session. Start one first.");
-        }
-        // 5. Create attendance record directly (handles duplicate via unique constraint)
         let writeStatus = "PRESENT";
         try {
             await prisma.attendanceRecord.create({
@@ -252,8 +362,8 @@ export class AttendanceService {
                 throw err;
             }
         }
-        const tWrite = performance.now();
-        console.log(`[SCAN PERF] qrValidation: ${(tQr - t0).toFixed(1)}ms | dbRead: ${(tRead - tQr).toFixed(1)}ms | sessionLookup: ${(tSession - tRead).toFixed(1)}ms | dbWrite: ${(tWrite - tSession).toFixed(1)}ms | total: ${(tWrite - t0).toFixed(1)}ms | status: ${writeStatus}`);
+        const tFallback = performance.now();
+        console.log(`[SCAN PERF FALLBACK] total: ${(tFallback - t0).toFixed(1)}ms | status: ${writeStatus}`);
         if (writeStatus === "ALREADY_MARKED") {
             return {
                 status: "ALREADY_MARKED",
