@@ -398,6 +398,7 @@ export class UserService {
       id: studentProfile?.id ?? user.id,
       user,
       usn: studentProfile?.usn ?? null,
+      gender: studentProfile?.gender ?? null,
       department: studentProfile?.department ?? null,
       year: studentProfile?.year ?? null,
       semester: studentProfile?.semester ?? null,

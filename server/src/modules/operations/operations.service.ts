@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { notificationService } from "../notification/notification.service.js";
+import { receiptService } from "../receipt/receipt.service.js";
 
 const studentInclude = {
   student: {
@@ -875,6 +876,77 @@ export class OperationsService {
       include: { ...studentInclude, allocation: { include: roomInclude() } },
       orderBy: { createdAt: "desc" },
     });
+  }
+
+  async approveOfflinePayment(
+    feeId: string,
+    approverUserId: string,
+    approverRole: string,
+    data: {
+      paymentMethod: string;
+      referenceNumber: string;
+      bankName?: string;
+      paidAt?: Date;
+      remarks?: string;
+    }
+  ) {
+    if (approverRole !== "ADMIN" && approverRole !== "ACCOUNTANT") {
+      throw ApiError.forbidden("Only Administrators and Accountants can approve offline payments");
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const fee = await tx.fee.findUnique({
+        where: { id: feeId },
+        include: {
+          student: { include: { user: true } },
+          allocation: { include: { room: { include: { floor: { include: { block: true } } } } } },
+        },
+      });
+
+      if (!fee) throw ApiError.notFound("Fee record not found");
+      if (fee.status === "PAID") throw ApiError.conflict("This fee has already been paid");
+
+      // Generate sequential receipt number in format: REC-YYYY-XXXXXX
+      const year = new Date().getFullYear();
+      const count = await tx.fee.count({
+        where: { receiptNumber: { startsWith: `REC-${year}-` } },
+      });
+      const seq = String(count + 1).padStart(6, "0");
+      const receiptNumber = `REC-${year}-${seq}`;
+
+      // Build transaction reference string including bank/branch if present
+      let transactionId = data.referenceNumber.trim();
+      if (data.bankName && data.bankName.trim()) {
+        transactionId = `${transactionId} (${data.bankName.trim()})`;
+      }
+      if (data.remarks && data.remarks.trim()) {
+        transactionId = `${transactionId} - ${data.remarks.trim()}`;
+      }
+
+      const updatedFee = await tx.fee.update({
+        where: { id: feeId },
+        data: {
+          status: "PAID",
+          paymentMethod: data.paymentMethod,
+          transactionId,
+          paidAt: data.paidAt || new Date(),
+          receiptNumber,
+        },
+        include: {
+          student: { include: { user: true } },
+          allocation: { include: { room: { include: { floor: { include: { block: true } } } } } },
+        },
+      });
+
+      return updatedFee;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    // Non-blocking trigger: PDF generation & email delivery via Resend
+    receiptService.processReceiptAndEmail(feeId, result.transactionId || "").catch((err) => {
+      console.error("[OperationsService] Failed to send receipt email for offline payment:", err);
+    });
+
+    return result;
   }
 }
 export const operationsService = new OperationsService();

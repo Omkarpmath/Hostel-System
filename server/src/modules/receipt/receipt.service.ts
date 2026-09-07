@@ -14,8 +14,10 @@ export interface ReceiptData {
   feeType: string;
   amount: number;
   paidAt: Date;
-  razorpayOrderId: string;
-  razorpayPaymentId: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  paymentMethod?: string;
+  transactionId?: string;
   hostelName: string;
   blockName?: string;
   roomNumber?: string;
@@ -188,8 +190,24 @@ export class ReceiptService {
         doc.rect(margin, tableTop + 40, contentWidth, 36).fillAndStroke("#ffffff", "#e2e8f0");
         doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(9.5)
           .text(data.feeType, margin + 12, tableTop + 47);
+
+        const isOffline = data.paymentMethod && data.paymentMethod !== "RAZORPAY";
+        const methodMap: Record<string, string> = {
+          CHALLAN: "Bank Challan",
+          DEMAND_DRAFT: "Demand Draft (DD)",
+          NEFT_RTGS: "Bank Transfer (NEFT / RTGS)",
+          CASH: "Cash Payment",
+          EDUCATION_LOAN: "Education Loan / Scholarship",
+          OTHER: "Bank Instrument",
+        };
+        const modeLabel = methodMap[data.paymentMethod || ""] || data.paymentMethod || "Offline Payment";
+
+        const settlementSubtitle = isOffline
+          ? `Semester Fee Settlement • Offline (${modeLabel})`
+          : `Semester Fee Settlement • Razorpay Online Gateway`;
+
         doc.fillColor("#64748b").font("Helvetica").fontSize(8)
-          .text(`Semester Fee Settlement • Razorpay Online Gateway`, margin + 12, tableTop + 60);
+          .text(settlementSubtitle, margin + 12, tableTop + 60);
 
         doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(10)
           .text(`₹ ${data.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, margin + contentWidth - 110, tableTop + 50, { width: 100, align: "right" });
@@ -202,20 +220,33 @@ export class ReceiptService {
         doc.fillColor("#15803d").font("Helvetica-Bold").fontSize(12)
           .text(`₹ ${data.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, margin + contentWidth - 140, tableTop + 85, { width: 130, align: "right" });
 
-        // ─── Section 4: Gateway Verification Metadata ───
+        // ─── Section 4: Gateway / Offline Verification Metadata ───
         const gwTop = tableTop + 118;
         doc.rect(margin, gwTop, contentWidth, 48).fillAndStroke("#f0fdf4", "#bbf7d0");
 
-        doc.fillColor("#166534").font("Helvetica-Bold").fontSize(8)
-          .text("RAZORPAY VERIFICATION DETAILS", margin + 12, gwTop + 8);
+        if (isOffline) {
+          doc.fillColor("#166534").font("Helvetica-Bold").fontSize(8)
+            .text("PAYMENT VERIFICATION & AUDIT DETAILS", margin + 12, gwTop + 8);
 
-        doc.fillColor("#334155").font("Helvetica").fontSize(8)
-          .text(`Razorpay Order ID:  ${data.razorpayOrderId || "—"}`, margin + 12, gwTop + 22)
-          .text(`Razorpay Payment ID:  ${data.razorpayPaymentId || "—"}`, margin + 12, gwTop + 34);
+          doc.fillColor("#334155").font("Helvetica").fontSize(8)
+            .text(`Instrument / Ref / UTR:  ${data.transactionId || data.razorpayPaymentId || "—"}`, margin + 12, gwTop + 22)
+            .text(`Verification Authority:  BMSCE Hostel Administration`, margin + 12, gwTop + 34);
 
-        doc.fillColor("#334155").font("Helvetica").fontSize(8)
-          .text(`Payment Mode: Online (UPI / NetBanking / Cards)`, margin + 260, gwTop + 22)
-          .text(`Transaction Status: SUCCESS / CAPTURED`, margin + 260, gwTop + 34);
+          doc.fillColor("#334155").font("Helvetica").fontSize(8)
+            .text(`Payment Mode: Offline (${modeLabel})`, margin + 260, gwTop + 22)
+            .text(`Transaction Status: VERIFIED & CLEARED`, margin + 260, gwTop + 34);
+        } else {
+          doc.fillColor("#166534").font("Helvetica-Bold").fontSize(8)
+            .text("RAZORPAY VERIFICATION DETAILS", margin + 12, gwTop + 8);
+
+          doc.fillColor("#334155").font("Helvetica").fontSize(8)
+            .text(`Razorpay Order ID:  ${data.razorpayOrderId || "—"}`, margin + 12, gwTop + 22)
+            .text(`Razorpay Payment ID:  ${data.razorpayPaymentId || "—"}`, margin + 12, gwTop + 34);
+
+          doc.fillColor("#334155").font("Helvetica").fontSize(8)
+            .text(`Payment Mode: Online (UPI / NetBanking / Cards)`, margin + 260, gwTop + 22)
+            .text(`Transaction Status: SUCCESS / CAPTURED`, margin + 260, gwTop + 34);
+        }
 
         // ─── Footer & Seal ───
         const footerTop = 750;
@@ -333,6 +364,8 @@ export class ReceiptService {
         paidAt: fee.paidAt || new Date(),
         razorpayOrderId: fee.razorpayOrderId || "—",
         razorpayPaymentId: razorpayPaymentId || fee.transactionId || "—",
+        paymentMethod: fee.paymentMethod || undefined,
+        transactionId: fee.transactionId || undefined,
         hostelName,
         blockName,
         roomNumber,
@@ -357,6 +390,21 @@ export class ReceiptService {
         return { success: false, receiptNumber, email: customerEmail, error: "RESEND_API_KEY not configured" };
       }
 
+      const isOfflineFee = receiptData.paymentMethod && receiptData.paymentMethod !== "RAZORPAY";
+      const methodMap: Record<string, string> = {
+        CHALLAN: "Bank Challan",
+        DEMAND_DRAFT: "Demand Draft (DD)",
+        NEFT_RTGS: "Bank Transfer (NEFT / RTGS)",
+        CASH: "Cash Payment",
+        EDUCATION_LOAN: "Education Loan / Scholarship",
+        OTHER: "Bank Instrument",
+      };
+      const modeLabel = methodMap[receiptData.paymentMethod || ""] || receiptData.paymentMethod || "Offline Payment";
+
+      const paymentDetailsText = isOfflineFee
+        ? `Payment Mode: Offline (${modeLabel})\nReference / Instrument / UTR: ${receiptData.transactionId || receiptData.razorpayPaymentId || "—"}`
+        : `Payment Mode: Online (Razorpay Gateway)\nRazorpay Payment ID: ${receiptData.razorpayPaymentId}\nRazorpay Order ID: ${receiptData.razorpayOrderId}`;
+
       const resend = new Resend(env.RESEND_API_KEY);
       const emailSubject = `Hostel Fee Payment Receipt - ${receiptNumber}`;
       const emailBody = `Dear ${studentName},
@@ -365,8 +413,7 @@ Your payment of ₹${Number(fee.amount).toLocaleString("en-IN")} for ${feeTypeLa
 
 Receipt Number: ${receiptNumber}
 Payment Date: ${receiptData.paidAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-Razorpay Payment ID: ${receiptData.razorpayPaymentId}
-Razorpay Order ID: ${receiptData.razorpayOrderId}
+${paymentDetailsText}
 
 Please find your official payment receipt attached as a PDF to this email.
 
@@ -489,6 +536,8 @@ Bull Temple Road, Bengaluru - 560019`;
       paidAt: fee.paidAt || fee.createdAt || new Date(),
       razorpayOrderId: fee.razorpayOrderId || "—",
       razorpayPaymentId: fee.transactionId || "—",
+      paymentMethod: fee.paymentMethod || undefined,
+      transactionId: fee.transactionId || undefined,
       hostelName,
       blockName,
       roomNumber,

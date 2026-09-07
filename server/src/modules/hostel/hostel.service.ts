@@ -295,7 +295,7 @@ export class HostelService {
   async getAvailableRooms(hostelId?: string, eligibility?: { year: number; gender: "MALE" | "FEMALE" | "OTHER" }) {
     const where: Prisma.RoomWhereInput = {
       isActive: true,
-      status: { in: ["AVAILABLE", "PARTIALLY_OCCUPIED"] },
+      status: { notIn: ["BLOCKED", "MAINTENANCE"] },
     };
 
     // Build a single combined block filter so hostelId and eligibility

@@ -16,3 +16,13 @@ export const visitorSchema = z.object({
     idProofNumber: z.string().optional(),
   }),
 });
+
+export const offlinePaymentSchema = z.object({
+  body: z.object({
+    paymentMethod: z.enum(["CHALLAN", "DEMAND_DRAFT", "NEFT_RTGS", "CASH", "EDUCATION_LOAN", "OTHER"]),
+    referenceNumber: z.string().min(2, "Reference / UTR / Instrument number is required"),
+    bankName: z.string().optional(),
+    paidAt: z.coerce.date().optional(),
+    remarks: z.string().optional(),
+  }),
+});

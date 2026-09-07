@@ -29,4 +29,11 @@ export const operationsApi = {
   hostelStudents: (params?: { hostelId?: string }) => api.get<ApiResponse<any[]>>('/visitors/students', { params }),
   fees: (params?: { hostelId?: string }) => api.get<ApiResponse<Fee[]>>('/fees', { params }),
   downloadReceipt: (feeId: string) => api.get(`/fees/${feeId}/receipt`, { responseType: 'blob' }),
+  approveOfflinePayment: (feeId: string, data: {
+    paymentMethod: string;
+    referenceNumber: string;
+    bankName?: string;
+    paidAt?: string;
+    remarks?: string;
+  }) => api.post<ApiResponse<Fee>>(`/fees/${feeId}/approve-offline`, data),
 };

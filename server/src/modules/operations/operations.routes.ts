@@ -4,7 +4,7 @@ import { authorize } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { upload } from "../../middleware/upload.middleware.js";
 import { operationsController as c } from "./operations.controller.js";
-import { allocationSchema, complaintSchema, complaintStatusSchema, leaveSchema, leaveStatusSchema, visitorSchema } from "./operations.schema.js";
+import { allocationSchema, complaintSchema, complaintStatusSchema, leaveSchema, leaveStatusSchema, visitorSchema, offlinePaymentSchema } from "./operations.schema.js";
 const router = Router(); router.use(authenticate);
 // Controller methods use instance helpers, so bind them before Express invokes them.
 router.get("/me/overview", authorize("STUDENT"), c.mine.bind(c));
@@ -16,4 +16,5 @@ router.post("/visitors", authorize("STUDENT", "SECURITY", "ADMIN", "WARDEN"), va
 router.get("/visitors/students", authorize("ADMIN", "WARDEN", "SECURITY"), c.hostelStudents.bind(c));
 router.get("/fees", authorize("STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT"), c.fees.bind(c));
 router.get("/fees/:id/receipt", authorize("STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT"), c.downloadReceipt.bind(c));
+router.post("/fees/:id/approve-offline", authorize("ADMIN", "ACCOUNTANT"), validate(offlinePaymentSchema), c.approveOfflineFee.bind(c));
 export default router;

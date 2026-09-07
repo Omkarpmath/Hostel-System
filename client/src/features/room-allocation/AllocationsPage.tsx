@@ -228,6 +228,7 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [studentId, setStudentId] = useState('');
   const [roomId, setRoomId] = useState('');
+  const [filterByEligibility, setFilterByEligibility] = useState(true);
 
   const { data: studentsData } = useQuery({
     queryKey: ['students'],
@@ -247,18 +248,31 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
   const rooms: any[] = (roomsData?.data as any)?.data || [];
 
   const selectedStudent = students.find((s) => s.id === studentId);
-  const eligibleRooms = selectedStudent
+  const eligibleRooms = selectedStudent && filterByEligibility
     ? rooms.filter((r) => {
-        if (r.status === 'BLOCKED') return false;
+        if (r.status === 'BLOCKED' || r.status === 'MAINTENANCE') return false;
+        const availableBeds = r.capacity - (r.occupiedBeds || 0);
+        if (availableBeds <= 0) return false;
+
         const h = r.floor?.block?.hostel;
         if (!h) return false;
-        const genderMatch =
-          (selectedStudent.gender === 'MALE' && h.type === 'BOYS') ||
-          (selectedStudent.gender === 'FEMALE' && h.type === 'GIRLS');
-        const yearMatch = !h.allowedYears?.length || h.allowedYears.includes(selectedStudent.year);
+
+        // Case-insensitive gender check; fallback to true if student gender is unspecified
+        const sGender = selectedStudent.gender ? String(selectedStudent.gender).toUpperCase() : null;
+        let genderMatch = true;
+        if (sGender === 'MALE') {
+          genderMatch = h.type === 'BOYS';
+        } else if (sGender === 'FEMALE') {
+          genderMatch = h.type === 'GIRLS';
+        }
+
+        // Year check; fallback to true if unspecified
+        const sYear = selectedStudent.year ? Number(selectedStudent.year) : null;
+        const yearMatch = !sYear || !h.allowedYears?.length || h.allowedYears.includes(sYear);
+
         return genderMatch && yearMatch;
       })
-    : rooms.filter((r) => r.status !== 'BLOCKED');
+    : rooms.filter((r) => r.status !== 'BLOCKED' && r.status !== 'MAINTENANCE' && (r.capacity - (r.occupiedBeds || 0) > 0));
 
   useEffect(() => {
     if (roomId && selectedStudent && !eligibleRooms.some((r) => r.id === roomId)) {
@@ -283,7 +297,7 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'var(--overlay)' }}>
       <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} onClick={(e) => e.stopPropagation()}
-        style={{ width: '100%', maxWidth: '28rem', borderRadius: '1rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)', boxShadow: '0 20px 25px rgba(0,0,0,0.15)' }}>
+        style={{ width: '100%', maxWidth: '30rem', borderRadius: '1rem', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)', boxShadow: '0 20px 25px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem', borderBottom: '1px solid var(--border-primary)' }}>
           <div>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>Allocate Room</h2>
@@ -309,19 +323,46 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <label style={labelStyle}>Select Room</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Select Room</label>
+              {selectedStudent && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={filterByEligibility}
+                    onChange={(e) => setFilterByEligibility(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span>Filter by student year & gender</span>
+                </label>
+              )}
+            </div>
             <select value={roomId} onChange={(e) => setRoomId(e.target.value)} style={inputStyle}>
               <option value="">Choose an available room...</option>
-              {eligibleRooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  [{r.floor?.block?.hostel?.type || 'HOSTEL'}] {r.floor?.block?.hostel?.name} — Room {r.roomNumber} ({r.capacity - r.occupiedBeds} available)
-                </option>
-              ))}
+              {eligibleRooms.map((r) => {
+                const freeBeds = r.capacity - (r.occupiedBeds || 0);
+                return (
+                  <option key={r.id} value={r.id}>
+                    [{r.floor?.block?.hostel?.type || 'HOSTEL'}] {r.floor?.block?.hostel?.name} — Room {r.roomNumber} ({freeBeds} {freeBeds === 1 ? 'bed' : 'beds'} available / cap {r.capacity})
+                  </option>
+                );
+              })}
             </select>
             {selectedStudent && eligibleRooms.length === 0 && (
-              <p style={{ fontSize: '0.75rem', color: isDark ? '#fca5a5' : '#dc2626', marginTop: '0.375rem' }}>
-                No available rooms found in {selectedStudent.gender === 'FEMALE' ? 'Girls' : 'Boys'} hostels for Year {selectedStudent.year}.
-              </p>
+              <div style={{ padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : '#fef2f2', border: `1px solid ${isDark ? 'rgba(239,68,68,0.2)' : '#fecaca'}`, marginTop: '0.5rem' }}>
+                <p style={{ fontSize: '0.75rem', color: isDark ? '#fca5a5' : '#dc2626', margin: 0 }}>
+                  No available rooms found {selectedStudent.gender ? `in ${selectedStudent.gender === 'FEMALE' ? 'Girls' : 'Boys'} hostels` : ''} {selectedStudent.year ? `for Year ${selectedStudent.year}` : ''}.
+                </p>
+                {filterByEligibility && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterByEligibility(false)}
+                    style={{ marginTop: '0.375rem', background: 'none', border: 'none', padding: 0, color: '#2563eb', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    Show all rooms with vacant beds
+                  </button>
+                )}
+              </div>
             )}
           </div>
 

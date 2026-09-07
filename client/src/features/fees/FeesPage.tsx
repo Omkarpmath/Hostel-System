@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { operationsApi } from '@/api/operations.api';
 import { useAuth } from '@/providers/AuthProvider';
@@ -12,6 +12,7 @@ import {
   CreditCard, ChevronRight, User, Calendar, Building2,
   BedDouble, Receipt, IndianRupee, Clock, CheckCircle2,
   Download, Search, UtensilsCrossed, ShieldCheck, ArrowRight,
+  Loader2, X, AlertCircle,
 } from 'lucide-react';
 import { hostelApi } from '@/api/hostel.api';
 
@@ -43,10 +44,21 @@ export function FeesPage() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'HOSTEL_FEE' | 'MESS_FEE'>('HOSTEL_FEE');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Offline Payment Approval State (Strictly Admin and Accountant)
+  const canApproveOffline = user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT';
+  const [selectedFeeForOffline, setSelectedFeeForOffline] = useState<any | null>(null);
+  const [offlineMethod, setOfflineMethod] = useState<'CHALLAN' | 'DEMAND_DRAFT' | 'NEFT_RTGS' | 'CASH' | 'EDUCATION_LOAN' | 'OTHER'>('CHALLAN');
+  const [referenceNumber, setReferenceNumber] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [depositDate, setDepositDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [offlineRemarks, setOfflineRemarks] = useState('');
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const isStudent = user?.role === 'STUDENT';
   const canFilterHostel = !isStudent;
@@ -84,6 +96,33 @@ export function FeesPage() {
     retry: 1,
   });
   const allFees: any[] = (data?.data as any)?.data || [];
+
+  // Mutation to approve offline payment
+  const approveOfflineMutation = useMutation({
+    mutationFn: ({ feeId, data }: { feeId: string; data: any }) =>
+      operationsApi.approveOfflinePayment(feeId, data),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['fees'] });
+      queryClient.invalidateQueries({ queryKey: ['mess-fee-status'] });
+      queryClient.invalidateQueries({ queryKey: ['my-overview'] });
+      setSelectedFeeForOffline(null);
+      setReferenceNumber('');
+      setBankName('');
+      setOfflineRemarks('');
+      const feeData = (res?.data as any)?.data;
+      setActionMessage({
+        type: 'success',
+        text: `Offline payment verified and marked as PAID! Official receipt ${feeData?.receiptNumber || ''} generated.`,
+      });
+      setTimeout(() => setActionMessage(null), 7000);
+    },
+    onError: (err: any) => {
+      setActionMessage({
+        type: 'error',
+        text: err?.response?.data?.message || err?.message || 'Failed to approve offline payment.',
+      });
+    },
+  });
 
   // Filter fees by active tab (for staff)
   const tabFees = isStudent ? allFees : allFees.filter((f) => f.type === activeTab);
@@ -128,6 +167,43 @@ export function FeesPage() {
         description={isStudent ? 'Official records of hostel accommodation and mess dining payments' : `${fees.length} verified fee ledger record${fees.length !== 1 ? 's' : ''}`}
         breadcrumbs={[{ label: 'Dashboard' }, { label: 'Fees' }]}
       />
+
+      {/* Action Notification Banner */}
+      {actionMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            padding: '0.875rem 1.25rem',
+            borderRadius: '0.75rem',
+            backgroundColor: actionMessage.type === 'success'
+              ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
+              : (isDark ? 'rgba(220,38,38,0.15)' : '#fee2e2'),
+            color: actionMessage.type === 'success'
+              ? (isDark ? '#4ade80' : '#15803d')
+              : (isDark ? '#fca5a5' : '#dc2626'),
+            border: `1px solid ${actionMessage.type === 'success' ? (isDark ? 'rgba(22,163,74,0.3)' : '#86efac') : (isDark ? 'rgba(220,38,38,0.3)' : '#fca5a5')}`,
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {actionMessage.type === 'success' ? <CheckCircle2 style={{ width: '1.125rem', height: '1.125rem' }} /> : <AlertCircle style={{ width: '1.125rem', height: '1.125rem' }} />}
+            <span>{actionMessage.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionMessage(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: '0.25rem' }}
+          >
+            <X style={{ width: '1rem', height: '1rem' }} />
+          </button>
+        </motion.div>
+      )}
 
       {/* ─── 1. Financial Overview Summary Cards ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
@@ -425,6 +501,29 @@ export function FeesPage() {
                         <span>Pay Online</span>
                         <ArrowRight style={{ width: '0.875rem', height: '0.875rem' }} />
                       </Link>
+                    ) : canApproveOffline ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedFeeForOffline(fee);
+                          setReferenceNumber('');
+                          setBankName('');
+                          setOfflineRemarks('');
+                          setActionMessage(null);
+                        }}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                          padding: '0.5rem 1rem', borderRadius: '0.625rem',
+                          background: 'linear-gradient(135deg, #1e40af, #2563eb)',
+                          border: 'none', color: 'white',
+                          fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+                        }}
+                      >
+                        <Receipt style={{ width: '0.875rem', height: '0.875rem' }} />
+                        <span>Approve Offline Payment</span>
+                      </button>
                     ) : null}
 
                     <ChevronRight style={{
@@ -445,10 +544,49 @@ export function FeesPage() {
                           <InfoBlock label="Payment Status" value={fee.status} icon={isPaid ? CheckCircle2 : Clock} />
                           <InfoBlock label="Invoice Due Date" value={fmt(fee.dueDate)} icon={Calendar} />
                           {fee.paidAt && <InfoBlock label="Payment Settled Date" value={fmt(fee.paidAt)} icon={Calendar} />}
+                          {fee.paymentMethod && <InfoBlock label="Payment Mode" value={fee.paymentMethod?.replace('_', ' ')} icon={CreditCard} />}
+                          {fee.transactionId && <InfoBlock label="Ref / UTR / Inst No" value={fee.transactionId} icon={Receipt} />}
                           {fee.receiptNumber && <InfoBlock label="Official Receipt No" value={fee.receiptNumber} icon={Receipt} />}
                           {hostel && <InfoBlock label="Hostel Allocation" value={hostel} icon={Building2} />}
                           {roomNum && <InfoBlock label="Assigned Room" value={`Room ${roomNum}`} icon={BedDouble} />}
                         </div>
+
+                        {/* Offline payment approval prompt for Staff in expanded view */}
+                        {!isPaid && canApproveOffline && (
+                          <div style={{
+                            marginTop: '1.25rem', padding: '1rem 1.25rem', borderRadius: '0.75rem',
+                            backgroundColor: isDark ? 'rgba(59,130,246,0.08)' : '#eff6ff',
+                            border: `1px solid ${isDark ? 'rgba(59,130,246,0.2)' : '#bfdbfe'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem',
+                          }}>
+                            <div>
+                              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Student Deposited Bank Challan, DD, or Cash?
+                              </span>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
+                                Authorize the bank instrument / UTR reference to mark this fee as paid and issue an official receipt.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedFeeForOffline(fee);
+                                setReferenceNumber('');
+                                setBankName('');
+                                setOfflineRemarks('');
+                              }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                                padding: '0.5rem 1rem', borderRadius: '0.625rem',
+                                backgroundColor: '#2563eb', color: 'white', border: 'none',
+                                fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer',
+                              }}
+                            >
+                              <Receipt style={{ width: '0.875rem', height: '0.875rem' }} />
+                              <span>Record Offline Payment</span>
+                            </button>
+                          </div>
+                        )}
 
                         {isPaid && (
                           <div style={{
@@ -494,6 +632,327 @@ export function FeesPage() {
           })}
         </div>
       )}
+
+      {/* ─── 4. Offline Payment Approval Modal (Admin & Accountant Only) ─── */}
+      <AnimatePresence>
+        {selectedFeeForOffline && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+            }}
+            onClick={() => {
+              if (!approveOfflineMutation.isPending) setSelectedFeeForOffline(null);
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                ...cardStyle,
+                width: '100%',
+                maxWidth: '520px',
+                padding: '1.75rem',
+                backgroundColor: 'var(--bg-card)',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.25rem',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div
+                    style={{
+                      width: '2.75rem',
+                      height: '2.75rem',
+                      borderRadius: '0.75rem',
+                      backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
+                      color: isDark ? '#60a5fa' : '#2563eb',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Receipt style={{ width: '1.375rem', height: '1.375rem' }} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      Approve Offline Payment
+                    </h3>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      Authorize bank challan, DD, or cash and issue official receipt.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={approveOfflineMutation.isPending}
+                  onClick={() => setSelectedFeeForOffline(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: '0.25rem',
+                  }}
+                >
+                  <X style={{ width: '1.25rem', height: '1.25rem' }} />
+                </button>
+              </div>
+
+              {/* Student & Fee Summary */}
+              <div
+                style={{
+                  padding: '1rem',
+                  borderRadius: '0.75rem',
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'var(--bg-secondary)',
+                  border: '1px solid var(--border-primary)',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '0.75rem',
+                  fontSize: '0.8125rem',
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Student
+                  </span>
+                  <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.125rem' }}>
+                    {selectedFeeForOffline.student?.user?.firstName} {selectedFeeForOffline.student?.user?.lastName}
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    USN: {selectedFeeForOffline.student?.usn || 'N/A'}
+                  </p>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Fee Category & Due
+                  </span>
+                  <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.125rem' }}>
+                    {selectedFeeForOffline.type?.replace('_', ' ')}
+                  </p>
+                  <p style={{ fontSize: '1.125rem', fontWeight: 800, color: '#16a34a' }}>
+                    {money(selectedFeeForOffline.amount)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Form Controls */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {/* Payment Method */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+                    Payment Instrument / Mode *
+                  </label>
+                  <select
+                    value={offlineMethod}
+                    onChange={(e) => setOfflineMethod(e.target.value as any)}
+                    style={{
+                      width: '100%',
+                      padding: '0.625rem 0.875rem',
+                      borderRadius: '0.625rem',
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="CHALLAN">Bank Challan (SBI / Canara / etc.)</option>
+                    <option value="DEMAND_DRAFT">Demand Draft (DD)</option>
+                    <option value="NEFT_RTGS">Bank Transfer (NEFT / RTGS / UTR)</option>
+                    <option value="CASH">Cash (Hostel Accounts Desk)</option>
+                    <option value="EDUCATION_LOAN">Education Loan / Scholarship</option>
+                    <option value="OTHER">Other Bank Instrument</option>
+                  </select>
+                </div>
+
+                {/* Reference / UTR Number */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+                    Challan No / DD No / Bank UTR *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. SBI-CH-2026-94810 or UTR 4291849182"
+                    value={referenceNumber}
+                    onChange={(e) => setReferenceNumber(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.625rem 0.875rem',
+                      borderRadius: '0.625rem',
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.875rem',
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+
+                {/* Bank Name & Branch */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+                    Bank Name & Branch (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. State Bank of India, BMSCE Campus Branch"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.625rem 0.875rem',
+                      borderRadius: '0.625rem',
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.875rem',
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+
+                {/* Deposit Date */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+                    Date of Payment / Deposit *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={depositDate}
+                    onChange={(e) => setDepositDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.625rem 0.875rem',
+                      borderRadius: '0.625rem',
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.875rem',
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+
+                {/* Remarks */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+                    Remarks / Audit Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Verified with bank scroll / ledger"
+                    value={offlineRemarks}
+                    onChange={(e) => setOfflineRemarks(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.625rem 0.875rem',
+                      borderRadius: '0.625rem',
+                      border: '1px solid var(--border-primary)',
+                      backgroundColor: 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.875rem',
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  disabled={approveOfflineMutation.isPending}
+                  onClick={() => setSelectedFeeForOffline(null)}
+                  style={{
+                    padding: '0.625rem 1.125rem',
+                    borderRadius: '0.625rem',
+                    border: '1px solid var(--border-primary)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: approveOfflineMutation.isPending ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!referenceNumber.trim() || approveOfflineMutation.isPending}
+                  onClick={() => {
+                    if (!referenceNumber.trim()) return;
+                    approveOfflineMutation.mutate({
+                      feeId: selectedFeeForOffline.id,
+                      data: {
+                        paymentMethod: offlineMethod,
+                        referenceNumber: referenceNumber.trim(),
+                        bankName: bankName.trim() || undefined,
+                        paidAt: depositDate ? new Date(depositDate).toISOString() : undefined,
+                        remarks: offlineRemarks.trim() || undefined,
+                      },
+                    });
+                  }}
+                  style={{
+                    padding: '0.625rem 1.25rem',
+                    borderRadius: '0.625rem',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #16a34a, #0d9488)',
+                    color: 'white',
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
+                    cursor: (!referenceNumber.trim() || approveOfflineMutation.isPending) ? 'not-allowed' : 'pointer',
+                    opacity: (!referenceNumber.trim() || approveOfflineMutation.isPending) ? 0.5 : 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontFamily: 'inherit',
+                    boxShadow: '0 4px 12px rgba(22,163,74,0.25)',
+                  }}
+                >
+                  {approveOfflineMutation.isPending ? (
+                    <>
+                      <Loader2 style={{ width: '1rem', height: '1rem' }} className="animate-spin" />
+                      <span>Recording Payment…</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 style={{ width: '1rem', height: '1rem' }} />
+                      <span>Approve & Issue Receipt</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
