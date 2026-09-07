@@ -47,6 +47,7 @@ enum RoomStatus {
   FULL
   MAINTENANCE
   RESERVED
+  BLOCKED
 }
 
 enum AllocationStatus {
@@ -223,6 +224,7 @@ model User {
   announcementReads  AnnouncementRead[]   @relation("UserAnnouncementReads")
   notifications      Notification[]
   refreshTokens      RefreshToken[]
+  blockedRooms       Room[]             @relation("RoomBlockedBy")
 
   @@map("users")
 }
@@ -339,11 +341,15 @@ model Room {
   amenities       String?    // JSON string array
   isActive        Boolean    @default(true) @map("is_active")
   version         Int        @default(0) // Optimistic locking
+  blockedAt       DateTime?  @map("blocked_at")
+  blockedById     String?    @map("blocked_by_id")
+  blockedReason   String?    @map("blocked_reason")
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
   // Relations
   floor        Floor            @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  blockedBy    User?            @relation("RoomBlockedBy", fields: [blockedById], references: [id])
   allocations  RoomAllocation[]
   reservations Reservation[]
 

@@ -37,8 +37,9 @@ router.get("/blocks/:blockId/floors", hostelController.getFloors);
 
 // Room CRUD
 router.post("/floors/:floorId/rooms", authorize("ADMIN"), validate(createRoomSchema), hostelController.createRoom);
-// Detailed room lists include resident allocations and are management-only.
-router.get("/rooms", authorize("ADMIN", "WARDEN"), hostelController.getRooms);
+router.get("/rooms", hostelController.getRooms);
+router.post("/rooms/:id/block", authorize("ADMIN", "WARDEN"), hostelController.blockRoom);
+router.post("/rooms/:id/unblock", authorize("ADMIN", "WARDEN"), hostelController.unblockRoom);
 router.get("/rooms/available", hostelController.getAvailableRooms);
 router.get("/rooms/:id", authorize("ADMIN", "WARDEN"), hostelController.getRoomById);
 router.patch("/rooms/:id", authorize("ADMIN"), validate(updateRoomSchema), hostelController.updateRoom);

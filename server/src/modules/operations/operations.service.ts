@@ -192,7 +192,9 @@ export class OperationsService {
       if (hostel.allowedYears && hostel.allowedYears.length > 0 && !hostel.allowedYears.includes(student.year)) {
         throw ApiError.badRequest(`This hostel is not open for Year ${student.year} students`);
       }
-      if (["MAINTENANCE", "RESERVED"].includes(room.status)) throw ApiError.badRequest("This room is not available for allocation");
+      if (["MAINTENANCE", "RESERVED", "BLOCKED"].includes(room.status)) {
+        throw ApiError.badRequest(room.status === "BLOCKED" ? "This room is blocked by an administrator" : "This room is not available for allocation");
+      }
       if (room.occupiedBeds >= room.capacity) throw ApiError.conflict("This room is already full");
       const pendingReservations = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
       if (room.occupiedBeds + pendingReservations >= room.capacity) throw ApiError.conflict("The remaining bed is temporarily reserved by a student completing payment");

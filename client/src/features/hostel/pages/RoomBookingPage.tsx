@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BedDouble, CheckCircle2, Building2, Users, MapPin, ArrowLeft, ChevronRight } from 'lucide-react';
+import { BedDouble, CheckCircle2, Building2, Users, MapPin, ArrowLeft, ChevronRight, Lock, Unlock, ShieldAlert } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
@@ -9,7 +9,7 @@ import { authApi } from '@/api/auth.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { bookingApi } from '@/api/booking.api';
 import { loadRazorpayScript } from '@/lib/razorpay';
 
@@ -18,10 +18,13 @@ export function RoomBookingPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const isStudent = user?.role === 'STUDENT';
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'WARDEN';
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [orderInfo, setOrderInfo] = useState<{ orderId: string; reused?: boolean } | null>(null);
   const [selectedHostelId, setSelectedHostelId] = useState<string | null>(null);
+  const [blockingRoom, setBlockingRoom] = useState<any | null>(null);
+  const [blockReason, setBlockReason] = useState('');
 
   // ─── Student profile & allocation ───
   const { data: profileData, isLoading: profileLoading } = useQuery({
@@ -59,23 +62,24 @@ export function RoomBookingPage() {
   const selectedHostel = eligibleHostels.find((h: any) => h.id === selectedHostelId);
 
   // ─── Rooms for selected hostel (step 2) ───
-  // ALWAYS passes hostelId so backend filters at the database level
-  const { data: roomsData, isLoading: roomsLoading } = useQuery({
-    queryKey: ['available-rooms', selectedHostelId],
-    queryFn: () => hostelApi.getAvailableRooms(selectedHostelId!),
-    enabled: !!selectedHostelId,
-  });
-  const rooms: any[] = (roomsData?.data as any)?.data || [];
-
-  // For admin: also get all rooms (including full ones) for the selected hostel
-  const { data: allRoomsData } = useQuery({
+  // Staff sees all rooms (available, full, blocked) with management controls
+  // Students only query and see rooms with available capacity (matching normal behavior when a room is booked/full)
+  const { data: allRoomsData, isLoading: allRoomsLoading } = useQuery({
     queryKey: ['all-rooms', selectedHostelId],
     queryFn: () => hostelApi.getRooms({ hostelId: selectedHostelId! }),
-    enabled: !!selectedHostelId && user?.role === 'ADMIN',
+    enabled: !!selectedHostelId && isStaff,
   });
-  // getRooms returns { rooms, meta } wrapped in ApiResponse
-  const adminRooms: any[] = (allRoomsData?.data as any)?.data || [];
-  const displayRooms = user?.role === 'ADMIN' ? (rooms.length > 0 ? rooms : adminRooms) : rooms;
+  const allRooms: any[] = (allRoomsData?.data as any)?.data || [];
+
+  const { data: roomsData, isLoading: availableRoomsLoading } = useQuery({
+    queryKey: ['available-rooms', selectedHostelId],
+    queryFn: () => hostelApi.getAvailableRooms(selectedHostelId!),
+    enabled: !!selectedHostelId && !isStaff,
+  });
+  const availableRooms: any[] = (roomsData?.data as any)?.data || [];
+
+  const roomsLoading = isStaff ? allRoomsLoading : availableRoomsLoading;
+  const displayRooms = isStaff ? allRooms : availableRooms;
 
   // ─── Booking / Reservation (student only) ───
   const { data: reservationData } = useQuery({
@@ -124,6 +128,35 @@ export function RoomBookingPage() {
       setMessage('Reservation cancelled. Available rooms have been refreshed.');
     },
     onError: (error: any) => setMessage(error.response?.data?.message || 'Unable to cancel the reservation.'),
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: ({ roomId, reason }: { roomId: string; reason?: string }) =>
+      hostelApi.blockRoom(roomId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-rooms', selectedHostelId] });
+      queryClient.invalidateQueries({ queryKey: ['available-rooms', selectedHostelId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      setBlockingRoom(null);
+      setBlockReason('');
+      setMessage('');
+    },
+    onError: (err: any) => {
+      setMessage(err.response?.data?.message || 'Unable to block this room.');
+    },
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: (roomId: string) => hostelApi.unblockRoom(roomId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-rooms', selectedHostelId] });
+      queryClient.invalidateQueries({ queryKey: ['available-rooms', selectedHostelId] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      setMessage('');
+    },
+    onError: (err: any) => {
+      setMessage(err.response?.data?.message || 'Unable to unblock this room.');
+    },
   });
 
   const [secondsRemaining, setSecondsRemaining] = useState(0);
@@ -463,7 +496,7 @@ export function RoomBookingPage() {
                     (b.floors?.reduce(
                       (fs: number, f: any) =>
                         fs +
-                        (f.rooms?.reduce((rs: number, r: any) => rs + (r.occupiedBeds || 0), 0) || 0),
+                        (f.rooms?.reduce((rs: number, r: any) => rs + (r.status === 'BLOCKED' ? (r.capacity || 0) : (r.occupiedBeds || 0)), 0) || 0),
                       0
                     ) || 0),
                   0
@@ -660,7 +693,11 @@ export function RoomBookingPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <PageHeader
         title={selectedHostel?.name || 'Rooms'}
-        description={`${displayRooms.length} room${displayRooms.length !== 1 ? 's' : ''} in this hostel`}
+        description={
+          isStudent
+            ? `${displayRooms.length} available room${displayRooms.length !== 1 ? 's' : ''} in this hostel`
+            : `${displayRooms.length} room${displayRooms.length !== 1 ? 's' : ''} in this hostel`
+        }
         breadcrumbs={[
           { label: 'Dashboard', href: isStudent ? '/student/dashboard' : '/admin/dashboard' },
           { label: isStudent ? 'Browse Rooms' : 'Rooms' },
@@ -743,7 +780,9 @@ export function RoomBookingPage() {
               color: isDark ? '#4ade80' : '#15803d',
             }}
           >
-            {displayRooms.length} rooms
+            {isStudent
+              ? `${displayRooms.length} available room${displayRooms.length !== 1 ? 's' : ''}`
+              : `${displayRooms.length} rooms`}
           </span>
         </motion.div>
       )}
@@ -861,6 +900,7 @@ export function RoomBookingPage() {
                       marginTop: '0.5rem',
                     }}
                   >
+                    {/* Availability / Full badge */}
                     <span
                       style={{
                         fontSize: '0.75rem',
@@ -885,7 +925,7 @@ export function RoomBookingPage() {
                               : '#dc2626',
                       }}
                     >
-                      {available > 0 ? `${available} bed${available > 1 ? 's' : ''} available` : 'Full'}
+                      {available > 0 ? `${available} bed${available > 1 ? 's' : ''} available` : 'Occupied'}
                     </span>
                     {room.feePerSemester && (
                       <span
@@ -901,6 +941,89 @@ export function RoomBookingPage() {
                   </div>
                 </div>
 
+                {/* Staff Audit Details for Blocked Room */}
+                {isStaff && room.status === 'BLOCKED' && (
+                  <div
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.625rem',
+                      borderRadius: '0.625rem',
+                      backgroundColor: isDark ? 'rgba(139,92,246,0.1)' : '#f5f3ff',
+                      border: `1px solid ${isDark ? 'rgba(139,92,246,0.25)' : '#ddd6fe'}`,
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: isDark ? '#c4b5fd' : '#7c3aed', fontWeight: 700 }}>
+                      <ShieldAlert style={{ width: '0.875rem', height: '0.875rem' }} />
+                      <span>Blocked by {room.blockedBy?.firstName ? `${room.blockedBy.firstName} ${room.blockedBy.lastName || ''}`.trim() : 'Admin'}</span>
+                    </div>
+                    {room.blockedReason && (
+                      <p style={{ marginTop: '0.25rem', color: 'var(--text-secondary)' }}>
+                        Reason: {room.blockedReason}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Staff Action Buttons (Block / Unblock) */}
+                {isStaff && (
+                  <div style={{ marginTop: '0.875rem', display: 'flex', gap: '0.5rem' }}>
+                    {room.status === 'BLOCKED' ? (
+                      <button
+                        disabled={unblockMutation.isPending}
+                        onClick={() => unblockMutation.mutate(room.id)}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '0.625rem',
+                          border: `1px solid ${isDark ? 'rgba(139,92,246,0.3)' : '#c4b5fd'}`,
+                          backgroundColor: isDark ? 'rgba(139,92,246,0.15)' : '#ede9fe',
+                          color: isDark ? '#c4b5fd' : '#6d28d9',
+                          fontSize: '0.8125rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.375rem',
+                          fontFamily: 'inherit',
+                          opacity: unblockMutation.isPending ? 0.6 : 1,
+                        }}
+                      >
+                        <Unlock style={{ width: '0.875rem', height: '0.875rem' }} />
+                        {unblockMutation.isPending ? 'Unblocking…' : 'Unblock Room'}
+                      </button>
+                    ) : room.occupiedBeds === 0 ? (
+                      <button
+                        onClick={() => {
+                          setBlockingRoom(room);
+                          setBlockReason('');
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '0.625rem',
+                          border: `1px solid ${isDark ? 'rgba(239,68,68,0.3)' : '#fca5a5'}`,
+                          backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : '#fef2f2',
+                          color: isDark ? '#fca5a5' : '#dc2626',
+                          fontSize: '0.8125rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.375rem',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        <Lock style={{ width: '0.875rem', height: '0.875rem' }} />
+                        Block Room
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Student Room Selection Button */}
                 {isStudent && (
                   <button
                     disabled={reserve.isPending || available <= 0}
@@ -923,7 +1046,7 @@ export function RoomBookingPage() {
                       opacity: reserve.isPending ? 0.5 : 1,
                     }}
                   >
-                    {reserve.isPending ? 'Reserving…' : 'Select Room'}
+                    {reserve.isPending ? 'Reserving…' : available > 0 ? 'Select Room' : 'Occupied'}
                   </button>
                 )}
               </motion.div>
@@ -931,6 +1054,134 @@ export function RoomBookingPage() {
           })}
         </div>
       )}
+
+      {/* Admin/Warden Block Room Modal */}
+      <AnimatePresence>
+        {blockingRoom && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+            }}
+            onClick={() => setBlockingRoom(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-primary)',
+                borderRadius: '1rem',
+                padding: '1.5rem',
+                maxWidth: '420px',
+                width: '100%',
+                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div
+                  style={{
+                    width: '2.5rem',
+                    height: '2.5rem',
+                    borderRadius: '0.625rem',
+                    backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : '#fee2e2',
+                    color: '#ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Lock style={{ width: '1.25rem', height: '1.25rem' }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Block Room {blockingRoom.roomNumber}
+                  </h3>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                    Students will see this room as Occupied and cannot reserve it.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.375rem' }}>
+                  Reason for Blocking (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Maintenance, Reserved for staff, Renovation"
+                  value={blockReason}
+                  onChange={(e) => setBlockReason(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.625rem 0.75rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--border-primary)',
+                    backgroundColor: 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setBlockingRoom(null)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid var(--border-primary)',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={blockMutation.isPending}
+                  onClick={() =>
+                    blockMutation.mutate({
+                      roomId: blockingRoom.id,
+                      reason: blockReason,
+                    })
+                  }
+                  style={{
+                    padding: '0.5rem 1.25rem',
+                    borderRadius: '0.5rem',
+                    border: 'none',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    fontSize: '0.875rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    opacity: blockMutation.isPending ? 0.7 : 1,
+                  }}
+                >
+                  {blockMutation.isPending ? 'Blocking…' : 'Confirm Block'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

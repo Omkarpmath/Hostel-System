@@ -118,7 +118,7 @@ export class BookingService {
       if (!reservation) throw ApiError.badRequest("Reservation is invalid or expired");
       await tx.$queryRaw`SELECT id FROM rooms WHERE id = ${reservation.roomId} FOR UPDATE`;
       const [room, active] = await Promise.all([tx.room.findUnique({ where: { id: reservation.roomId } }), tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } })]);
-      if (!room || !room.isActive || room.occupiedBeds >= room.capacity) throw ApiError.conflict("Room is no longer available");
+      if (!room || !room.isActive || room.status === "BLOCKED" || room.occupiedBeds >= room.capacity) throw ApiError.conflict("Room is no longer available");
       if (active) throw ApiError.conflict("You already have an active room allocation");
       const beds = await tx.roomAllocation.findMany({ where: { roomId: room.id, status: "ACTIVE" }, select: { bedNumber: true } });
       const bedNumber = Array.from({ length: room.capacity }, (_, index) => index + 1).find((bed) => !beds.some((entry) => entry.bedNumber === bed));

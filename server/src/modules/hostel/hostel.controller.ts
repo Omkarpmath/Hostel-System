@@ -87,7 +87,7 @@ export class HostelController {
     } catch (error) { next(error); }
   }
 
-  async getRooms(req: Request, res: Response, next: NextFunction) {
+  async getRooms(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const filters = {
         status: String(req.query.status || ""),
@@ -98,8 +98,26 @@ export class HostelController {
         limit: parseInt(String(req.query.limit)) || 20,
         search: String(req.query.search || ""),
       };
-      const result = await hostelService.getRooms(filters);
+      const result = await hostelService.getRooms(filters, req.user?.role);
       ApiResponse.success({ res, data: result.rooms, meta: result.meta });
+    } catch (error) { next(error); }
+  }
+
+  async blockRoom(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const room = await hostelService.blockRoom(
+        String(req.params.id),
+        req.user!.userId,
+        req.body?.reason
+      );
+      ApiResponse.success({ res, message: "Room blocked successfully", data: room });
+    } catch (error) { next(error); }
+  }
+
+  async unblockRoom(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const room = await hostelService.unblockRoom(String(req.params.id));
+      ApiResponse.success({ res, message: "Room unblocked successfully", data: room });
     } catch (error) { next(error); }
   }
 

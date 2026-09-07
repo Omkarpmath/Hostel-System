@@ -93,10 +93,14 @@ export interface Room {
   version: number;
   floor?: Floor & { block?: Block & { hostel?: Hostel } };
   allocations?: RoomAllocation[];
+  blockedAt?: string | null;
+  blockedById?: string | null;
+  blockedReason?: string | null;
+  blockedBy?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'> | null;
 }
 
 export type RoomType = 'SINGLE' | 'DOUBLE' | 'TRIPLE' | 'DORMITORY';
-export type RoomStatus = 'AVAILABLE' | 'PARTIALLY_OCCUPIED' | 'FULL' | 'MAINTENANCE' | 'RESERVED';
+export type RoomStatus = 'AVAILABLE' | 'PARTIALLY_OCCUPIED' | 'FULL' | 'MAINTENANCE' | 'RESERVED' | 'BLOCKED' | 'OCCUPIED';
 
 // Allocation
 export interface RoomAllocation {
@@ -211,8 +215,13 @@ export interface DashboardStats {
   totalStudents: number;
   totalHostels: number;
   totalRooms: number;
-  occupiedRooms: number;
+  totalBeds?: number;
+  occupiedBeds?: number;
+  occupiedRooms?: number;
   availableRooms: number;
+  partiallyOccupiedRooms?: number;
+  fullyOccupiedRooms?: number;
+  blockedRooms?: number;
   pendingLeaves: number;
   openComplaints: number;
   pendingFees: number;

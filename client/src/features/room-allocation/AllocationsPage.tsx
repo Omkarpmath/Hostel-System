@@ -249,6 +249,7 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
   const selectedStudent = students.find((s) => s.id === studentId);
   const eligibleRooms = selectedStudent
     ? rooms.filter((r) => {
+        if (r.status === 'BLOCKED') return false;
         const h = r.floor?.block?.hostel;
         if (!h) return false;
         const genderMatch =
@@ -257,7 +258,7 @@ function AllocateModal({ onClose }: { onClose: () => void }) {
         const yearMatch = !h.allowedYears?.length || h.allowedYears.includes(selectedStudent.year);
         return genderMatch && yearMatch;
       })
-    : rooms;
+    : rooms.filter((r) => r.status !== 'BLOCKED');
 
   useEffect(() => {
     if (roomId && selectedStudent && !eligibleRooms.some((r) => r.id === roomId)) {

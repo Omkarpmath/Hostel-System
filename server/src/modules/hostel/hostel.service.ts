@@ -185,15 +185,18 @@ export class HostelService {
     });
   }
 
-  async getRooms(filters?: {
-    status?: string;
-    type?: string;
-    floorId?: string;
-    hostelId?: string;
-    page?: number;
-    limit?: number;
-    search?: string;
-  }) {
+  async getRooms(
+    filters?: {
+      status?: string;
+      type?: string;
+      floorId?: string;
+      hostelId?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+    },
+    userRole?: string
+  ) {
     const page = filters?.page || 1;
     const limit = filters?.limit || 20;
     const skip = (page - 1) * limit;
@@ -213,7 +216,7 @@ export class HostelService {
       where.roomNumber = { contains: filters.search, mode: "insensitive" };
     }
 
-    const [rooms, total] = await Promise.all([
+    const [rawRooms, total] = await Promise.all([
       prisma.room.findMany({
         where,
         include: {
@@ -225,6 +228,9 @@ export class HostelService {
                 },
               },
             },
+          },
+          blockedBy: {
+            select: { id: true, firstName: true, lastName: true, email: true },
           },
           allocations: {
             where: { status: "ACTIVE" },
@@ -245,6 +251,35 @@ export class HostelService {
       }),
       prisma.room.count({ where }),
     ]);
+
+    const isStaff = userRole === "ADMIN" || userRole === "WARDEN";
+
+    // Privacy & UX guard: If viewed by student, sanitize blocked rooms to look exactly like standard occupied rooms
+    const rooms = rawRooms.map((room) => {
+      if (isStaff) {
+        return room;
+      }
+      if (room.status === "BLOCKED") {
+        return {
+          ...room,
+          status: "OCCUPIED" as any,
+          occupiedBeds: room.capacity,
+          blockedAt: null,
+          blockedById: null,
+          blockedReason: null,
+          blockedBy: null,
+          allocations: [],
+        };
+      }
+      return {
+        ...room,
+        blockedAt: null,
+        blockedById: null,
+        blockedReason: null,
+        blockedBy: null,
+        allocations: [],
+      };
+    });
 
     return {
       rooms,
@@ -364,6 +399,73 @@ export class HostelService {
     });
   }
 
+  async blockRoom(id: string, adminUserId: string, reason?: string) {
+    const room = await prisma.room.findUnique({
+      where: { id },
+      include: {
+        allocations: { where: { status: "ACTIVE" } },
+        reservations: { where: { status: "PENDING", expiresAt: { gt: new Date() } } },
+      },
+    });
+    if (!room) throw ApiError.notFound("Room not found");
+    if (room.status === "BLOCKED") {
+      throw ApiError.badRequest("Room is already blocked");
+    }
+    if (room.allocations.length > 0 || room.occupiedBeds > 0) {
+      throw ApiError.badRequest("Cannot block room with active student allocations. Please reallocate or vacate students first.");
+    }
+    if (room.reservations.length > 0) {
+      throw ApiError.badRequest("Cannot block room with pending student reservations.");
+    }
+
+    return prisma.room.update({
+      where: { id },
+      data: {
+        status: "BLOCKED",
+        blockedAt: new Date(),
+        blockedById: adminUserId,
+        blockedReason: reason?.trim() || null,
+      },
+      include: {
+        blockedBy: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+  }
+
+  async unblockRoom(id: string) {
+    const room = await prisma.room.findUnique({
+      where: { id },
+    });
+    if (!room) throw ApiError.notFound("Room not found");
+    if (room.status !== "BLOCKED") {
+      throw ApiError.badRequest("Room is not blocked");
+    }
+
+    const newStatus =
+      room.occupiedBeds >= room.capacity
+        ? "FULL"
+        : room.occupiedBeds > 0
+          ? "PARTIALLY_OCCUPIED"
+          : "AVAILABLE";
+
+    return prisma.room.update({
+      where: { id },
+      data: {
+        status: newStatus,
+        blockedAt: null,
+        blockedById: null,
+        blockedReason: null,
+      },
+      include: {
+        blockedBy: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+      },
+    });
+  }
+
   // ============ DASHBOARD STATS ============
 
   async getDashboardStats() {
@@ -416,9 +518,11 @@ export class HostelService {
     const occupiedBeds = rooms.reduce((sum, r) => sum + r.occupiedBeds, 0);
 
     // Room status counts for pie chart
-    const availableRooms = rooms.filter((r) => r.occupiedBeds === 0).length;
-    const partiallyOccupiedRooms = rooms.filter((r) => r.occupiedBeds > 0 && r.occupiedBeds < r.capacity).length;
-    const fullyOccupiedRooms = rooms.filter((r) => r.occupiedBeds >= r.capacity).length;
+    const blockedRooms = rooms.filter((r) => r.status === "BLOCKED").length;
+    const nonBlockedRooms = rooms.filter((r) => r.status !== "BLOCKED");
+    const availableRooms = nonBlockedRooms.filter((r) => r.occupiedBeds === 0).length;
+    const partiallyOccupiedRooms = nonBlockedRooms.filter((r) => r.occupiedBeds > 0 && r.occupiedBeds < r.capacity).length;
+    const fullyOccupiedRooms = nonBlockedRooms.filter((r) => r.occupiedBeds >= r.capacity).length;
 
     return {
       totalStudents,
@@ -429,6 +533,7 @@ export class HostelService {
       availableRooms,
       partiallyOccupiedRooms,
       fullyOccupiedRooms,
+      blockedRooms,
       pendingLeaves,
       openComplaints,
       pendingFees,

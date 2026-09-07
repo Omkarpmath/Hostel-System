@@ -27,6 +27,10 @@ export const hostelApi = {
     api.get<ApiResponse<Room[]>>('/rooms/available', { params: { hostelId } }),
   getRoomById: (id: string) => api.get<ApiResponse<Room>>(`/rooms/${id}`),
   updateRoom: (id: string, data: Partial<Room>) => api.patch<ApiResponse<Room>>(`/rooms/${id}`, data),
+  blockRoom: (id: string, reason?: string) =>
+    api.post<ApiResponse<Room>>(`/rooms/${id}/block`, { reason }),
+  unblockRoom: (id: string) =>
+    api.post<ApiResponse<Room>>(`/rooms/${id}/unblock`),
 
   // Dashboard
   getDashboardStats: () => api.get<ApiResponse<DashboardStats>>('/dashboard/stats'),

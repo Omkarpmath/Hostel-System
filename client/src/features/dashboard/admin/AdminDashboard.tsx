@@ -55,6 +55,7 @@ export function AdminDashboard() {
         { name: 'Available', value: stats.availableRooms || 0, color: '#10b981' },
         { name: 'Partially Occupied', value: stats.partiallyOccupiedRooms || 0, color: '#f59e0b' },
         { name: 'Fully Occupied', value: stats.fullyOccupiedRooms || 0, color: '#ef4444' },
+        { name: 'Blocked', value: stats.blockedRooms || 0, color: '#8b5cf6' },
       ]
     : [];
 
@@ -394,7 +395,7 @@ export function AdminDashboard() {
           )}
 
           {/* Clean Custom Badges Legend */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-primary)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-primary)' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '9999px', backgroundColor: '#10b981' }} />
@@ -422,6 +423,16 @@ export function AdminDashboard() {
               </div>
               <span style={{ fontSize: '1.125rem', fontWeight: 800, color: '#ef4444', marginTop: '0.125rem', display: 'block' }}>
                 {stats?.fullyOccupiedRooms || 0}
+              </span>
+            </div>
+
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '9999px', backgroundColor: '#8b5cf6' }} />
+                <span>Blocked</span>
+              </div>
+              <span style={{ fontSize: '1.125rem', fontWeight: 800, color: '#8b5cf6', marginTop: '0.125rem', display: 'block' }}>
+                {stats?.blockedRooms || 0}
               </span>
             </div>
           </div>
