@@ -410,7 +410,7 @@ export function RoomBookingPage() {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
             gap: '1.5rem',
-            alignItems: 'start',
+            alignItems: 'stretch',
           }}
         >
           {/* Left Column: Room & Reservation Overview */}
@@ -422,7 +422,9 @@ export function RoomBookingPage() {
               padding: '1.75rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.5rem',
+              justifyContent: 'space-between',
+              gap: '1.25rem',
+              height: '100%',
             }}
           >
             {/* Header with Room & Status */}
@@ -482,16 +484,18 @@ export function RoomBookingPage() {
               </span>
             </div>
 
-            {/* Clean Room Specs Grid */}
+            {/* Clean Room Specs Grid (Stretches gracefully with flex: 1) */}
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '1rem',
+                gap: '1.25rem 1rem',
                 padding: '1.25rem',
                 borderRadius: '0.75rem',
                 backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'var(--bg-tertiary)',
                 border: '1px solid var(--border-primary)',
+                flex: 1,
+                alignContent: 'center',
               }}
             >
               <div>
@@ -614,58 +618,62 @@ export function RoomBookingPage() {
               padding: '1.75rem',
               display: 'flex',
               flexDirection: 'column',
+              justifyContent: 'space-between',
               gap: '1.25rem',
+              height: '100%',
             }}
           >
-            <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Fee Summary
-            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Fee Summary
+              </h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Semester Hostel Fee</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                  ₹{fee.toLocaleString('en-IN')}
-                </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                  <span>Semester Hostel Fee</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    ₹{fee.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                  <span>Room Allocation Charges</span>
+                  <span style={{ fontWeight: 600, color: '#16a34a' }}>Free</span>
+                </div>
+                <div
+                  style={{
+                    height: '1px',
+                    backgroundColor: 'var(--border-primary)',
+                    margin: '0.25rem 0',
+                  }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Total Due</span>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    ₹{fee.toLocaleString('en-IN')}
+                  </span>
+                </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                <span>Room Allocation Charges</span>
-                <span style={{ fontWeight: 600, color: '#16a34a' }}>Free</span>
-              </div>
+
+              {/* Secure Checkout Badge */}
               <div
                 style={{
-                  height: '1px',
-                  backgroundColor: 'var(--border-primary)',
-                  margin: '0.25rem 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.625rem 0.75rem',
+                  borderRadius: '0.5rem',
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'var(--bg-tertiary)',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-secondary)',
                 }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Total Due</span>
-                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  ₹{fee.toLocaleString('en-IN')}
-                </span>
+              >
+                <ShieldCheck style={{ width: '1rem', height: '1rem', color: '#16a34a', flexShrink: 0 }} />
+                <span>Secure checkout powered by Razorpay</span>
               </div>
-            </div>
-
-            {/* Secure Checkout Badge */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.625rem 0.75rem',
-                borderRadius: '0.5rem',
-                backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'var(--bg-tertiary)',
-                fontSize: '0.75rem',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <ShieldCheck style={{ width: '1rem', height: '1rem', color: '#16a34a', flexShrink: 0 }} />
-              <span>Secure checkout powered by Razorpay</span>
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: 'auto' }}>
               <button
                 disabled={isExpired || isPaymentLoading || cancel.isPending}
                 onClick={pay}
