@@ -193,9 +193,7 @@ export const MessEntryPage: React.FC = () => {
         await scanner.start(
           cameraConfig,
           {
-            fps: 15,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.333333,
+            fps: 10,
           },
           (decodedText: string) => handleQrResult(decodedText),
           () => {}
@@ -418,9 +416,9 @@ export const MessEntryPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Scanner Viewport Container with scoped style for perfect alignment */}
-          <div className="relative w-full max-w-lg mx-auto aspect-[4/3] rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-700/80 flex items-center justify-center shadow-2xl">
-            {/* Scoped CSS to enforce proper alignment & hide duplicate html5-qrcode shaded region */}
+          {/* Scanner Viewport Container with responsive square aspect on mobile */}
+          <div className="relative w-full max-w-md mx-auto aspect-square sm:aspect-[4/3] rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-700/80 flex items-center justify-center shadow-2xl">
+            {/* Scoped CSS to enforce proper alignment & ensure WebKit canvas renders */}
             <style>{`
               #mess-qr-scanner {
                 position: relative !important;
@@ -433,15 +431,16 @@ export const MessEntryPage: React.FC = () => {
                 background-color: #020617 !important;
               }
               #mess-qr-scanner video {
-                position: absolute !important;
-                inset: 0 !important;
                 width: 100% !important;
                 height: 100% !important;
                 object-fit: cover !important;
                 border-radius: 0.875rem !important;
               }
               #mess-qr-scanner canvas {
-                display: none !important;
+                position: absolute !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                z-index: -1 !important;
               }
               #mess-qr-scanner #qr-shaded-region {
                 display: none !important;
@@ -461,7 +460,7 @@ export const MessEntryPage: React.FC = () => {
             {/* Active Scanner: Single Modern Centered Reticle */}
             {scanning && !cameraBlocked && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="relative w-56 h-56 sm:w-64 sm:h-64 border-2 border-amber-400/35 rounded-3xl shadow-[0_0_30px_rgba(245,158,11,0.12)]">
+                <div className="relative w-48 h-48 sm:w-56 sm:h-56 border-2 border-amber-400/35 rounded-3xl shadow-[0_0_30px_rgba(245,158,11,0.12)]">
                   {/* Corner markers */}
                   <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-amber-400 rounded-tl-xl shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
                   <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-amber-400 rounded-tr-xl shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
