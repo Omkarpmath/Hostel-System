@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BedDouble, CheckCircle2, Building2, Users, MapPin, ArrowLeft, ChevronRight, Lock, Unlock, ShieldAlert } from 'lucide-react';
+import { BedDouble, CheckCircle2, Building2, Users, MapPin, ArrowLeft, ChevronRight, Lock, Unlock, ShieldAlert, Loader2, Clock, ShieldCheck, CreditCard, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
@@ -25,6 +25,8 @@ export function RoomBookingPage() {
   const [selectedHostelId, setSelectedHostelId] = useState<string | null>(null);
   const [blockingRoom, setBlockingRoom] = useState<any | null>(null);
   const [blockReason, setBlockReason] = useState('');
+  const [reservingRoomId, setReservingRoomId] = useState<string | null>(null);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
   // ─── Student profile & allocation ───
   const { data: profileData, isLoading: profileLoading } = useQuery({
@@ -104,14 +106,21 @@ export function RoomBookingPage() {
   }, [isStudent, selectedHostelId, isPageLoading, selectedHostel]);
 
   const reserve = useMutation({
-    mutationFn: bookingApi.reserve,
+    mutationFn: (roomId: string) => {
+      setReservingRoomId(roomId);
+      return bookingApi.reserve(roomId);
+    },
     onSuccess: () => {
+      setReservingRoomId(null);
       queryClient.invalidateQueries({ queryKey: ['my-reservation'] });
       if (selectedHostelId) {
         queryClient.invalidateQueries({ queryKey: ['available-rooms', selectedHostelId] });
       }
     },
-    onError: (error: any) => setMessage(error.response?.data?.message || 'Unable to reserve this room.'),
+    onError: (error: any) => {
+      setReservingRoomId(null);
+      setMessage(error.response?.data?.message || 'Unable to reserve this room.');
+    },
   });
 
   const cancel = useMutation({
@@ -171,9 +180,10 @@ export function RoomBookingPage() {
     return () => window.clearInterval(interval);
   }, [reservation?.expiresAt]);
 
-  // ─── Razorpay payment (UNTOUCHED — exactly as before) ───
+  // ─── Razorpay payment ───
   const pay = async () => {
     try {
+      setIsPaymentLoading(true);
       setMessage('');
       const order = (await bookingApi.createOrder(reservation.id)).data.data;
       if (!order) throw new Error('Payment order could not be created.');
@@ -193,8 +203,10 @@ export function RoomBookingPage() {
           email: user?.email,
         },
         modal: {
-          ondismiss: () =>
-            setMessage('Payment window closed. You can retry the same payment order before the reservation expires.'),
+          ondismiss: () => {
+            setIsPaymentLoading(false);
+            setMessage('Payment window closed. You can retry the same payment order before the reservation expires.');
+          },
         },
         handler: async (response: any) => {
           try {
@@ -213,14 +225,20 @@ export function RoomBookingPage() {
             setMessage(
               error.response?.data?.message || 'Payment was received but room allocation could not be completed.'
             );
+          } finally {
+            setIsPaymentLoading(false);
           }
         },
       });
-      checkout.on('payment.failed', () =>
-        setMessage('Payment failed. Click Pay again to reopen the same order before your reservation expires.')
-      );
+      checkout.on('payment.failed', () => {
+        setIsPaymentLoading(false);
+        setMessage('Payment failed. Click Pay again to reopen the same order before your reservation expires.');
+      });
       checkout.open();
+      // Reset loading state once checkout window is displayed
+      setIsPaymentLoading(false);
     } catch (error: any) {
+      setIsPaymentLoading(false);
       setMessage(error.response?.data?.message || error.message || 'Unable to start Razorpay payment.');
     }
   };
@@ -345,58 +363,377 @@ export function RoomBookingPage() {
   // ═══════════════════════════════════════
   if (isStudent && reservation) {
     const fee = Number(reservation.room?.feePerSemester || 0);
+    const room = reservation.room;
+    const hostel = room?.floor?.block?.hostel;
+    const block = room?.floor?.block;
+    const floor = room?.floor;
+
+    const minutes = Math.floor(secondsRemaining / 60).toString().padStart(2, '0');
+    const seconds = (secondsRemaining % 60).toString().padStart(2, '0');
+    const isExpiringSoon = secondsRemaining > 0 && secondsRemaining < 180;
+    const isExpired = secondsRemaining === 0;
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         <PageHeader
           title="Complete Room Booking"
-          description="Your selected room is held temporarily while you complete payment."
-          breadcrumbs={[{ label: 'Dashboard', href: '/student/dashboard' }, { label: 'Browse Rooms' }]}
+          description="Your selected room is locked exclusively for you while you complete payment."
+          breadcrumbs={[
+            { label: 'Dashboard', href: '/student/dashboard' },
+            { label: 'Browse Rooms', href: '/student/rooms' },
+            { label: 'Payment' },
+          ]}
         />
-        {message && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p>}
-        <section style={cardStyle}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Room {reservation.room?.roomNumber} reserved
-          </h2>
-          <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
-            {reservation.room?.floor?.block?.hostel?.name} · {reservation.room?.floor?.block?.name} ·{' '}
-            {reservation.room?.floor?.name}
-          </p>
-          <p style={{ marginTop: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Hostel fee: ₹{fee.toLocaleString('en-IN')}
-          </p>
-          <p
+
+        {message && (
+          <div
             style={{
-              marginTop: '0.5rem',
-              color: secondsRemaining > 0 ? '#15803d' : '#dc2626',
-              fontWeight: 700,
+              padding: '0.875rem 1.25rem',
+              borderRadius: '0.75rem',
+              backgroundColor: isDark ? 'rgba(239,68,68,0.1)' : '#fef2f2',
+              border: `1px solid ${isDark ? 'rgba(239,68,68,0.25)' : '#fecaca'}`,
+              color: isDark ? '#fca5a5' : '#dc2626',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.625rem',
             }}
           >
-            Reservation expires in {Math.floor(secondsRemaining / 60).toString().padStart(2, '0')}:
-            {(secondsRemaining % 60).toString().padStart(2, '0')}
-          </p>
-          {orderInfo && (
-            <p className="mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              Payment order: <code>{orderInfo.orderId}</code>
-              {orderInfo.reused ? ' · reopened for retry' : ''}
-            </p>
-          )}
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-            <button
-              disabled={secondsRemaining === 0}
-              onClick={pay}
-              className="rounded-xl px-5 py-3 text-sm font-bold text-white gradient-bg disabled:opacity-50"
-            >
-              {orderInfo ? 'Retry payment' : `Pay ₹${fee.toLocaleString('en-IN')}`}
-            </button>
-            <button
-              onClick={() => cancel.mutate(reservation.id)}
-              className="rounded-xl border px-5 py-3 text-sm font-bold"
-              style={{ borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}
-            >
-              Cancel reservation
-            </button>
+            <AlertCircle style={{ width: '1.125rem', height: '1.125rem', flexShrink: 0 }} />
+            <span>{message}</span>
           </div>
-        </section>
+        )}
+
+        {/* 2-Column Responsive Layout */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '1.5rem',
+            alignItems: 'start',
+          }}
+        >
+          {/* Left Column: Room & Reservation Overview */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{
+              ...cardStyle,
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem',
+            }}
+          >
+            {/* Header with Room & Status */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div
+                  style={{
+                    width: '3.25rem',
+                    height: '3.25rem',
+                    borderRadius: '0.875rem',
+                    backgroundColor: isDark ? 'rgba(59,130,246,0.12)' : '#eff6ff',
+                    color: isDark ? '#60a5fa' : '#2563eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <BedDouble style={{ width: '1.625rem', height: '1.625rem' }} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '1.375rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                    Room {room?.roomNumber}
+                  </h2>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                    {hostel?.name || 'Hostel'} · {block?.name} · {floor?.name}
+                  </p>
+                </div>
+              </div>
+
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  padding: '0.25rem 0.625rem',
+                  borderRadius: '9999px',
+                  backgroundColor: isExpired
+                    ? isDark ? 'rgba(239,68,68,0.15)' : '#fee2e2'
+                    : isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7',
+                  color: isExpired
+                    ? isDark ? '#fca5a5' : '#dc2626'
+                    : isDark ? '#fbbf24' : '#d97706',
+                }}
+              >
+                <span
+                  style={{
+                    width: '0.375rem',
+                    height: '0.375rem',
+                    borderRadius: '9999px',
+                    backgroundColor: isExpired ? '#ef4444' : '#f59e0b',
+                  }}
+                />
+                {isExpired ? 'Hold Expired' : 'Reserved for You'}
+              </span>
+            </div>
+
+            {/* Clean Room Specs Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '1rem',
+                padding: '1.25rem',
+                borderRadius: '0.75rem',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'var(--bg-tertiary)',
+                border: '1px solid var(--border-primary)',
+              }}
+            >
+              <div>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Room Type
+                </span>
+                <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                  {room?.type || 'Standard'} Room
+                </p>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Capacity
+                </span>
+                <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                  {room?.capacity} Beds
+                </p>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Block & Floor
+                </span>
+                <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                  {block?.name || 'Block'}, {floor?.name || 'Floor'}
+                </p>
+              </div>
+
+              <div>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Hostel Category
+                </span>
+                <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                  {hostel?.type || 'Standard'}
+                </p>
+              </div>
+            </div>
+
+            {/* Clean Countdown Hold Timer */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '1rem 1.25rem',
+                borderRadius: '0.75rem',
+                backgroundColor: isExpired
+                  ? isDark ? 'rgba(239,68,68,0.08)' : '#fef2f2'
+                  : isExpiringSoon
+                    ? isDark ? 'rgba(245,158,11,0.08)' : '#fffbeb'
+                    : isDark ? 'rgba(59,130,246,0.06)' : '#f0f9ff',
+                border: `1px solid ${
+                  isExpired
+                    ? isDark ? 'rgba(239,68,68,0.2)' : '#fecaca'
+                    : isExpiringSoon
+                      ? isDark ? 'rgba(245,158,11,0.2)' : '#fde68a'
+                      : isDark ? 'rgba(59,130,246,0.18)' : '#bae6fd'
+                }`,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Clock
+                  style={{
+                    width: '1.25rem',
+                    height: '1.25rem',
+                    color: isExpired
+                      ? '#ef4444'
+                      : isExpiringSoon
+                        ? '#f59e0b'
+                        : isDark ? '#60a5fa' : '#0284c7',
+                    flexShrink: 0,
+                  }}
+                />
+                <div>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {isExpired ? 'Reservation hold has expired' : 'Temporary reservation hold'}
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
+                    {isExpired
+                      ? 'Please select an available room to restart booking.'
+                      : 'Complete your payment before this timer reaches 00:00.'}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <span
+                  style={{
+                    fontFamily: 'monospace',
+                    fontSize: '1.25rem',
+                    fontWeight: 800,
+                    color: isExpired
+                      ? '#ef4444'
+                      : isExpiringSoon
+                        ? '#f59e0b'
+                        : isDark ? '#60a5fa' : '#0284c7',
+                  }}
+                >
+                  {minutes}:{seconds}
+                </span>
+              </div>
+            </div>
+
+            {orderInfo && (
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Active Payment Order: <code style={{ fontFamily: 'monospace' }}>{orderInfo.orderId}</code>
+                {orderInfo.reused ? ' (reopened for retry)' : ''}
+              </p>
+            )}
+          </motion.div>
+
+          {/* Right Column: Fee Summary & Payment Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            style={{
+              ...cardStyle,
+              padding: '1.75rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem',
+            }}
+          >
+            <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Fee Summary
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                <span>Semester Hostel Fee</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                  ₹{fee.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                <span>Room Allocation Charges</span>
+                <span style={{ fontWeight: 600, color: '#16a34a' }}>Free</span>
+              </div>
+              <div
+                style={{
+                  height: '1px',
+                  backgroundColor: 'var(--border-primary)',
+                  margin: '0.25rem 0',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Total Due</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  ₹{fee.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            {/* Secure Checkout Badge */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.625rem 0.75rem',
+                borderRadius: '0.5rem',
+                backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'var(--bg-tertiary)',
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <ShieldCheck style={{ width: '1rem', height: '1rem', color: '#16a34a', flexShrink: 0 }} />
+              <span>Secure checkout powered by Razorpay</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button
+                disabled={isExpired || isPaymentLoading || cancel.isPending}
+                onClick={pay}
+                style={{
+                  width: '100%',
+                  padding: '0.8125rem 1.25rem',
+                  borderRadius: '0.75rem',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #1e40af, #2563eb, #0d9488)',
+                  color: 'white',
+                  fontSize: '0.9375rem',
+                  fontWeight: 700,
+                  cursor: (isExpired || isPaymentLoading || cancel.isPending) ? 'not-allowed' : 'pointer',
+                  opacity: (isExpired || isPaymentLoading || cancel.isPending) ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
+                }}
+              >
+                {isPaymentLoading ? (
+                  <>
+                    <Loader2 style={{ width: '1.125rem', height: '1.125rem' }} className="animate-spin" />
+                    <span>Opening Checkout…</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard style={{ width: '1.125rem', height: '1.125rem' }} />
+                    <span>{orderInfo ? 'Retry Payment' : `Pay ₹${fee.toLocaleString('en-IN')}`}</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                disabled={cancel.isPending || isPaymentLoading}
+                onClick={() => cancel.mutate(reservation.id)}
+                style={{
+                  width: '100%',
+                  padding: '0.6875rem 1rem',
+                  borderRadius: '0.75rem',
+                  border: '1px solid var(--border-primary)',
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  cursor: (cancel.isPending || isPaymentLoading) ? 'not-allowed' : 'pointer',
+                  opacity: (cancel.isPending || isPaymentLoading) ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {cancel.isPending ? (
+                  <>
+                    <Loader2 style={{ width: '1rem', height: '1rem' }} className="animate-spin" />
+                    <span>Cancelling Reservation…</span>
+                  </>
+                ) : (
+                  'Cancel Reservation'
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
       </div>
     );
   }
@@ -1024,31 +1361,47 @@ export function RoomBookingPage() {
                 )}
 
                 {/* Student Room Selection Button */}
-                {isStudent && (
-                  <button
-                    disabled={reserve.isPending || available <= 0}
-                    onClick={() => reserve.mutate(room.id)}
-                    style={{
-                      marginTop: '1rem',
-                      width: '100%',
-                      padding: '0.625rem',
-                      borderRadius: '0.75rem',
-                      border: 'none',
-                      fontFamily: 'inherit',
-                      cursor: available > 0 ? 'pointer' : 'not-allowed',
-                      background:
-                        available > 0
-                          ? 'linear-gradient(135deg, #1e40af, #2563eb, #0d9488)'
-                          : 'var(--bg-tertiary)',
-                      color: available > 0 ? 'white' : 'var(--text-muted)',
-                      fontSize: '0.875rem',
-                      fontWeight: 700,
-                      opacity: reserve.isPending ? 0.5 : 1,
-                    }}
-                  >
-                    {reserve.isPending ? 'Reserving…' : available > 0 ? 'Select Room' : 'Occupied'}
-                  </button>
-                )}
+                {isStudent && (() => {
+                  const isThisReserving = reservingRoomId === room.id || (reserve.isPending && reserve.variables === room.id);
+                  return (
+                    <button
+                      disabled={reserve.isPending || available <= 0}
+                      onClick={() => reserve.mutate(room.id)}
+                      style={{
+                        marginTop: '1rem',
+                        width: '100%',
+                        padding: '0.625rem',
+                        borderRadius: '0.75rem',
+                        border: 'none',
+                        fontFamily: 'inherit',
+                        cursor: (available > 0 && !reserve.isPending) ? 'pointer' : 'not-allowed',
+                        background:
+                          available > 0
+                            ? 'linear-gradient(135deg, #1e40af, #2563eb, #0d9488)'
+                            : 'var(--bg-tertiary)',
+                        color: available > 0 ? 'white' : 'var(--text-muted)',
+                        fontSize: '0.875rem',
+                        fontWeight: 700,
+                        opacity: (reserve.isPending && !isThisReserving) ? 0.5 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                      }}
+                    >
+                      {isThisReserving ? (
+                        <>
+                          <Loader2 style={{ width: '1rem', height: '1rem' }} className="animate-spin" />
+                          <span>Reserving…</span>
+                        </>
+                      ) : available > 0 ? (
+                        'Select Room'
+                      ) : (
+                        'Occupied'
+                      )}
+                    </button>
+                  );
+                })()}
               </motion.div>
             );
           })}
