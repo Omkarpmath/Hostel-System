@@ -9,7 +9,7 @@ import { operationsApi } from '@/api/operations.api';
 import { loadRazorpayScript } from '@/lib/razorpay';
 import {
   UtensilsCrossed, CheckCircle2, Clock, IndianRupee,
-  CreditCard, Calendar, AlertCircle, Receipt, Download,
+  CreditCard, Calendar, AlertCircle, Receipt, Download, Loader2,
 } from 'lucide-react';
 
 const fmt = (d?: string | null) =>
@@ -29,6 +29,7 @@ export function MessFeePage() {
   const [messageType, setMessageType] = useState<'success' | 'error'>('error');
   const [orderInfo, setOrderInfo] = useState<{ orderId: string; reused?: boolean } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
   const handleDownloadReceipt = async (feeId: string, receiptNumber?: string) => {
     try {
@@ -85,10 +86,12 @@ export function MessFeePage() {
   // ─── Payment flow ───
   const pay = async () => {
     try {
+      setIsPaymentLoading(true);
       setMessage('');
       const res = await messFeeApi.createOrder();
       const order = (res.data as any)?.data;
       if (!order) throw new Error('Could not create payment order.');
+      setOrderInfo({ orderId: order.orderId, reused: !!order.reused });
       const loaded = await loadRazorpayScript();
       if (!loaded || !(window as any).Razorpay) {
         throw new Error('Razorpay Checkout could not be loaded. Please check your internet connection and try again.');
@@ -106,8 +109,11 @@ export function MessFeePage() {
           email: user?.email,
         },
         modal: {
-          ondismiss: () =>
-            setMessage('Payment window closed. You can retry the payment.'),
+          ondismiss: () => {
+            setIsPaymentLoading(false);
+            setMessage('Payment window closed. You can retry the payment.');
+            setMessageType('error');
+          },
         },
         handler: async (response: any) => {
           try {
@@ -123,15 +129,21 @@ export function MessFeePage() {
           } catch (error: any) {
             setMessage(error.response?.data?.message || 'Payment received but verification failed. Contact admin.');
             setMessageType('error');
+          } finally {
+            setIsPaymentLoading(false);
           }
         },
       });
       checkout.on('payment.failed', () => {
+        setIsPaymentLoading(false);
         setMessage('Payment failed. Please try again.');
         setMessageType('error');
       });
       checkout.open();
+      // Reset loading state once checkout window is displayed
+      setIsPaymentLoading(false);
     } catch (error: any) {
+      setIsPaymentLoading(false);
       setMessage(error.response?.data?.message || error.message || 'Unable to start payment.');
       setMessageType('error');
     }
@@ -408,6 +420,7 @@ export function MessFeePage() {
               </p>
             )}
             <button
+              disabled={isPaymentLoading}
               onClick={pay}
               style={{
                 padding: '0.875rem 2rem',
@@ -417,12 +430,27 @@ export function MessFeePage() {
                 color: 'white',
                 fontSize: '1rem',
                 fontWeight: 700,
-                cursor: 'pointer',
+                cursor: isPaymentLoading ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit',
                 boxShadow: '0 4px 14px rgba(245,158,11,0.3)',
+                opacity: isPaymentLoading ? 0.6 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
               }}
             >
-              Pay Mess Fee {money(currentAmount)}
+              {isPaymentLoading ? (
+                <>
+                  <Loader2 style={{ width: '1.125rem', height: '1.125rem' }} className="animate-spin" />
+                  <span>Opening Checkout…</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard style={{ width: '1.125rem', height: '1.125rem' }} />
+                  <span>{orderInfo ? 'Retry Mess Fee Payment' : `Pay Mess Fee ${money(currentAmount)}`}</span>
+                </>
+              )}
             </button>
           </div>
         )}
