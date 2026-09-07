@@ -163,6 +163,12 @@ enum AnnouncementStatus {
   ARCHIVED
 }
 
+enum SecurityAssignmentType {
+  HOSTEL
+  MESS
+}
+
+
 enum NotificationType {
   LEAVE_APPROVED
   LEAVE_REJECTED
@@ -196,16 +202,21 @@ model User {
 
   // Security hostel assignment (optional — only for SECURITY users)
   assignedHostelId   String?            @map("assigned_hostel_id")
+  // Security mess assignment (optional — only for SECURITY users assigned to mess duty)
+  assignedMessId     String?            @map("assigned_mess_id")
+  assignmentType     SecurityAssignmentType? @map("assignment_type")
 
   // Relations
   studentProfile     StudentProfile?
   wardenHostels      Hostel[]           @relation("WardenHostels")
   assignedHostel     Hostel?            @relation("SecurityHostel", fields: [assignedHostelId], references: [id])
+  assignedMess       Mess?              @relation("SecurityMess", fields: [assignedMessId], references: [id])
   approvedLeaves     LeaveRequest[]     @relation("ApprovedLeaves")
   leaveLogs          LeaveLog[]         @relation("SecurityLeaveLogs")
   assignedComplaints Complaint[]        @relation("AssignedComplaints")
   approvedVisitors   Visitor[]          @relation("ApprovedVisitors")
   messVerifications  MessVerification[] @relation("VerifiedBy")
+  messEntryScans     MessEntry[]        @relation("MessEntryScans")
   securityLogs       SecurityLog[]      @relation("SecurityLogs")
   attendanceSessions AttendanceSession[] @relation("SecuritySessions")
   createdAnnouncements Announcement[]   @relation("CreatedAnnouncements")
@@ -255,6 +266,7 @@ model StudentProfile {
   visitors          Visitor[]
   messVerifications MessVerification[]
   attendanceRecords AttendanceRecord[]
+  messEntries       MessEntry[]
 
   @@map("student_profiles")
 }
@@ -643,3 +655,57 @@ model Notification {
   @@index([userId, createdAt])
   @@map("notifications")
 }
+
+// ============================================
+// MESS ENTRY
+// ============================================
+
+model Mess {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  assignedSecurity User[]           @relation("SecurityMess")
+  entries          MessEntry[]
+  dailyCounts      MessDailyCount[]
+
+  @@map("messes")
+}
+
+model MessDailyCount {
+  id        String   @id @default(uuid())
+  messId    String   @map("mess_id")
+  date      DateTime @default(now()) @db.Date
+  count     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mess Mess @relation(fields: [messId], references: [id], onDelete: Cascade)
+
+  @@unique([messId, date])
+  @@map("mess_daily_counts")
+}
+
+model MessEntry {
+  id         String   @id @default(uuid())
+  messId     String   @map("mess_id")
+  studentId  String   @map("student_id")
+  securityId String   @map("security_id")
+  date       DateTime @default(now()) @db.Date
+  scannedAt  DateTime @default(now()) @map("scanned_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  mess     Mess           @relation(fields: [messId], references: [id])
+  student  StudentProfile @relation(fields: [studentId], references: [id])
+  security User           @relation("MessEntryScans", fields: [securityId], references: [id])
+
+  @@index([studentId])
+  @@index([messId, date])
+  @@map("mess_entries")
+}
+

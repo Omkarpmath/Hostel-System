@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { attendanceApi } from '@/api/attendance.api';
 import { hostelApi } from '@/api/hostel.api';
+import { messEntryApi, MessItem } from '@/api/messEntry.api';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -10,6 +11,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import {
   ClipboardCheck, Download, Search, Users, UserCheck,
   CalendarOff, UserX, Shield, Building2, CalendarDays,
+  UtensilsCrossed,
 } from 'lucide-react';
 
 const statusColors: Record<string, { color: string; bg: string }> = {
@@ -34,7 +36,9 @@ export function AttendanceRegisterPage() {
 
   // Admin: show security assignment section
   const [showAssignment, setShowAssignment] = useState(false);
+  const [assignDutyType, setAssignDutyType] = useState<'HOSTEL' | 'MESS'>('HOSTEL');
   const [assignHostelId, setAssignHostelId] = useState('');
+  const [assignMessId, setAssignMessId] = useState('');
   const [assignSecurityId, setAssignSecurityId] = useState('');
 
   // Fetch all hostels (for admin and as fallback)
@@ -45,6 +49,15 @@ export function AttendanceRegisterPage() {
     retry: 1,
   });
   const allHostels: any[] = (hostelsData?.data as any)?.data || [];
+
+  // Fetch all messes (for admin security assignment)
+  const { data: messesData } = useQuery({
+    queryKey: ['messes-list'],
+    queryFn: () => messEntryApi.listMesses(),
+    enabled: isAdmin,
+    retry: 1,
+  });
+  const messes: MessItem[] = (messesData?.data as any)?.data || [];
 
   // Build the filtered hostel list based on role
   const hostels = useMemo(() => {
@@ -85,11 +98,20 @@ export function AttendanceRegisterPage() {
 
   // Assign mutation
   const assignMutation = useMutation({
-    mutationFn: () => attendanceApi.assignSecurity(assignSecurityId, assignHostelId),
+    mutationFn: async () => {
+      if (assignDutyType === 'HOSTEL') {
+        const res = await attendanceApi.assignSecurity(assignSecurityId, assignHostelId);
+        return res.data;
+      } else {
+        const res = await attendanceApi.assignSecurityMess(assignSecurityId, assignMessId);
+        return res.data;
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['security-users'] });
       setAssignSecurityId('');
       setAssignHostelId('');
+      setAssignMessId('');
     },
   });
 
@@ -179,8 +201,11 @@ export function AttendanceRegisterPage() {
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} style={cardStyle}>
           <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-primary)' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Security Hostel Assignments
+              Security Personnel Duty Assignments (Hostel / Mess)
             </h3>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+              Assign security guards to either a specific Hostel for night curfew attendance or to the Mess for dining hall verification.
+            </p>
           </div>
           <div style={{ padding: '1.25rem 1.5rem' }}>
             {/* Assign form */}
@@ -188,7 +213,7 @@ export function AttendanceRegisterPage() {
               <select
                 value={assignSecurityId}
                 onChange={(e) => setAssignSecurityId(e.target.value)}
-                style={{ ...inputStyle, flex: '1', minWidth: '180px' }}
+                style={{ ...inputStyle, flex: '1.2', minWidth: '180px' }}
               >
                 <option value="">Select Security User</option>
                 {securityUsers.map((s: any) => (
@@ -197,79 +222,131 @@ export function AttendanceRegisterPage() {
                   </option>
                 ))}
               </select>
+
               <select
-                value={assignHostelId}
-                onChange={(e) => setAssignHostelId(e.target.value)}
-                style={{ ...inputStyle, flex: '1', minWidth: '180px' }}
+                value={assignDutyType}
+                onChange={(e) => setAssignDutyType(e.target.value as 'HOSTEL' | 'MESS')}
+                style={{ ...inputStyle, flex: '0.8', minWidth: '150px' }}
               >
-                <option value="">Select Hostel</option>
-                {hostels.map((h: any) => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
-                ))}
+                <option value="HOSTEL">Hostel Duty</option>
+                <option value="MESS">Mess Duty</option>
               </select>
+
+              {assignDutyType === 'HOSTEL' ? (
+                <select
+                  value={assignHostelId}
+                  onChange={(e) => setAssignHostelId(e.target.value)}
+                  style={{ ...inputStyle, flex: '1.2', minWidth: '180px' }}
+                >
+                  <option value="">Select Hostel</option>
+                  {hostels.map((h: any) => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={assignMessId}
+                  onChange={(e) => setAssignMessId(e.target.value)}
+                  style={{ ...inputStyle, flex: '1.2', minWidth: '180px' }}
+                >
+                  <option value="">Select Mess Facility</option>
+                  {messes.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              )}
+
               <button
                 onClick={() => assignMutation.mutate()}
-                disabled={!assignSecurityId || !assignHostelId || assignMutation.isPending}
+                disabled={
+                  !assignSecurityId ||
+                  (assignDutyType === 'HOSTEL' ? !assignHostelId : !assignMessId) ||
+                  assignMutation.isPending
+                }
                 style={{
                   padding: '0.625rem 1.25rem', borderRadius: '0.5rem', border: 'none',
-                  background: '#16a34a', color: 'white', fontSize: '0.8125rem',
+                  background: assignDutyType === 'MESS' ? '#d97706' : '#16a34a',
+                  color: 'white', fontSize: '0.8125rem',
                   fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                  opacity: (!assignSecurityId || !assignHostelId) ? 0.5 : 1,
+                  opacity: (!assignSecurityId || (assignDutyType === 'HOSTEL' ? !assignHostelId : !assignMessId)) ? 0.5 : 1,
+                  display: 'flex', alignItems: 'center', gap: '0.375rem',
                 }}
               >
-                Assign
+                {assignDutyType === 'MESS' ? (
+                  <UtensilsCrossed style={{ width: '0.875rem', height: '0.875rem' }} />
+                ) : (
+                  <Building2 style={{ width: '0.875rem', height: '0.875rem' }} />
+                )}
+                <span>Assign Duty</span>
               </button>
             </div>
 
             {/* Current assignments */}
             {securityUsers.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {securityUsers.map((s: any) => (
-                  <div key={s.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '0.75rem 1rem', borderRadius: '0.5rem',
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <Shield style={{ width: '1rem', height: '1rem', color: 'var(--text-muted)' }} />
-                      <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                        {s.firstName} {s.lastName}
-                      </span>
-                      {s.assignedHostel ? (
-                        <span style={{
-                          padding: '0.2rem 0.5rem', borderRadius: '0.375rem', fontSize: '0.6875rem',
-                          fontWeight: 700, backgroundColor: 'rgba(22, 163, 74, 0.12)', color: '#16a34a',
-                        }}>
-                          {s.assignedHostel.name}
+                {securityUsers.map((s: any) => {
+                  const isAssignedMess = s.assignmentType === 'MESS' || (Boolean(s.assignedMess) && !s.assignedHostel);
+                  const isAssignedHostel = s.assignmentType === 'HOSTEL' || Boolean(s.assignedHostel);
+                  const hasAssignment = isAssignedMess || isAssignedHostel;
+
+                  return (
+                    <div key={s.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '0.75rem 1rem', borderRadius: '0.5rem',
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <Shield style={{ width: '1rem', height: '1rem', color: 'var(--text-muted)' }} />
+                        <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                          {s.firstName} {s.lastName}
                         </span>
-                      ) : (
-                        <span style={{
-                          padding: '0.2rem 0.5rem', borderRadius: '0.375rem', fontSize: '0.6875rem',
-                          fontWeight: 700, backgroundColor: 'rgba(220, 38, 38, 0.12)', color: '#dc2626',
-                        }}>
-                          Unassigned
-                        </span>
+
+                        {isAssignedMess && s.assignedMess ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                            padding: '0.2rem 0.55rem', borderRadius: '0.375rem', fontSize: '0.6875rem',
+                            fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.12)', color: '#d97706',
+                          }}>
+                            <UtensilsCrossed style={{ width: '0.75rem', height: '0.75rem' }} />
+                            Mess: {s.assignedMess.name}
+                          </span>
+                        ) : isAssignedHostel && s.assignedHostel ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                            padding: '0.2rem 0.55rem', borderRadius: '0.375rem', fontSize: '0.6875rem',
+                            fontWeight: 700, backgroundColor: 'rgba(22, 163, 74, 0.12)', color: '#16a34a',
+                          }}>
+                            <Building2 style={{ width: '0.75rem', height: '0.75rem' }} />
+                            Hostel: {s.assignedHostel.name}
+                          </span>
+                        ) : (
+                          <span style={{
+                            padding: '0.2rem 0.5rem', borderRadius: '0.375rem', fontSize: '0.6875rem',
+                            fontWeight: 700, backgroundColor: 'rgba(220, 38, 38, 0.12)', color: '#dc2626',
+                          }}>
+                            Unassigned
+                          </span>
+                        )}
+                      </div>
+
+                      {hasAssignment && (
+                        <button
+                          onClick={() => unassignMutation.mutate(s.id)}
+                          style={{
+                            padding: '0.375rem 0.75rem', borderRadius: '0.375rem', border: 'none',
+                            backgroundColor: 'rgba(220, 38, 38, 0.1)', color: '#dc2626',
+                            fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          Remove
+                        </button>
                       )}
                     </div>
-                    {s.assignedHostel && (
-                      <button
-                        onClick={() => unassignMutation.mutate(s.id)}
-                        style={{
-                          padding: '0.375rem 0.75rem', borderRadius: '0.375rem', border: 'none',
-                          backgroundColor: 'rgba(220, 38, 38, 0.1)', color: '#dc2626',
-                          fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                        }}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', textAlign: 'center' }}>
-                No security users found. Create users with the SECURITY role first.
-              </p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No security personnel found.</p>
             )}
           </div>
         </motion.div>

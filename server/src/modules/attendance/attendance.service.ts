@@ -547,7 +547,7 @@ export class AttendanceService {
     return [header, ...rows].join("\n");
   }
 
-  // ─── ADMIN: Assign security to hostel ─────────────────────
+  // ─── ADMIN: Assign security to hostel or mess ─────────────
 
   /** Assign a SECURITY user to a hostel. */
   async assignSecurityToHostel(securityUserId: string, hostelId: string) {
@@ -558,37 +558,83 @@ export class AttendanceService {
     const hostel = await prisma.hostel.findUnique({ where: { id: hostelId }, select: { id: true, name: true } });
     if (!hostel) throw ApiError.notFound("Hostel not found");
 
+    securityHostelCache.delete(securityUserId);
+
     const updated = await prisma.user.update({
       where: { id: securityUserId },
-      data: { assignedHostelId: hostelId },
+      data: {
+        assignedHostelId: hostelId,
+        assignedMessId: null,
+        assignmentType: "HOSTEL",
+      },
       select: {
         id: true, firstName: true, lastName: true, email: true,
+        assignmentType: true,
         assignedHostel: { select: { id: true, name: true } },
+        assignedMess: { select: { id: true, name: true } },
       },
     });
 
     return updated;
   }
 
-  /** Unassign a SECURITY user from their hostel. */
-  async unassignSecurity(securityUserId: string) {
-    return prisma.user.update({
+  /** Assign a SECURITY user to a mess. */
+  async assignSecurityToMess(securityUserId: string, messId: string) {
+    const user = await prisma.user.findUnique({ where: { id: securityUserId }, select: { role: true } });
+    if (!user) throw ApiError.notFound("User not found");
+    if (user.role !== "SECURITY") throw ApiError.badRequest("User is not a security personnel");
+
+    const mess = await prisma.mess.findUnique({ where: { id: messId }, select: { id: true, name: true } });
+    if (!mess) throw ApiError.notFound("Mess not found");
+
+    securityHostelCache.delete(securityUserId);
+
+    const updated = await prisma.user.update({
       where: { id: securityUserId },
-      data: { assignedHostelId: null },
+      data: {
+        assignedMessId: messId,
+        assignedHostelId: null,
+        assignmentType: "MESS",
+      },
       select: {
         id: true, firstName: true, lastName: true, email: true,
+        assignmentType: true,
+        assignedHostel: { select: { id: true, name: true } },
+        assignedMess: { select: { id: true, name: true } },
+      },
+    });
+
+    return updated;
+  }
+
+  /** Unassign a SECURITY user from their hostel or mess. */
+  async unassignSecurity(securityUserId: string) {
+    securityHostelCache.delete(securityUserId);
+    return prisma.user.update({
+      where: { id: securityUserId },
+      data: {
+        assignedHostelId: null,
+        assignedMessId: null,
+        assignmentType: null,
+      },
+      select: {
+        id: true, firstName: true, lastName: true, email: true,
+        assignmentType: true,
         assignedHostel: true,
+        assignedMess: true,
       },
     });
   }
 
-  /** List all security users with their hostel assignments. */
+  /** List all security users with their hostel and mess assignments. */
   async listSecurityUsers() {
     return prisma.user.findMany({
       where: { role: "SECURITY", isActive: true },
       select: {
         id: true, firstName: true, lastName: true, email: true, phone: true,
+        assignmentType: true,
         assignedHostel: { select: { id: true, name: true, type: true } },
+        assignedMess: { select: { id: true, name: true } },
       },
       orderBy: { firstName: "asc" },
     });

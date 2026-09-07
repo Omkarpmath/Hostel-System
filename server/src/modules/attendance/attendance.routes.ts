@@ -20,6 +20,7 @@ router.get("/register/export", authorize("ADMIN", "WARDEN"), attendanceControlle
 // ─── Admin endpoints ────────────────────────────────────────
 router.get("/security-users", authorize("ADMIN"), attendanceController.listSecurityUsers);
 router.post("/assign-security", authorize("ADMIN"), attendanceController.assignSecurity);
+router.post("/assign-security-mess", authorize("ADMIN"), attendanceController.assignSecurityMess);
 router.post("/unassign-security", authorize("ADMIN"), attendanceController.unassignSecurity);
 router.get("/sessions", authorize("ADMIN", "WARDEN"), attendanceController.listSessions);
 

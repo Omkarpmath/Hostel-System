@@ -18,6 +18,7 @@ import verifyRoutes from "./modules/verify/verify.routes.js";
 import attendanceRoutes from "./modules/attendance/attendance.routes.js";
 import announcementRoutes from "./modules/announcement/announcement.routes.js";
 import notificationRoutes from "./modules/notification/notification.routes.js";
+import messEntryRoutes from "./modules/mess-entry/mess-entry.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -80,6 +81,7 @@ app.use("/api/v1", operationsRoutes);
 app.use("/api/v1/booking", bookingRoutes);
 app.use("/api/v1/mess-fee", messFeeRoutes);
 app.use("/api/v1/attendance", attendanceRoutes);
+app.use("/api/v1/mess-entry", messEntryRoutes);
 app.use("/api/v1/announcements", announcementRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 

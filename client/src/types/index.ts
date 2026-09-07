@@ -16,6 +16,11 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   studentProfile?: StudentProfile;
+  assignmentType?: 'HOSTEL' | 'MESS' | null;
+  assignedHostelId?: string | null;
+  assignedHostel?: { id: string; name: string; type?: string } | null;
+  assignedMessId?: string | null;
+  assignedMess?: { id: string; name: string } | null;
 }
 
 export type Role = 'STUDENT' | 'ADMIN' | 'WARDEN' | 'ACCOUNTANT' | 'SECURITY';

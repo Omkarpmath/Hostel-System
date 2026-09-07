@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ import {
   ScanLine,
   Megaphone,
   Bell,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
 import type { Role } from '@/types';
@@ -159,6 +160,7 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       title: 'OPERATIONS',
       items: [
         { label: 'Night Attendance', icon: ScanLine, href: '/security/attendance' },
+        { label: 'Mess Entry', icon: UtensilsCrossed, href: '/security/mess-entry' },
         { label: 'Attendance Log', icon: ClipboardList, href: '/security/attendance-log' },
         { label: 'Visitors', icon: Users, href: '/security/visitors' },
       ],
@@ -190,9 +192,69 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
     }
   }, [location.pathname]);
 
-  if (!user) return null;
+  // Dynamic navigation sections based on duty assignment for SECURITY personnel
+  const sections = useMemo(() => {
+    if (!user) return [];
+    if (user.role !== 'SECURITY') {
+      return navSectionsByRole[user.role] || [];
+    }
 
-  const sections = navSectionsByRole[user.role] || [];
+    const isMess =
+      user.assignmentType === 'MESS' ||
+      (Boolean(user.assignedMess) && !user.assignedHostel);
+    const isHostel =
+      user.assignmentType === 'HOSTEL' ||
+      Boolean(user.assignedHostel);
+
+    if (isMess) {
+      return [
+        {
+          title: 'WORKSPACE',
+          items: [
+            { label: 'Mess Dashboard', icon: LayoutDashboard, href: '/security/dashboard' },
+            { label: 'Notifications', icon: Bell, href: '/security/notifications' },
+          ],
+        },
+        {
+          title: 'MESS OPERATIONS',
+          items: [
+            { label: 'Mess QR Scanner', icon: UtensilsCrossed, href: '/security/mess-entry' },
+          ],
+        },
+      ];
+    }
+
+    if (isHostel) {
+      return [
+        {
+          title: 'WORKSPACE',
+          items: [
+            { label: 'Hostel Dashboard', icon: LayoutDashboard, href: '/security/dashboard' },
+            { label: 'Notifications', icon: Bell, href: '/security/notifications' },
+          ],
+        },
+        {
+          title: 'HOSTEL OPERATIONS',
+          items: [
+            { label: 'Night Attendance', icon: ScanLine, href: '/security/attendance' },
+            { label: 'Attendance Log', icon: ClipboardList, href: '/security/attendance-log' },
+            { label: 'Visitors', icon: Users, href: '/security/visitors' },
+          ],
+        },
+      ];
+    }
+
+    // Unassigned security guard
+    return [
+      {
+        title: 'WORKSPACE',
+        items: [
+          { label: 'Dashboard', icon: LayoutDashboard, href: '/security/dashboard' },
+          { label: 'Notifications', icon: Bell, href: '/security/notifications' },
+        ],
+      },
+    ];
+  }, [user]);
 
   const toggleGroup = (label: string) => {
     setOpenGroups((prev) => ({
@@ -418,6 +480,23 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
               </div>
             </div>
           ))}
+
+          {/* Unassigned Warning in Sidebar if SECURITY and has no assignment */}
+          {user?.role === 'SECURITY' &&
+            !user?.assignmentType &&
+            !user?.assignedHostel &&
+            !user?.assignedMess &&
+            !isCollapsed && (
+              <div className="mx-1 mt-4 p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs">
+                <div className="font-bold flex items-center gap-1.5 text-amber-300 mb-1">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <span>No Duty Assigned</span>
+                </div>
+                <p className="text-[11px] text-amber-100/80 leading-relaxed">
+                  You are currently not assigned to any Hostel or Mess. Contact the administrator to assign your duty location.
+                </p>
+              </div>
+            )}
         </nav>
 
         {/* Footer / Account Area */}

@@ -20,6 +20,8 @@ export const attendanceApi = {
   listSecurityUsers: () => api.get('/attendance/security-users'),
   assignSecurity: (securityUserId: string, hostelId: string) =>
     api.post('/attendance/assign-security', { securityUserId, hostelId }),
+  assignSecurityMess: (securityUserId: string, messId: string) =>
+    api.post('/attendance/assign-security-mess', { securityUserId, messId }),
   unassignSecurity: (securityUserId: string) =>
     api.post('/attendance/unassign-security', { securityUserId }),
 

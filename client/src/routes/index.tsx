@@ -31,6 +31,9 @@ import { VisitorManagementPage } from '@/features/visitors/VisitorManagementPage
 import { AnnouncementsPage } from '@/features/announcements/pages/AnnouncementsPage';
 import { StudentAnnouncementsPage } from '@/features/announcements/pages/StudentAnnouncementsPage';
 import { NotificationsPage } from '@/features/notifications/NotificationsPage';
+import { MessEntryPage } from '@/features/mess-entry/MessEntryPage';
+import { MessHistoryPage } from '@/features/mess-entry/MessHistoryPage';
+import { SecurityDutyRoute } from './SecurityDutyRoute';
 
 export const router = createBrowserRouter([
   {
@@ -139,9 +142,46 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <SecurityDashboard /> },
-      { path: 'visitors', element: <VisitorManagementPage /> },
-      { path: 'attendance', element: <NightAttendancePage /> },
-      { path: 'attendance-log', element: <AttendanceRegisterPage /> },
+      {
+        path: 'visitors',
+        element: (
+          <SecurityDutyRoute allowedDuty="HOSTEL">
+            <VisitorManagementPage />
+          </SecurityDutyRoute>
+        ),
+      },
+      {
+        path: 'attendance',
+        element: (
+          <SecurityDutyRoute allowedDuty="HOSTEL">
+            <NightAttendancePage />
+          </SecurityDutyRoute>
+        ),
+      },
+      {
+        path: 'attendance-log',
+        element: (
+          <SecurityDutyRoute allowedDuty="HOSTEL">
+            <AttendanceRegisterPage />
+          </SecurityDutyRoute>
+        ),
+      },
+      {
+        path: 'mess-entry',
+        element: (
+          <SecurityDutyRoute allowedDuty="MESS">
+            <MessEntryPage />
+          </SecurityDutyRoute>
+        ),
+      },
+      {
+        path: 'mess-history',
+        element: (
+          <SecurityDutyRoute allowedDuty="MESS">
+            <MessHistoryPage />
+          </SecurityDutyRoute>
+        ),
+      },
       { path: 'notifications', element: <NotificationsPage /> },
     ],
   },

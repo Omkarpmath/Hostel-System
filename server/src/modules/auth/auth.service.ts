@@ -198,8 +198,11 @@ export class AuthService {
             },
           },
         },
-        // Security: include the hostel they are assigned to
+        // Security: include the hostel or mess they are assigned to
         assignedHostel: {
+          select: { id: true, name: true },
+        },
+        assignedMess: {
           select: { id: true, name: true },
         },
         // Warden: include all hostels they manage
