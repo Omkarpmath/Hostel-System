@@ -77,6 +77,8 @@ export function RoomBookingPage() {
     queryKey: ['available-rooms', selectedHostelId],
     queryFn: () => hostelApi.getAvailableRooms(selectedHostelId!),
     enabled: !!selectedHostelId && !isStaff,
+    refetchInterval: 8000, // Near-real-time bed availability updates (every 8s)
+    staleTime: 5000,       // Keep cached for 5s matching backend TTL
   });
   const availableRooms: any[] = (roomsData?.data as any)?.data || [];
 

@@ -4,6 +4,7 @@ import { prisma } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { razorpayClient } from "../../config/razorpay.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { roomCache } from "../../config/cache.js";
 
 import { receiptService } from "../receipt/receipt.service.js";
 
@@ -22,15 +23,25 @@ export class BookingService {
     return student;
   }
 
-  private async expireReservations(studentId?: string) {
-    await prisma.reservation.updateMany({ where: { status: "PENDING", expiresAt: { lte: new Date() }, ...(studentId ? { studentId } : {}) }, data: { status: "EXPIRED" } });
+  async expireReservations(studentId?: string) {
+    const result = await prisma.reservation.updateMany({
+      where: { status: "PENDING", expiresAt: { lte: new Date() }, ...(studentId ? { studentId } : {}) },
+      data: { status: "EXPIRED" },
+    });
+    if (result.count > 0) {
+      roomCache.invalidate();
+    }
+    return result.count;
   }
 
   async reserve(userId: string, roomId: string) {
     const student = await this.studentProfile(userId);
     const studentId = student.id;
     await this.expireReservations(studentId);
-    return prisma.$transaction(async (tx) => {
+    const reservation = await prisma.$transaction(async (tx) => {
+      // Row-level lock on the room row to prevent race conditions without locking the whole table
+      await tx.$queryRaw`SELECT id FROM rooms WHERE id = ${roomId} FOR UPDATE`;
+
       const [allocation, existing, room] = await Promise.all([
         tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } }),
         tx.reservation.findFirst({ where: { studentId, status: "PENDING", expiresAt: { gt: new Date() } }, include: { room: { include: roomInclude } } }),
@@ -59,7 +70,10 @@ export class BookingService {
       const held = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
       if (room.occupiedBeds + held >= room.capacity) throw ApiError.conflict("This room has just been reserved by another student");
       return tx.reservation.create({ data: { studentId, roomId, expiresAt: new Date(Date.now() + 10 * 60 * 1000) }, include: { room: { include: roomInclude } } });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+
+    roomCache.invalidate();
+    return reservation;
   }
 
   async activeReservation(userId: string) {
@@ -163,7 +177,9 @@ export class BookingService {
 
       await tx.reservation.update({ where: { id: reservation.id }, data: { status: "CONVERTED" } });
       return { allocation, feeId: fee.id };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+
+    roomCache.invalidate();
 
     // Trigger PDF generation and Resend email delivery (non-blocking, fail-safe)
     if (result?.feeId) {
@@ -179,6 +195,7 @@ export class BookingService {
     const studentId = await this.studentId(userId);
     const result = await prisma.reservation.updateMany({ where: { id: reservationId, studentId, status: "PENDING" }, data: { status: "EXPIRED" } });
     if (!result.count) throw ApiError.notFound("Active reservation not found");
+    roomCache.invalidate();
   }
 }
 export const bookingService = new BookingService();

@@ -3,6 +3,7 @@ import { hostelController } from "./hostel.controller.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 import { authorize } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
+import { browseRoomsRateLimiter } from "../../middleware/rate-limit.middleware.js";
 import {
   createHostelSchema,
   updateHostelSchema,
@@ -40,7 +41,7 @@ router.post("/floors/:floorId/rooms", authorize("ADMIN"), validate(createRoomSch
 router.get("/rooms", hostelController.getRooms);
 router.post("/rooms/:id/block", authorize("ADMIN", "WARDEN"), hostelController.blockRoom);
 router.post("/rooms/:id/unblock", authorize("ADMIN", "WARDEN"), hostelController.unblockRoom);
-router.get("/rooms/available", hostelController.getAvailableRooms);
+router.get("/rooms/available", browseRoomsRateLimiter, hostelController.getAvailableRooms);
 router.get("/rooms/:id", authorize("ADMIN", "WARDEN"), hostelController.getRoomById);
 router.patch("/rooms/:id", authorize("ADMIN"), validate(updateRoomSchema), hostelController.updateRoom);
 

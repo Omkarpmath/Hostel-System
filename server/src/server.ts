@@ -1,12 +1,16 @@
 import app from "./app.js";
 import { env } from "./config/env.js";
 import { prisma } from "./config/db.js";
+import { startReservationCleanupJob } from "./jobs/reservation-cleanup.job.js";
 
 async function main() {
   try {
     // Test database connection
     await prisma.$connect();
     console.log("✅ Database connected successfully");
+
+    // Start background jobs
+    startReservationCleanupJob();
 
     app.listen(env.PORT, () => {
       console.log(`

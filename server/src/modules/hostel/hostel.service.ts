@@ -1,4 +1,5 @@
 import { prisma } from "../../config/db.js";
+import { roomCache } from "../../config/cache.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { Prisma } from "@prisma/client";
 
@@ -173,7 +174,7 @@ export class HostelService {
     const floor = await prisma.floor.findUnique({ where: { id: floorId } });
     if (!floor) throw ApiError.notFound("Floor not found");
 
-    return prisma.room.create({
+    const room = await prisma.room.create({
       data: {
         floorId,
         roomNumber: data.roomNumber,
@@ -183,6 +184,8 @@ export class HostelService {
         amenities: data.amenities ? JSON.stringify(data.amenities) : null,
       },
     });
+    roomCache.invalidate();
+    return room;
   }
 
   async getRooms(
@@ -293,6 +296,12 @@ export class HostelService {
   }
 
   async getAvailableRooms(hostelId?: string, eligibility?: { year: number; gender: "MALE" | "FEMALE" | "OTHER" }) {
+    const cacheKey = `avail_rooms:${hostelId || "all"}:${eligibility ? `${eligibility.gender}_${eligibility.year}` : "all"}`;
+    const cached = roomCache.get<any[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const where: Prisma.RoomWhereInput = {
       isActive: true,
       status: { notIn: ["BLOCKED", "MAINTENANCE"] },
@@ -338,9 +347,12 @@ export class HostelService {
       },
       orderBy: { roomNumber: "asc" },
     });
-    return rooms
+    const result = rooms
       .filter((room) => room.occupiedBeds + room.reservations.length < room.capacity)
       .map(({ reservations, ...room }) => ({ ...room, occupiedBeds: room.occupiedBeds + reservations.length }));
+
+    roomCache.set(cacheKey, result, 5_000); // Cache for 5 seconds
+    return result;
   }
 
   async getRoomById(id: string) {
@@ -393,10 +405,12 @@ export class HostelService {
     if (data.amenities) {
       updateData.amenities = JSON.stringify(data.amenities);
     }
-    return prisma.room.update({
+    const updatedRoom = await prisma.room.update({
       where: { id },
       data: updateData,
     });
+    roomCache.invalidate();
+    return updatedRoom;
   }
 
   async blockRoom(id: string, adminUserId: string, reason?: string) {
@@ -418,7 +432,7 @@ export class HostelService {
       throw ApiError.badRequest("Cannot block room with pending student reservations.");
     }
 
-    return prisma.room.update({
+    const updated = await prisma.room.update({
       where: { id },
       data: {
         status: "BLOCKED",
@@ -432,6 +446,8 @@ export class HostelService {
         },
       },
     });
+    roomCache.invalidate();
+    return updated;
   }
 
   async unblockRoom(id: string) {
@@ -450,7 +466,7 @@ export class HostelService {
           ? "PARTIALLY_OCCUPIED"
           : "AVAILABLE";
 
-    return prisma.room.update({
+    const updated = await prisma.room.update({
       where: { id },
       data: {
         status: newStatus,
@@ -464,6 +480,8 @@ export class HostelService {
         },
       },
     });
+    roomCache.invalidate();
+    return updated;
   }
 
   // ============ DASHBOARD STATS ============

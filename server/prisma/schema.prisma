@@ -354,6 +354,7 @@ model Room {
   reservations Reservation[]
 
   @@unique([floorId, roomNumber])
+  @@index([floorId, status, isActive])
   @@map("rooms")
 }
 
@@ -374,6 +375,7 @@ model RoomAllocation {
   fees    Fee[]
 
   @@index([studentId, status])
+  @@index([roomId, status])
   @@map("room_allocations")
 }
 
@@ -391,6 +393,8 @@ model Reservation {
   student StudentProfile @relation(fields: [studentId], references: [id])
   room    Room           @relation(fields: [roomId], references: [id])
 
+  @@index([roomId, status, expiresAt])
+  @@index([studentId, status])
   @@map("reservations")
 }
 
@@ -419,6 +423,8 @@ model Fee {
   student    StudentProfile  @relation(fields: [studentId], references: [id])
   allocation RoomAllocation? @relation(fields: [allocationId], references: [id])
 
+  @@index([studentId, type])
+  @@index([transactionId])
   @@map("fees")
 }
 

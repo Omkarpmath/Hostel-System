@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
+import { roomCache } from "../../config/cache.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { notificationService } from "../notification/notification.service.js";
 import { receiptService } from "../receipt/receipt.service.js";
@@ -153,7 +154,7 @@ export class OperationsService {
   }
 
   async allocate(studentId: string, roomId: string, requestedBed?: number) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const [student, room, current] = await Promise.all([
         tx.studentProfile.findUnique({ where: { id: studentId } }),
         tx.room.findUnique({
@@ -244,6 +245,9 @@ export class OperationsService {
 
       return allocation;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    roomCache.invalidate();
+    return result;
   }
 
   async listLeaves(userId: string, role: string, filters?: { hostelId?: string }) {
