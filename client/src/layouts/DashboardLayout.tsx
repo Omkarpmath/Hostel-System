@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu } from 'lucide-react';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { PageLoadingSpinner } from '@/components/shared/PageLoadingSpinner';
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,7 +54,9 @@ export function DashboardLayout() {
         {/* Main Content */}
         <main className="flex-1 min-w-0 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1440px] p-5 md:p-8 lg:p-10">
-            <Outlet />
+            <Suspense fallback={<PageLoadingSpinner />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>
