@@ -212,21 +212,52 @@ export type VisitorStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CHECKED_IN' |
 
 // Dashboard
 export interface DashboardStats {
-  totalStudents: number;
-  totalHostels: number;
-  totalRooms: number;
+  role?: string;
+  totalStudents?: number;
+  totalHostels?: number;
+  totalRooms?: number;
   totalBeds?: number;
   occupiedBeds?: number;
   occupiedRooms?: number;
-  availableRooms: number;
+  availableRooms?: number;
   partiallyOccupiedRooms?: number;
   fullyOccupiedRooms?: number;
   blockedRooms?: number;
-  pendingLeaves: number;
-  openComplaints: number;
-  pendingFees: number;
-  occupancyRate: number;
-  recentAllocations: RoomAllocation[];
+  pendingLeaves?: number;
+  openComplaints?: number;
+  pendingFees?: number;
+  occupancyRate?: number;
+  recentAllocations?: RoomAllocation[];
+  recentAnnouncements?: Announcement[];
+
+  // Student specific consolidated fields
+  overview?: {
+    profile: any;
+    fees: Fee[];
+    leaves: LeaveRequest[];
+    complaints: Complaint[];
+    visitors: any[];
+  };
+  profile?: any;
+  allocation?: RoomAllocation | null;
+  fees?: Fee[];
+  hostelFeePaid?: boolean;
+  messFeePaid?: boolean;
+  leaves?: LeaveRequest[];
+  leavesCount?: number;
+  complaints?: Complaint[];
+  complaintsCount?: number;
+  announcements?: Announcement[];
+  unreadAnnouncementsCount?: number;
+
+  // Accountant specific consolidated fields
+  totalPaid?: number;
+  totalPending?: number;
+  paidCount?: number;
+  pendingCount?: number;
+  totalRecords?: number;
+  collectionRate?: number;
+  recentTransactions?: any[];
 }
 
 // API Response

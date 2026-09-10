@@ -18,8 +18,8 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
-// Dashboard
-router.get("/dashboard/stats", authorize("ADMIN", "WARDEN", "ACCOUNTANT"), hostelController.getDashboardStats);
+// Dashboard (role-aware consolidated summary)
+router.get("/dashboard/stats", authorize("ADMIN", "WARDEN", "ACCOUNTANT", "STUDENT", "SECURITY"), hostelController.getDashboardStats);
 
 // Hostel CRUD
 router.post("/hostels", authorize("ADMIN"), validate(createHostelSchema), hostelController.createHostel);

@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { hostelApi } from '@/api/hostel.api';
-import { announcementApi } from '@/api/announcement.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
@@ -31,20 +30,16 @@ export function WardenDashboard() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  // Fetch dashboard stats from backend
+  // Fetch dashboard stats from backend (consolidated with announcements)
   const { data: statsData, isLoading: isStatsLoading } = useQuery<ApiResponse<DashboardStats>>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => (await hostelApi.getDashboardStats()).data,
+    staleTime: 3 * 60 * 1000, // 3 minutes cache (0ms perceived latency on tab switch)
+    gcTime: 10 * 60 * 1000,
     retry: 1,
   });
   const stats = (statsData as any)?.data || (statsData as any) || null;
-
-  // Fetch recent announcements
-  const { data: announcementsData } = useQuery({
-    queryKey: ['warden-dashboard-announcements'],
-    queryFn: () => announcementApi.getAll({ status: 'PUBLISHED' }),
-  });
-  const recentAnnouncements: Announcement[] = ((announcementsData?.data as any)?.data || []).slice(0, 3);
+  const recentAnnouncements: Announcement[] = (stats?.recentAnnouncements || []).slice(0, 3);
 
   if (isStatsLoading) return <PageSkeleton />;
 

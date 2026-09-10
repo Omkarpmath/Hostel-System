@@ -68,3 +68,4 @@ class MemoryCache {
 }
 
 export const roomCache = new MemoryCache();
+export const dashboardCache = new MemoryCache();

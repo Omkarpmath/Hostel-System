@@ -1,7 +1,9 @@
 import { prisma } from "../../config/db.js";
-import { roomCache } from "../../config/cache.js";
+import { roomCache, dashboardCache } from "../../config/cache.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { Prisma } from "@prisma/client";
+import { operationsService } from "../operations/operations.service.js";
+import { announcementService } from "../announcement/announcement.service.js";
 
 export class HostelService {
   // ============ HOSTEL ============
@@ -486,7 +488,116 @@ export class HostelService {
 
   // ============ DASHBOARD STATS ============
 
-  async getDashboardStats() {
+  async getDashboardStats(user?: { userId: string; role: string }) {
+    const role = user?.role || "ADMIN";
+
+    // 1. STUDENT DASHBOARD CONSOLIDATED STATS
+    if (role === "STUDENT" && user?.userId) {
+      const cacheKey = `dashboard:student:${user.userId}`;
+      const cached = dashboardCache.get<any>(cacheKey);
+      if (cached) return cached;
+
+      // Fetch overview + announcements in parallel
+      const [overview, myAnnouncements] = await Promise.all([
+        operationsService.getMyOverview(user.userId).catch(() => null),
+        announcementService.getMyAnnouncements(user.userId).catch(() => []),
+      ]);
+
+      const profile = overview?.profile || null;
+      const allocation =
+        profile?.roomAllocations?.find((a: any) => a.status === "ACTIVE") ||
+        profile?.roomAllocations?.[0] ||
+        null;
+      const fees = overview?.fees || [];
+      const hostelFeePaid = fees.some((f: any) => f.type === "HOSTEL_FEE" && f.status === "PAID");
+      const messFeePaid = fees.some((f: any) => f.type === "MESS_FEE" && f.status === "PAID");
+      const leaves = overview?.leaves || [];
+      const complaints = overview?.complaints || [];
+
+      const result = {
+        role: "STUDENT",
+        overview,
+        profile,
+        allocation,
+        fees,
+        hostelFeePaid,
+        messFeePaid,
+        leaves,
+        leavesCount: leaves.length,
+        complaints,
+        complaintsCount: complaints.length,
+        announcements: myAnnouncements,
+        recentAnnouncements: Array.isArray(myAnnouncements) ? myAnnouncements.slice(0, 4) : [],
+        unreadAnnouncementsCount: Array.isArray(myAnnouncements) ? myAnnouncements.filter((a: any) => !a.isRead).length : 0,
+      };
+
+      dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+      return result;
+    }
+
+    // 2. ACCOUNTANT DASHBOARD CONSOLIDATED STATS
+    if (role === "ACCOUNTANT") {
+      const cacheKey = "dashboard:accountant";
+      const cached = dashboardCache.get<any>(cacheKey);
+      if (cached) return cached;
+
+      const [fees, recentTransactions] = await Promise.all([
+        prisma.fee.findMany({
+          select: { amount: true, status: true, type: true },
+        }),
+        prisma.fee.findMany({
+          where: { status: "PAID" },
+          take: 6,
+          orderBy: { paidAt: "desc" },
+          include: {
+            student: {
+              include: {
+                user: { select: { firstName: true, lastName: true } },
+              },
+            },
+          },
+        }),
+      ]);
+
+      const totalPaid = fees
+        .filter((f) => f.status === "PAID")
+        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+      const totalPending = fees
+        .filter((f) => f.status === "PENDING")
+        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+      const paidCount = fees.filter((f) => f.status === "PAID").length;
+      const pendingCount = fees.filter((f) => f.status === "PENDING").length;
+      const totalRecords = fees.length;
+      const collectionRate = totalRecords > 0 ? Math.round((paidCount / totalRecords) * 100) : 0;
+      const hostelFeePaid = fees
+        .filter((f) => f.type === "HOSTEL_FEE" && f.status === "PAID")
+        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+      const messFeePaid = fees
+        .filter((f) => f.type === "MESS_FEE" && f.status === "PAID")
+        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+
+      const result = {
+        role: "ACCOUNTANT",
+        totalPaid,
+        totalPending,
+        paidCount,
+        pendingCount,
+        totalRecords,
+        collectionRate,
+        hostelFeePaid,
+        messFeePaid,
+        recentTransactions,
+      };
+
+      dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+      return result;
+    }
+
+    // 3. ADMIN / WARDEN / GENERAL DASHBOARD STATS
+    const cacheKey = `dashboard:${role.toLowerCase()}${role === 'WARDEN' && user?.userId ? `:${user.userId}` : ''}`;
+    const cached = dashboardCache.get<any>(cacheKey);
+    if (cached) return cached;
+
     const [
       totalStudents,
       totalHostels,
@@ -495,6 +606,7 @@ export class HostelService {
       openComplaints,
       pendingFees,
       recentAllocations,
+      recentAnnouncements,
     ] = await Promise.all([
       prisma.studentProfile.count(),
       prisma.hostel.count({ where: { deletedAt: null, isActive: true } }),
@@ -529,20 +641,22 @@ export class HostelService {
           },
         },
       }),
+      announcementService.listAnnouncements(user?.userId || "", role, { status: "PUBLISHED" }).catch(() => []),
     ]);
 
     const totalRooms = rooms.length;
-    const totalBeds = rooms.reduce((sum, r) => sum + r.capacity, 0);
-    const occupiedBeds = rooms.reduce((sum, r) => sum + r.occupiedBeds, 0);
+    const totalBeds = rooms.reduce((sum: number, r: any) => sum + Number(r.capacity || 0), 0);
+    const occupiedBeds = rooms.reduce((sum: number, r: any) => sum + Number(r.occupiedBeds || 0), 0);
 
     // Room status counts for pie chart
-    const blockedRooms = rooms.filter((r) => r.status === "BLOCKED").length;
-    const nonBlockedRooms = rooms.filter((r) => r.status !== "BLOCKED");
-    const availableRooms = nonBlockedRooms.filter((r) => r.occupiedBeds === 0).length;
-    const partiallyOccupiedRooms = nonBlockedRooms.filter((r) => r.occupiedBeds > 0 && r.occupiedBeds < r.capacity).length;
-    const fullyOccupiedRooms = nonBlockedRooms.filter((r) => r.occupiedBeds >= r.capacity).length;
+    const blockedRooms = rooms.filter((r: any) => r.status === "BLOCKED").length;
+    const nonBlockedRooms = rooms.filter((r: any) => r.status !== "BLOCKED");
+    const availableRooms = nonBlockedRooms.filter((r: any) => (r.occupiedBeds || 0) === 0).length;
+    const partiallyOccupiedRooms = nonBlockedRooms.filter((r: any) => (r.occupiedBeds || 0) > 0 && (r.occupiedBeds || 0) < (r.capacity || 0)).length;
+    const fullyOccupiedRooms = nonBlockedRooms.filter((r: any) => (r.occupiedBeds || 0) >= (r.capacity || 0)).length;
 
-    return {
+    const result = {
+      role,
       totalStudents,
       totalHostels,
       totalRooms,
@@ -557,7 +671,11 @@ export class HostelService {
       pendingFees,
       recentAllocations,
       occupancyRate: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
+      recentAnnouncements: Array.isArray(recentAnnouncements) ? recentAnnouncements.slice(0, 3) : [],
     };
+
+    dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+    return result;
   }
 }
 

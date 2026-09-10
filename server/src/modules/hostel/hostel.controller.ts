@@ -151,9 +151,9 @@ export class HostelController {
 
   // ============ DASHBOARD ============
 
-  async getDashboardStats(_req: Request, res: Response, next: NextFunction) {
+  async getDashboardStats(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const stats = await hostelService.getDashboardStats();
+      const stats = await hostelService.getDashboardStats(req.user);
       ApiResponse.success({ res, data: stats });
     } catch (error) { next(error); }
   }

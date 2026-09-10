@@ -9,7 +9,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { hostelApi } from '@/api/hostel.api';
-import { announcementApi } from '@/api/announcement.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
@@ -33,22 +32,18 @@ export function AdminDashboard() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  // Fetch Dashboard Stats
+  // Fetch Dashboard Stats (consolidated with announcements)
   const { data, isLoading } = useQuery<ApiResponse<DashboardStats>>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => (await hostelApi.getDashboardStats()).data,
+    staleTime: 3 * 60 * 1000, // 3 minutes cache (0ms perceived latency on tab switch)
+    gcTime: 10 * 60 * 1000,
   });
-
-  // Fetch Recent Announcements
-  const { data: announcementsData } = useQuery({
-    queryKey: ['admin-dashboard-announcements'],
-    queryFn: () => announcementApi.getAll({ status: 'PUBLISHED' }),
-  });
-  const recentAnnouncements: Announcement[] = ((announcementsData?.data as any)?.data || []).slice(0, 3);
-
-  if (isLoading) return <PageSkeleton />;
 
   const stats = data?.data as any;
+  const recentAnnouncements: Announcement[] = (stats?.recentAnnouncements || []).slice(0, 3);
+
+  if (isLoading) return <PageSkeleton />;
 
   const occupancyData = stats
     ? [

@@ -20,10 +20,12 @@ export function AccountantDashboard() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  // Fetch all fees
+  // Fetch all fees (cached for 3 minutes for 0ms perceived latency on tab switch)
   const { data: feesData } = useQuery({
     queryKey: ['fees'],
     queryFn: () => operationsApi.fees(),
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 1,
   });
 

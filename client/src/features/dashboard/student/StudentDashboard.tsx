@@ -4,7 +4,6 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useQuery } from '@tanstack/react-query';
-import { operationsApi } from '@/api/operations.api';
 import { authApi } from '@/api/auth.api';
 import { PageSkeleton } from '@/components/shared/LoadingSkeleton';
 import {
@@ -13,6 +12,7 @@ import {
   Megaphone, ChevronRight, X, RotateCw, ShieldCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { hostelApi } from '@/api/hostel.api';
 import { announcementApi } from '@/api/announcement.api';
 import type { Announcement } from '@/types';
 import QRCode from 'qrcode';
@@ -21,8 +21,13 @@ export function StudentDashboard() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const { data, isLoading } = useQuery({ queryKey: ['overview'], queryFn: operationsApi.overview });
-  const { data: profileData } = useQuery({ queryKey: ['profile'], queryFn: authApi.getProfile });
+  // Consolidated single summary API call for Student Dashboard (0ms perceived latency on tab switch)
+  const { data: statsResponse, isLoading, refetch: refetchDashboardStats } = useQuery({
+    queryKey: ['student-dashboard-stats'],
+    queryFn: async () => (await hostelApi.getDashboardStats()).data,
+    staleTime: 3 * 60 * 1000, // 3 minutes cache
+    gcTime: 10 * 60 * 1000,
+  });
 
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState<number>(30);
@@ -30,26 +35,23 @@ export function StudentDashboard() {
   const [qrError, setQrError] = useState<string | null>(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
 
-  // Fetch announcements targeted to this student
-  const { data: announcementsData, refetch: refetchAnnouncements } = useQuery({
-    queryKey: ['dashboard-announcements'],
-    queryFn: () => announcementApi.getMy(),
-  });
-  const allAnnouncements: Announcement[] = (announcementsData?.data as any)?.data || [];
+  const dashboardData = (statsResponse as any)?.data || (statsResponse as any);
+  const overview = dashboardData?.overview || dashboardData;
+  const profile = dashboardData?.profile || overview?.profile;
+  const allAnnouncements: Announcement[] = dashboardData?.announcements || [];
   const recentAnnouncements = allAnnouncements.slice(0, 4);
-  const unreadCount = allAnnouncements.filter((a) => !a.isRead).length;
+  const unreadCount = dashboardData?.unreadAnnouncementsCount ?? allAnnouncements.filter((a) => !a.isRead).length;
 
   const handleOpenAnnouncement = async (a: Announcement) => {
     setSelectedAnnouncement(a);
     if (!a.isRead) {
       await announcementApi.markRead(a.id);
-      refetchAnnouncements();
+      refetchDashboardStats();
     }
   };
 
-  const overview = (data?.data as any)?.data;
-  const profile = (profileData?.data as any)?.data;
   const allocation =
+    dashboardData?.allocation ||
     overview?.profile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE') ||
     overview?.profile?.roomAllocations?.[0] ||
     profile?.studentProfile?.roomAllocations?.find((a: any) => a.status === 'ACTIVE') ||
@@ -61,10 +63,10 @@ export function StudentDashboard() {
     hasActiveAllocationRef.current = hasActiveAllocation;
   }, [hasActiveAllocation]);
 
-  // Fee status from overview
-  const fees: any[] = overview?.fees || [];
-  const hostelFeePaid = fees.some((f: any) => f.type === 'HOSTEL_FEE' && f.status === 'PAID');
-  const messFeePaid = fees.some((f: any) => f.type === 'MESS_FEE' && f.status === 'PAID');
+  // Fee status from consolidated dashboardData or overview
+  const fees: any[] = dashboardData?.fees || overview?.fees || [];
+  const hostelFeePaid = dashboardData?.hostelFeePaid ?? fees.some((f: any) => f.type === 'HOSTEL_FEE' && f.status === 'PAID');
+  const messFeePaid = dashboardData?.messFeePaid ?? fees.some((f: any) => f.type === 'MESS_FEE' && f.status === 'PAID');
 
   const expiresAtRef = useRef<number>(0);
   const isFetchingRef = useRef<boolean>(false);
