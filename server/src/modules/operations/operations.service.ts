@@ -44,7 +44,34 @@ const studentInclude = {
 } as const;
 
 function roomInclude() {
-  return { room: { include: { floor: { include: { block: { include: { hostel: { select: { id: true, name: true, type: true } } } } } } } } };
+  return {
+    room: {
+      select: {
+        id: true,
+        roomNumber: true,
+        capacity: true,
+        occupiedBeds: true,
+        status: true,
+        feePerSemester: true,
+        floor: {
+          select: {
+            id: true,
+            floorNumber: true,
+            name: true,
+            block: {
+              select: {
+                id: true,
+                name: true,
+                hostel: {
+                  select: { id: true, name: true, type: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
 }
 
 const visitorStudentInclude = {
@@ -198,49 +225,85 @@ export class OperationsService {
         throw ApiError.badRequest(room.status === "BLOCKED" ? "This room is blocked by an administrator" : "This room is not available for allocation");
       }
       if (room.occupiedBeds >= room.capacity) throw ApiError.conflict("This room is already full");
-      const pendingReservations = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
-      if (room.occupiedBeds + pendingReservations >= room.capacity) throw ApiError.conflict("The remaining bed is temporarily reserved by a student completing payment");
-      const active = await tx.roomAllocation.findMany({ where: { roomId, status: "ACTIVE" }, select: { bedNumber: true } });
+      // Parallelize pending reservations check and active beds lookup
+      const [pendingReservations, active] = await Promise.all([
+        tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } }),
+        tx.roomAllocation.findMany({ where: { roomId, status: "ACTIVE" }, select: { bedNumber: true } }),
+      ]);
+
+      if (room.occupiedBeds + pendingReservations >= room.capacity) {
+        throw ApiError.conflict("The remaining bed is temporarily reserved by a student completing payment");
+      }
+
       const bedNumber = requestedBed || Array.from({ length: room.capacity }, (_, i) => i + 1).find((n) => !active.some((a) => a.bedNumber === n));
-      if (!bedNumber || active.some((a) => a.bedNumber === bedNumber) || bedNumber > room.capacity) throw ApiError.conflict("Selected bed is not available");
+      if (!bedNumber || active.some((a) => a.bedNumber === bedNumber) || bedNumber > room.capacity) {
+        throw ApiError.conflict("Selected bed is not available");
+      }
+
       const nextOccupied = room.occupiedBeds + 1;
-      const allocation = await tx.roomAllocation.create({ data: { studentId, roomId, bedNumber, allocatedFrom: new Date() }, include: { ...studentInclude, ...roomInclude() } });
-      await tx.room.update({ where: { id: roomId }, data: { occupiedBeds: nextOccupied, status: nextOccupied >= room.capacity ? "FULL" : "PARTIALLY_OCCUPIED", version: { increment: 1 } } });
+
+      // Parallelize room allocation creation and room counter update
+      const [allocation] = await Promise.all([
+        tx.roomAllocation.create({
+          data: { studentId, roomId, bedNumber, allocatedFrom: new Date() },
+          include: { ...studentInclude, ...roomInclude() },
+        }),
+        tx.room.update({
+          where: { id: roomId },
+          data: {
+            occupiedBeds: nextOccupied,
+            status: nextOccupied >= room.capacity ? "FULL" : "PARTIALLY_OCCUPIED",
+            version: { increment: 1 },
+          },
+        }),
+      ]);
+
+      // Parallelize existing fee lookups and mess config query
+      const [existingHostelFee, existingMessFee, messConfig] = await Promise.all([
+        tx.fee.findFirst({ where: { studentId, allocationId: allocation.id, type: "HOSTEL_FEE" } }),
+        tx.fee.findFirst({ where: { studentId, type: "MESS_FEE" } }),
+        tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } }),
+      ]);
+
+      const feePromises: Promise<any>[] = [];
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
 
       // Generate PENDING Hostel Fee if not present
-      const existingHostelFee = await tx.fee.findFirst({ where: { studentId, allocationId: allocation.id, type: "HOSTEL_FEE" } });
       if (!existingHostelFee) {
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 30);
-        await tx.fee.create({
-          data: {
-            studentId,
-            allocationId: allocation.id,
-            amount: room.feePerSemester,
-            type: "HOSTEL_FEE",
-            status: "PENDING",
-            dueDate,
-          },
-        });
+        feePromises.push(
+          tx.fee.create({
+            data: {
+              studentId,
+              allocationId: allocation.id,
+              amount: room.feePerSemester,
+              type: "HOSTEL_FEE",
+              status: "PENDING",
+              dueDate,
+            },
+          })
+        );
       }
 
       // Generate PENDING Mess Fee if not present
-      const existingMessFee = await tx.fee.findFirst({ where: { studentId, type: "MESS_FEE" } });
       if (!existingMessFee) {
-        const messConfig = await tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } });
         const messAmount = messConfig ? parseFloat(messConfig.value) : 78000;
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 30);
-        await tx.fee.create({
-          data: {
-            studentId,
-            allocationId: allocation.id,
-            amount: messAmount,
-            type: "MESS_FEE",
-            status: "PENDING",
-            dueDate,
-          },
-        });
+        feePromises.push(
+          tx.fee.create({
+            data: {
+              studentId,
+              allocationId: allocation.id,
+              amount: messAmount,
+              type: "MESS_FEE",
+              status: "PENDING",
+              dueDate,
+            },
+          })
+        );
+      }
+
+      if (feePromises.length > 0) {
+        await Promise.all(feePromises);
       }
 
       return allocation;

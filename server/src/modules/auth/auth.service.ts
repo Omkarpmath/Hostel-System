@@ -35,12 +35,6 @@ export class AuthService {
       throw ApiError.unauthorized("Invalid email or password");
     }
 
-    // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
     const tokenPayload = {
       userId: user.id,
       role: user.role,
@@ -50,17 +44,23 @@ export class AuthService {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Store refresh token in database
+    // Store refresh token in database concurrently with lastLoginAt update
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt,
-      },
-    });
+    await Promise.all([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      }),
+      prisma.refreshToken.create({
+        data: {
+          token: refreshToken,
+          userId: user.id,
+          expiresAt,
+        },
+      }),
+    ]);
 
     const { passwordHash: _, ...userWithoutPassword } = user;
 
@@ -159,15 +159,16 @@ export class AuthService {
 
     const newPasswordHash = await hashPassword(data.newPassword);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { passwordHash: newPasswordHash },
-    });
-
-    // Invalidate all refresh tokens for this user
-    await prisma.refreshToken.deleteMany({
-      where: { userId: user.id },
-    });
+    await Promise.all([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: newPasswordHash },
+      }),
+      // Invalidate all refresh tokens for this user concurrently
+      prisma.refreshToken.deleteMany({
+        where: { userId: user.id },
+      }),
+    ]);
 
     return { message: "Password has been reset successfully" };
   }
