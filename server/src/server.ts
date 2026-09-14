@@ -15,7 +15,7 @@ async function main() {
     app.listen(env.PORT, () => {
       console.log(`
 ╔══════════════════════════════════════════════════╗
-║    BMSCE Hostel Management System — API Server   ║
+║    BMSET Hostel Management System — API Server   ║
 ╠══════════════════════════════════════════════════╣
 ║  🚀 Server running on port ${env.PORT}                 ║
 ║  🌍 Environment: ${env.NODE_ENV.padEnd(28)}  ║

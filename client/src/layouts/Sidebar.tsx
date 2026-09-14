@@ -311,10 +311,10 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
               </div>
               <div className="overflow-hidden">
                 <h1 className="text-sm font-bold text-white tracking-tight leading-tight">
-                  BMSCE Hostel
+                  BMSET Hostels
                 </h1>
                 <p className="text-[10px] font-medium text-blue-200/70 truncate">
-                  Management System
+                  BMS Educational Trust
                 </p>
               </div>
             </div>

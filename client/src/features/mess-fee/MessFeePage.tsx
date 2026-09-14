@@ -101,7 +101,7 @@ export function MessFeePage() {
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
-        name: 'BMSCE Hostel',
+        name: 'BMSET Hostels',
         description: 'Annual Mess Fee',
         order_id: order.orderId,
         prefill: {

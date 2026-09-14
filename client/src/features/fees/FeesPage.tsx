@@ -602,7 +602,7 @@ export function FeesPage() {
                                   Electronic Payment Receipt Verified
                                 </span>
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
-                                  Official BMSCE Hostel Administration transaction record
+                                  Official BMSET Hostel Administration transaction record
                                 </p>
                               </div>
                             </div>
@@ -816,7 +816,7 @@ export function FeesPage() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. State Bank of India, BMSCE Campus Branch"
+                    placeholder="e.g. State Bank of India, BMSET Campus Branch"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
                     style={{

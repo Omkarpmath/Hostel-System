@@ -421,7 +421,7 @@ export const MessEntryPage: React.FC = () => {
 
                   <div className="mt-3 flex items-center gap-2 text-xs text-slate-300 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-emerald-500/30">
                     <Building className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{scanResult.hostelName || 'BMSCE Hostel Resident'}</span>
+                    <span>{scanResult.hostelName || 'BMSET Hostel Resident'}</span>
                     {scanResult.roomNumber && <span>• Room {scanResult.roomNumber}</span>}
                   </div>
                 </>

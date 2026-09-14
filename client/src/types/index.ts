@@ -1,5 +1,5 @@
 // ============================================
-// BMSCE Hostel Management — Type Definitions
+// BMSET Hostel Management — Type Definitions
 // ============================================
 
 // User & Auth

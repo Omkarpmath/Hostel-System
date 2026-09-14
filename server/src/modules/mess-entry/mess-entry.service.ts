@@ -331,7 +331,7 @@ export class MessEntryService {
       message: "Student belongs to hostel. Entry verified.",
       studentName: residentInfo.studentName || (studentUsn ? `Student (${studentUsn})` : "Hostel Resident"),
       usn: residentInfo.usn || studentUsn,
-      hostelName: residentInfo.hostelName || "BMSCE Hostel Resident",
+      hostelName: residentInfo.hostelName || "BMSET Hostel Resident",
       roomNumber: residentInfo.roomNumber,
       messName,
       todayCount: updatedCount,

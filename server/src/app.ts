@@ -61,7 +61,7 @@ app.use("/api/v1/uploads", express.static(uploadDir));
 app.get("/api/v1/health", (_req, res) => {
   res.json({
     success: true,
-    message: "BMSCE Hostel Management API is running",
+    message: "BMSET Hostel Management API is running",
     timestamp: new Date().toISOString(),
   });
 });

@@ -1,7 +1,7 @@
 {
-  "name": "bmsce-hostel-server",
+  "name": "bmset-hostel-server",
   "version": "1.0.0",
-  "description": "BMSCE Hostel Management System — Backend API",
+  "description": "BMSET Hostel Management System — Backend API",
   "main": "dist/server.js",
   "type": "module",
   "scripts": {

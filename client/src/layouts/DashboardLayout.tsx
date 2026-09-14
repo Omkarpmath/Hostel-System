@@ -36,12 +36,12 @@ export function DashboardLayout() {
             >
               <Menu className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
             </button>
-            <span className="lg:hidden text-sm font-bold gradient-text">BMSCE Hostel</span>
+            <span className="lg:hidden text-sm font-bold gradient-text">BMSET Hostels</span>
           </div>
 
           <div className="hidden lg:block">
             <span className="text-xs font-semibold text-slate-400">
-              BMS College of Engineering • Hostel Management System
+              BMS Educational Trust • BMSET Hostels
             </span>
           </div>
 

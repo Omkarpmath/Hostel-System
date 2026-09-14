@@ -52,7 +52,7 @@ export class ReceiptService {
           margin: 40,
           info: {
             Title: `Hostel Fee Receipt - ${data.receiptNumber}`,
-            Author: "B.M.S. College of Engineering Hostel Administration",
+            Author: "BMS Educational Trust Hostels (BMSETH)",
             Subject: `${data.feeType} Receipt`,
           },
         });
@@ -70,10 +70,10 @@ export class ReceiptService {
         doc.rect(margin, margin, contentWidth, 80).fill("#1e3a8a");
 
         doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(18)
-          .text("B.M.S. COLLEGE OF ENGINEERING", margin + 15, margin + 15, { width: contentWidth - 30, align: "left" });
+          .text("BMS EDUCATIONAL TRUST HOSTELS", margin + 15, margin + 15, { width: contentWidth - 30, align: "left" });
 
         doc.fillColor("#93c5fd").font("Helvetica").fontSize(9)
-          .text("Hostel Administration & Housing System • Bull Temple Road, Bengaluru - 560019", margin + 15, margin + 40);
+          .text("BMSET Hostels (BMSETH) • Bull Temple Road, Bengaluru - 560019", margin + 15, margin + 40);
 
         doc.fillColor("#bfdbfe").font("Helvetica-Bold").fontSize(10)
           .text("OFFICIAL PAYMENT RECEIPT", margin + 15, margin + 56);
@@ -230,7 +230,7 @@ export class ReceiptService {
 
           doc.fillColor("#334155").font("Helvetica").fontSize(8)
             .text(`Instrument / Ref / UTR:  ${data.transactionId || data.razorpayPaymentId || "—"}`, margin + 12, gwTop + 22)
-            .text(`Verification Authority:  BMSCE Hostel Administration`, margin + 12, gwTop + 34);
+            .text(`Verification Authority:  BMSET Hostel Administration`, margin + 12, gwTop + 34);
 
           doc.fillColor("#334155").font("Helvetica").fontSize(8)
             .text(`Payment Mode: Offline (${modeLabel})`, margin + 260, gwTop + 22)
@@ -253,13 +253,13 @@ export class ReceiptService {
         doc.strokeColor("#cbd5e1").lineWidth(1).moveTo(margin, footerTop).lineTo(margin + contentWidth, footerTop).stroke();
 
         doc.fillColor("#64748b").font("Helvetica").fontSize(7.5)
-          .text("This is an electronically generated official receipt issued by the BMSCE Hostel Management System.", margin, footerTop + 8, { width: contentWidth - 140 })
+          .text("This is an electronically generated official receipt issued by BMSET Hostels (BMS Educational Trust).", margin, footerTop + 8, { width: contentWidth - 140 })
           .text("No physical signature is required. For inquiries, contact hostel.office@bmsce.ac.in", margin, footerTop + 20, { width: contentWidth - 140 });
 
         doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(8)
           .text("Authorized Signatory", margin + contentWidth - 120, footerTop + 8, { width: 120, align: "center" });
         doc.fillColor("#1e3a8a").font("Helvetica-Bold").fontSize(8.5)
-          .text("BMSCE HOSTELS", margin + contentWidth - 120, footerTop + 20, { width: 120, align: "center" });
+          .text("BMSET HOSTELS", margin + contentWidth - 120, footerTop + 20, { width: 120, align: "center" });
 
         doc.end();
       } catch (err) {
@@ -347,7 +347,7 @@ export class ReceiptService {
       // 5. Build Receipt Data
       const studentName = `${fee.student.user.firstName} ${fee.student.user.lastName}`.trim();
       const feeTypeLabel = fee.type === "MESS_FEE" ? "Annual Mess Fee" : "Hostel Accommodation Fee";
-      const hostelName = fee.allocation?.room?.floor?.block?.hostel?.name || "BMSCE Campus Hostel";
+      const hostelName = fee.allocation?.room?.floor?.block?.hostel?.name || "BMSET Campus Hostel";
       const blockName = fee.allocation?.room?.floor?.block?.name;
       const roomNumber = fee.allocation?.room?.roomNumber;
       const bedNumber = fee.allocation?.bedNumber;
@@ -418,11 +418,12 @@ ${paymentDetailsText}
 Please find your official payment receipt attached as a PDF to this email.
 
 Regards,
-B.M.S. College of Engineering Hostel Administration
+BMSET Hostel Administration
+BMS Educational Trust Hostels (BMSETH)
 Bull Temple Road, Bengaluru - 560019`;
 
       const response = await resend.emails.send({
-        from: env.RESEND_FROM_EMAIL || "BMSCE Hostel <onboarding@resend.dev>",
+        from: env.RESEND_FROM_EMAIL || "BMSET Hostels <onboarding@resend.dev>",
         to: customerEmail,
         subject: emailSubject,
         text: emailBody,
@@ -519,7 +520,7 @@ Bull Temple Road, Bengaluru - 560019`;
 
     const studentName = `${fee.student.user.firstName} ${fee.student.user.lastName}`.trim();
     const feeTypeLabel = fee.type === "MESS_FEE" ? "Annual Mess Fee" : "Hostel Accommodation Fee";
-    const hostelName = fee.allocation?.room?.floor?.block?.hostel?.name || "BMSCE Campus Hostel";
+    const hostelName = fee.allocation?.room?.floor?.block?.hostel?.name || "BMSET Campus Hostel";
     const blockName = fee.allocation?.room?.floor?.block?.name;
     const roomNumber = fee.allocation?.room?.roomNumber;
     const bedNumber = fee.allocation?.bedNumber;

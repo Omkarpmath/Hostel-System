@@ -16,5 +16,5 @@ export const env = {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "",
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "",
   RESEND_API_KEY: process.env.RESEND_API_KEY || "",
-  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || "BMSCE Hostel <onboarding@resend.dev>",
+  RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || "BMSET Hostels <onboarding@resend.dev>",
 } as const;

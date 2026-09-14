@@ -197,7 +197,7 @@ export function RoomBookingPage() {
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
-        name: 'BMSCE Hostel',
+        name: 'BMSET Hostels',
         description: `Room ${reservation.room.roomNumber} hostel fee`,
         order_id: order.orderId,
         prefill: {

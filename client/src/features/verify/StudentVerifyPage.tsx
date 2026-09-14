@@ -98,7 +98,7 @@ export function StudentVerifyPage() {
               <ShieldX style={{ width: '1.75rem', height: '1.75rem', flexShrink: 0 }} />
             )}
             <div>
-              <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>BMSCE Hostel</h2>
+              <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em' }}>BMSET Hostels</h2>
               <p style={{ fontSize: '0.75rem', opacity: 0.9, margin: 0, fontWeight: 500 }}>
                 {isExpired ? 'Anti-Screenshot Security Triggered' : 'Security Verification Failed'}
               </p>
@@ -195,7 +195,7 @@ export function StudentVerifyPage() {
         }}>
           <Shield style={{ width: '1.5rem', height: '1.5rem', color: 'white', flexShrink: 0 }} />
           <div>
-            <h1 style={{ fontSize: '1rem', fontWeight: 800, color: 'white' }}>BMSCE Hostel</h1>
+            <h1 style={{ fontSize: '1rem', fontWeight: 800, color: 'white' }}>BMSET Hostels</h1>
             <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>Student Verification</p>
           </div>
           <CheckCircle2 style={{ width: '1.25rem', height: '1.25rem', color: '#4ade80', marginLeft: 'auto', flexShrink: 0 }} />

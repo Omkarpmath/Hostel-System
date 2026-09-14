@@ -1,4 +1,4 @@
-// BMSCE Hostel Management System — Database Schema
+// BMSET Hostel Management System — Database Schema
 // PostgreSQL + Prisma ORM
 
 generator client {

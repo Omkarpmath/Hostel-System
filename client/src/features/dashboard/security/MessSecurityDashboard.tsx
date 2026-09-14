@@ -290,7 +290,7 @@ export const MessSecurityDashboard: React.FC<MessSecurityDashboardProps> = ({ se
             </div>
           </div>
           <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 1.25rem' }}>
-            Students residing in any BMSCE hostel are admitted to the main mess facility. The scanner verifies cryptographic rotating QR codes in real-time and records the admission tally instantly without storing individual scan logs.
+            Students residing in any BMSET hostel are admitted to the main mess facility. The scanner verifies cryptographic rotating QR codes in real-time and records the admission tally instantly without storing individual scan logs.
           </p>
           <Link
             to="/security/mess-entry"

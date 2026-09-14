@@ -152,7 +152,7 @@ export function LoginPage() {
               </div>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <h1 style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '-0.02em', margin: 0 }}>BMSCE</h1>
+                  <h1 style={{ fontSize: '1.5rem', fontWeight: 900, letterSpacing: '-0.02em', margin: 0 }}>BMSET</h1>
                   <span
                     style={{
                       fontSize: '0.6875rem',
@@ -170,7 +170,7 @@ export function LoginPage() {
                   </span>
                 </div>
                 <p style={{ fontSize: '0.8125rem', opacity: 0.85, fontWeight: 500, margin: '0.125rem 0 0' }}>
-                  Campus Hostel Management System
+                  BMS Educational Trust Hostels (BMSETH)
                 </p>
               </div>
             </div>
@@ -283,8 +283,8 @@ export function LoginPage() {
                   <Building2 style={{ width: '1.25rem', height: '1.25rem' }} />
                 </div>
                 <div>
-                  <h1 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>BMSCE Hostel</h1>
-                  <p style={{ fontSize: '0.6875rem', color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(15,23,42,0.7)', margin: 0 }}>Management System</p>
+                  <h1 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>BMSET Hostels</h1>
+                  <p style={{ fontSize: '0.6875rem', color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(15,23,42,0.7)', margin: 0 }}>BMS Educational Trust</p>
                 </div>
               </div>
 
@@ -543,9 +543,9 @@ export function LoginPage() {
 
             {/* Footer */}
             <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.75)', marginTop: '2rem', marginBottom: 0, lineHeight: 1.5, textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
-              BMS College of Engineering, Bengaluru
+              BMS Educational Trust (BMSETH), Bengaluru
               <br />
-              © {new Date().getFullYear()} Hostel Management System
+              © {new Date().getFullYear()} BMSET Hostels
             </p>
           </motion.div>
         </div>
