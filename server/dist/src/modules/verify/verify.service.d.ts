@@ -46,10 +46,12 @@ export declare class VerifyService {
                 status: string;
                 paidAt: Date | null;
                 amount: import("@prisma/client/runtime/library").Decimal;
+                mealPlan: import("@prisma/client").$Enums.MealPlan;
             } | {
                 status: string;
                 paidAt: null;
                 amount: null;
+                mealPlan: null;
             };
         };
         verifiedAt: string;

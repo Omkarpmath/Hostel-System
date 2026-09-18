@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { MealPlan } from "@prisma/client";
 import { prisma } from "../../config/db.js";
 import { razorpayClient } from "../../config/razorpay.js";
 import { env } from "../../config/env.js";
@@ -6,8 +7,12 @@ import { ApiError } from "../../utils/ApiError.js";
 
 import { receiptService } from "../receipt/receipt.service.js";
 
-const CONFIG_KEY = "annual_mess_fee";
-const DEFAULT_AMOUNT = 78000;
+const CONFIG_KEY_VEG = "mess_fee_veg";
+const CONFIG_KEY_NONVEG = "mess_fee_nonveg";
+const LEGACY_CONFIG_KEY = "annual_mess_fee";
+
+const DEFAULT_VEG_AMOUNT = 73000;
+const DEFAULT_NONVEG_AMOUNT = 80000;
 
 export class MessFeeService {
   // ─── Helpers ───
@@ -20,26 +25,60 @@ export class MessFeeService {
 
   // ─── Config ───
 
-  async getAmount(): Promise<number> {
-    const config = await prisma.systemConfig.findUnique({ where: { key: CONFIG_KEY } });
-    return config ? parseFloat(config.value) : DEFAULT_AMOUNT;
+  async getAmounts(): Promise<{ veg: number; nonVeg: number }> {
+    const [vegConfig, nonVegConfig, legacyConfig] = await Promise.all([
+      prisma.systemConfig.findUnique({ where: { key: CONFIG_KEY_VEG } }),
+      prisma.systemConfig.findUnique({ where: { key: CONFIG_KEY_NONVEG } }),
+      prisma.systemConfig.findUnique({ where: { key: LEGACY_CONFIG_KEY } }),
+    ]);
+
+    const veg = vegConfig
+      ? parseFloat(vegConfig.value)
+      : legacyConfig
+      ? parseFloat(legacyConfig.value)
+      : DEFAULT_VEG_AMOUNT;
+
+    const nonVeg = nonVegConfig
+      ? parseFloat(nonVegConfig.value)
+      : DEFAULT_NONVEG_AMOUNT;
+
+    return { veg, nonVeg };
+  }
+
+  async getAmount(mealPlan: MealPlan = "VEG"): Promise<number> {
+    const amounts = await this.getAmounts();
+    return mealPlan === "NON_VEG" ? amounts.nonVeg : amounts.veg;
+  }
+
+  async updateAmounts(veg: number, nonVeg: number) {
+    if (veg < 1 || nonVeg < 1) throw ApiError.badRequest("Mess fee must be at least ₹1");
+
+    const [v, nv] = await Promise.all([
+      prisma.systemConfig.upsert({
+        where: { key: CONFIG_KEY_VEG },
+        update: { value: String(veg) },
+        create: { key: CONFIG_KEY_VEG, value: String(veg), description: "Annual Veg mess fee amount in INR" },
+      }),
+      prisma.systemConfig.upsert({
+        where: { key: CONFIG_KEY_NONVEG },
+        update: { value: String(nonVeg) },
+        create: { key: CONFIG_KEY_NONVEG, value: String(nonVeg), description: "Annual Non-Veg mess fee amount in INR" },
+      }),
+    ]);
+
+    return { veg: parseFloat(v.value), nonVeg: parseFloat(nv.value) };
   }
 
   async updateAmount(amount: number) {
-    if (amount < 1) throw ApiError.badRequest("Mess fee must be at least ₹1");
-    return prisma.systemConfig.upsert({
-      where: { key: CONFIG_KEY },
-      update: { value: String(amount) },
-      create: { key: CONFIG_KEY, value: String(amount), description: "Annual mess fee amount in INR" },
-    });
+    return this.updateAmounts(amount, amount);
   }
 
   // ─── Student status ───
 
   async getMyStatus(userId: string) {
-    const [studentId, amount] = await Promise.all([
+    const [studentId, amounts] = await Promise.all([
       this.studentId(userId),
-      this.getAmount(),
+      this.getAmounts(),
     ]);
 
     // Find all MESS_FEE records for this student in a single query
@@ -61,10 +100,15 @@ export class MessFeeService {
       }).catch(() => {});
     }
 
+    // Pending fee if any
+    const pendingFee = !paidFee ? fees.find((f) => f.status === "PENDING") : null;
+
     return {
-      annualAmount: amount,
+      annualAmount: amounts.veg,
+      amounts,
       isPaid: !!paidFee,
       paidAt: paidFee?.paidAt || null,
+      mealPlan: paidFee?.mealPlan || pendingFee?.mealPlan || null,
       transactionId: paidFee?.transactionId || null,
       paymentMethod: paidFee?.paymentMethod || null,
       history: fees,
@@ -73,11 +117,17 @@ export class MessFeeService {
 
   // ─── Create Razorpay order ───
 
-  async createOrder(userId: string) {
-    const [studentId, amount] = await Promise.all([
+  async createOrder(userId: string, mealPlan: MealPlan = "VEG") {
+    if (mealPlan !== "VEG" && mealPlan !== "NON_VEG") {
+      throw ApiError.badRequest("Meal plan must be either 'VEG' or 'NON_VEG'");
+    }
+
+    const [studentId, amounts] = await Promise.all([
       this.studentId(userId),
-      this.getAmount(),
+      this.getAmounts(),
     ]);
+
+    const amount = mealPlan === "NON_VEG" ? amounts.nonVeg : amounts.veg;
     const amountPaise = Math.round(amount * 100);
 
     if (amountPaise < 100) throw ApiError.badRequest("Mess fee must be at least ₹1.00");
@@ -93,15 +143,21 @@ export class MessFeeService {
       }),
     ]);
 
-    if (paid) throw ApiError.conflict("Mess fee has already been paid");
+    if (paid) throw ApiError.conflict("Mess fee has already been paid and cannot be modified");
 
-    if (pending?.razorpayOrderId) {
+    // Reuse existing razorpay order ONLY if mealPlan and exact amount match
+    if (
+      pending?.razorpayOrderId &&
+      pending.mealPlan === mealPlan &&
+      Math.round(Number(pending.amount) * 100) === amountPaise
+    ) {
       return {
         orderId: pending.razorpayOrderId,
         amount: amountPaise,
         currency: "INR",
         keyId: env.RAZORPAY_KEY_ID,
         reused: true,
+        mealPlan,
       };
     }
 
@@ -109,15 +165,19 @@ export class MessFeeService {
     const order = await razorpayClient().orders.create({
       amount: amountPaise,
       currency: "INR",
-      receipt: `mess_${studentId.slice(0, 20)}`,
-      notes: { studentId, type: "MESS_FEE" },
+      receipt: `mess_${mealPlan.toLowerCase()}_${studentId.slice(0, 15)}`,
+      notes: { studentId, type: "MESS_FEE", mealPlan },
     });
 
     // Attach order to existing PENDING fee record if one exists, or create a new one
     if (pending) {
       await prisma.fee.update({
         where: { id: pending.id },
-        data: { razorpayOrderId: order.id, amount },
+        data: {
+          razorpayOrderId: order.id,
+          amount,
+          mealPlan,
+        },
       });
     } else {
       await prisma.fee.create({
@@ -125,6 +185,7 @@ export class MessFeeService {
           studentId,
           amount,
           type: "MESS_FEE",
+          mealPlan,
           status: "PENDING",
           razorpayOrderId: order.id,
           dueDate: new Date(new Date().getFullYear(), 11, 31), // end of current year
@@ -137,6 +198,7 @@ export class MessFeeService {
       amount: amountPaise,
       currency: "INR",
       keyId: env.RAZORPAY_KEY_ID,
+      mealPlan,
     };
   }
 
@@ -186,11 +248,14 @@ export class MessFeeService {
       throw ApiError.conflict("Mess fee has already been paid");
     }
 
-    // Mark as paid
+    // Mark as paid - mealPlan was assigned during order creation, fallback to VEG if somehow null
+    const finalMealPlan = fee.mealPlan || "VEG";
+
     const updatedFee = await prisma.fee.update({
       where: { id: fee.id },
       data: {
         status: "PAID",
+        mealPlan: finalMealPlan,
         transactionId: paymentId,
         paymentMethod: "RAZORPAY",
         paidAt: new Date(),

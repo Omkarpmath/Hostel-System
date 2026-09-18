@@ -11,11 +11,13 @@ export declare class HostelController {
     createFloor(req: Request, res: Response, next: NextFunction): Promise<void>;
     getFloors(req: Request, res: Response, next: NextFunction): Promise<void>;
     createRoom(req: Request, res: Response, next: NextFunction): Promise<void>;
-    getRooms(req: Request, res: Response, next: NextFunction): Promise<void>;
+    getRooms(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    blockRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    unblockRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     getAvailableRooms(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     getRoomById(req: Request, res: Response, next: NextFunction): Promise<void>;
     updateRoom(req: Request, res: Response, next: NextFunction): Promise<void>;
-    getDashboardStats(_req: Request, res: Response, next: NextFunction): Promise<void>;
+    getDashboardStats(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
 }
 export declare const hostelController: HostelController;
 //# sourceMappingURL=hostel.controller.d.ts.map

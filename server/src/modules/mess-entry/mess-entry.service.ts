@@ -23,6 +23,7 @@ interface CachedResident {
   usn?: string;
   roomNumber?: string;
   hostelName?: string;
+  mealPlan?: 'VEG' | 'NON_VEG' | null;
   expiresAt: number;
 }
 
@@ -52,7 +53,7 @@ async function warmActiveResidents(force = false) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [activeAllocations, dailyCounts] = await Promise.all([
+    const [activeAllocations, dailyCounts, paidMessFees] = await Promise.all([
       prisma.roomAllocation.findMany({
         where: { status: "ACTIVE" },
         select: {
@@ -83,7 +84,19 @@ async function warmActiveResidents(force = false) {
         where: { date: today },
         select: { messId: true, count: true },
       }),
+      prisma.fee.findMany({
+        where: { type: "MESS_FEE", status: "PAID" },
+        select: { studentId: true, mealPlan: true },
+        orderBy: { paidAt: "desc" },
+      }),
     ]);
+
+    const mealPlanMap = new Map<string, 'VEG' | 'NON_VEG'>();
+    for (const f of paidMessFees) {
+      if (!mealPlanMap.has(f.studentId)) {
+        mealPlanMap.set(f.studentId, (f.mealPlan as 'VEG' | 'NON_VEG') || 'VEG');
+      }
+    }
 
     const expiry = now + RESIDENT_SYNC_INTERVAL_MS + 120_000;
     for (const item of activeAllocations) {
@@ -98,6 +111,7 @@ async function warmActiveResidents(force = false) {
         usn: item.student?.usn,
         roomNumber,
         hostelName,
+        mealPlan: mealPlanMap.get(item.studentId) || null,
         expiresAt: expiry,
       });
     }
@@ -131,34 +145,45 @@ async function getActiveResidentInfo(studentProfileId: string): Promise<CachedRe
 
   // Fast fallback if cache miss
   try {
-    const allocation = await prisma.roomAllocation.findFirst({
-      where: {
-        studentId: studentProfileId,
-        status: "ACTIVE",
-      },
-      select: {
-        room: {
-          select: {
-            roomNumber: true,
-            floor: {
-              select: {
-                block: {
-                  select: {
-                    hostel: { select: { name: true } },
+    const [allocation, paidFee] = await Promise.all([
+      prisma.roomAllocation.findFirst({
+        where: {
+          studentId: studentProfileId,
+          status: "ACTIVE",
+        },
+        select: {
+          room: {
+            select: {
+              roomNumber: true,
+              floor: {
+                select: {
+                  block: {
+                    select: {
+                      hostel: { select: { name: true } },
+                    },
                   },
                 },
               },
             },
           },
-        },
-        student: {
-          select: {
-            usn: true,
-            user: { select: { firstName: true, lastName: true } },
+          student: {
+            select: {
+              usn: true,
+              user: { select: { firstName: true, lastName: true } },
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.fee.findFirst({
+        where: {
+          studentId: studentProfileId,
+          type: "MESS_FEE",
+          status: "PAID",
+        },
+        select: { mealPlan: true },
+        orderBy: { paidAt: "desc" },
+      }),
+    ]);
 
     if (!allocation) {
       activeResidentCache.set(studentProfileId, {
@@ -179,6 +204,7 @@ async function getActiveResidentInfo(studentProfileId: string): Promise<CachedRe
       usn: allocation.student?.usn,
       roomNumber,
       hostelName,
+      mealPlan: (paidFee?.mealPlan as 'VEG' | 'NON_VEG') || null,
       expiresAt: now + RESIDENT_SYNC_INTERVAL_MS,
     };
     activeResidentCache.set(studentProfileId, info);
@@ -333,6 +359,7 @@ export class MessEntryService {
       usn: residentInfo.usn || studentUsn,
       hostelName: residentInfo.hostelName || "BMSET Hostel Resident",
       roomNumber: residentInfo.roomNumber,
+      mealPlan: residentInfo.mealPlan || "VEG",
       messName,
       todayCount: updatedCount,
       scannedAt: new Date().toISOString(),

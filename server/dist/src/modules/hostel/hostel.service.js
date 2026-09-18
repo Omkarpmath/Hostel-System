@@ -1,5 +1,8 @@
 import { prisma } from "../../config/db.js";
+import { roomCache, dashboardCache } from "../../config/cache.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { operationsService } from "../operations/operations.service.js";
+import { announcementService } from "../announcement/announcement.service.js";
 export class HostelService {
     // ============ HOSTEL ============
     async createHostel(data) {
@@ -138,7 +141,7 @@ export class HostelService {
         const floor = await prisma.floor.findUnique({ where: { id: floorId } });
         if (!floor)
             throw ApiError.notFound("Floor not found");
-        return prisma.room.create({
+        const room = await prisma.room.create({
             data: {
                 floorId,
                 roomNumber: data.roomNumber,
@@ -148,8 +151,10 @@ export class HostelService {
                 amenities: data.amenities ? JSON.stringify(data.amenities) : null,
             },
         });
+        roomCache.invalidate();
+        return room;
     }
-    async getRooms(filters) {
+    async getRooms(filters, userRole) {
         const page = filters?.page || 1;
         const limit = filters?.limit || 20;
         const skip = (page - 1) * limit;
@@ -170,7 +175,7 @@ export class HostelService {
         if (filters?.search) {
             where.roomNumber = { contains: filters.search, mode: "insensitive" };
         }
-        const [rooms, total] = await Promise.all([
+        const [rawRooms, total] = await Promise.all([
             prisma.room.findMany({
                 where,
                 include: {
@@ -182,6 +187,9 @@ export class HostelService {
                                 },
                             },
                         },
+                    },
+                    blockedBy: {
+                        select: { id: true, firstName: true, lastName: true, email: true },
                     },
                     allocations: {
                         where: { status: "ACTIVE" },
@@ -202,6 +210,33 @@ export class HostelService {
             }),
             prisma.room.count({ where }),
         ]);
+        const isStaff = userRole === "ADMIN" || userRole === "WARDEN";
+        // Privacy & UX guard: If viewed by student, sanitize blocked rooms to look exactly like standard occupied rooms
+        const rooms = rawRooms.map((room) => {
+            if (isStaff) {
+                return room;
+            }
+            if (room.status === "BLOCKED") {
+                return {
+                    ...room,
+                    status: "OCCUPIED",
+                    occupiedBeds: room.capacity,
+                    blockedAt: null,
+                    blockedById: null,
+                    blockedReason: null,
+                    blockedBy: null,
+                    allocations: [],
+                };
+            }
+            return {
+                ...room,
+                blockedAt: null,
+                blockedById: null,
+                blockedReason: null,
+                blockedBy: null,
+                allocations: [],
+            };
+        });
         return {
             rooms,
             meta: {
@@ -213,9 +248,14 @@ export class HostelService {
         };
     }
     async getAvailableRooms(hostelId, eligibility) {
+        const cacheKey = `avail_rooms:${hostelId || "all"}:${eligibility ? `${eligibility.gender}_${eligibility.year}` : "all"}`;
+        const cached = roomCache.get(cacheKey);
+        if (cached) {
+            return cached;
+        }
         const where = {
             isActive: true,
-            status: { in: ["AVAILABLE", "PARTIALLY_OCCUPIED"] },
+            status: { notIn: ["BLOCKED", "MAINTENANCE"] },
         };
         // Build a single combined block filter so hostelId and eligibility
         // are AND-ed together, not one overwriting the other.
@@ -253,9 +293,11 @@ export class HostelService {
             },
             orderBy: { roomNumber: "asc" },
         });
-        return rooms
+        const result = rooms
             .filter((room) => room.occupiedBeds + room.reservations.length < room.capacity)
             .map(({ reservations, ...room }) => ({ ...room, occupiedBeds: room.occupiedBeds + reservations.length }));
+        roomCache.set(cacheKey, result, 5_000); // Cache for 5 seconds
+        return result;
     }
     async getRoomById(id) {
         const room = await prisma.room.findUnique({
@@ -299,14 +341,182 @@ export class HostelService {
         if (data.amenities) {
             updateData.amenities = JSON.stringify(data.amenities);
         }
-        return prisma.room.update({
+        const updatedRoom = await prisma.room.update({
             where: { id },
             data: updateData,
         });
+        roomCache.invalidate();
+        return updatedRoom;
+    }
+    async blockRoom(id, adminUserId, reason) {
+        const room = await prisma.room.findUnique({
+            where: { id },
+            include: {
+                allocations: { where: { status: "ACTIVE" } },
+                reservations: { where: { status: "PENDING", expiresAt: { gt: new Date() } } },
+            },
+        });
+        if (!room)
+            throw ApiError.notFound("Room not found");
+        if (room.status === "BLOCKED") {
+            throw ApiError.badRequest("Room is already blocked");
+        }
+        if (room.allocations.length > 0 || room.occupiedBeds > 0) {
+            throw ApiError.badRequest("Cannot block room with active student allocations. Please reallocate or vacate students first.");
+        }
+        if (room.reservations.length > 0) {
+            throw ApiError.badRequest("Cannot block room with pending student reservations.");
+        }
+        const updated = await prisma.room.update({
+            where: { id },
+            data: {
+                status: "BLOCKED",
+                blockedAt: new Date(),
+                blockedById: adminUserId,
+                blockedReason: reason?.trim() || null,
+            },
+            include: {
+                blockedBy: {
+                    select: { id: true, firstName: true, lastName: true, email: true },
+                },
+            },
+        });
+        roomCache.invalidate();
+        return updated;
+    }
+    async unblockRoom(id) {
+        const room = await prisma.room.findUnique({
+            where: { id },
+        });
+        if (!room)
+            throw ApiError.notFound("Room not found");
+        if (room.status !== "BLOCKED") {
+            throw ApiError.badRequest("Room is not blocked");
+        }
+        const newStatus = room.occupiedBeds >= room.capacity
+            ? "FULL"
+            : room.occupiedBeds > 0
+                ? "PARTIALLY_OCCUPIED"
+                : "AVAILABLE";
+        const updated = await prisma.room.update({
+            where: { id },
+            data: {
+                status: newStatus,
+                blockedAt: null,
+                blockedById: null,
+                blockedReason: null,
+            },
+            include: {
+                blockedBy: {
+                    select: { id: true, firstName: true, lastName: true, email: true },
+                },
+            },
+        });
+        roomCache.invalidate();
+        return updated;
     }
     // ============ DASHBOARD STATS ============
-    async getDashboardStats() {
-        const [totalStudents, totalHostels, rooms, pendingLeaves, openComplaints, pendingFees, recentAllocations,] = await Promise.all([
+    async getDashboardStats(user) {
+        const role = user?.role || "ADMIN";
+        // 1. STUDENT DASHBOARD CONSOLIDATED STATS
+        if (role === "STUDENT" && user?.userId) {
+            const cacheKey = `dashboard:student:${user.userId}`;
+            const cached = dashboardCache.get(cacheKey);
+            if (cached)
+                return cached;
+            // Fetch overview + announcements in parallel
+            const [overview, myAnnouncements] = await Promise.all([
+                operationsService.getMyOverview(user.userId).catch(() => null),
+                announcementService.getMyAnnouncements(user.userId).catch(() => []),
+            ]);
+            const profile = overview?.profile || null;
+            const allocation = profile?.roomAllocations?.find((a) => a.status === "ACTIVE") ||
+                profile?.roomAllocations?.[0] ||
+                null;
+            const fees = overview?.fees || [];
+            const hostelFeePaid = fees.some((f) => f.type === "HOSTEL_FEE" && f.status === "PAID");
+            const messFeePaid = fees.some((f) => f.type === "MESS_FEE" && f.status === "PAID");
+            const leaves = overview?.leaves || [];
+            const complaints = overview?.complaints || [];
+            const result = {
+                role: "STUDENT",
+                overview,
+                profile,
+                allocation,
+                fees,
+                hostelFeePaid,
+                messFeePaid,
+                leaves,
+                leavesCount: leaves.length,
+                complaints,
+                complaintsCount: complaints.length,
+                announcements: myAnnouncements,
+                recentAnnouncements: Array.isArray(myAnnouncements) ? myAnnouncements.slice(0, 4) : [],
+                unreadAnnouncementsCount: Array.isArray(myAnnouncements) ? myAnnouncements.filter((a) => !a.isRead).length : 0,
+            };
+            dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+            return result;
+        }
+        // 2. ACCOUNTANT DASHBOARD CONSOLIDATED STATS
+        if (role === "ACCOUNTANT") {
+            const cacheKey = "dashboard:accountant";
+            const cached = dashboardCache.get(cacheKey);
+            if (cached)
+                return cached;
+            const [fees, recentTransactions] = await Promise.all([
+                prisma.fee.findMany({
+                    select: { amount: true, status: true, type: true },
+                }),
+                prisma.fee.findMany({
+                    where: { status: "PAID" },
+                    take: 6,
+                    orderBy: { paidAt: "desc" },
+                    include: {
+                        student: {
+                            include: {
+                                user: { select: { firstName: true, lastName: true } },
+                            },
+                        },
+                    },
+                }),
+            ]);
+            const totalPaid = fees
+                .filter((f) => f.status === "PAID")
+                .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+            const totalPending = fees
+                .filter((f) => f.status === "PENDING")
+                .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+            const paidCount = fees.filter((f) => f.status === "PAID").length;
+            const pendingCount = fees.filter((f) => f.status === "PENDING").length;
+            const totalRecords = fees.length;
+            const collectionRate = totalRecords > 0 ? Math.round((paidCount / totalRecords) * 100) : 0;
+            const hostelFeePaid = fees
+                .filter((f) => f.type === "HOSTEL_FEE" && f.status === "PAID")
+                .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+            const messFeePaid = fees
+                .filter((f) => f.type === "MESS_FEE" && f.status === "PAID")
+                .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+            const result = {
+                role: "ACCOUNTANT",
+                totalPaid,
+                totalPending,
+                paidCount,
+                pendingCount,
+                totalRecords,
+                collectionRate,
+                hostelFeePaid,
+                messFeePaid,
+                recentTransactions,
+            };
+            dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+            return result;
+        }
+        // 3. ADMIN / WARDEN / GENERAL DASHBOARD STATS
+        const cacheKey = `dashboard:${role.toLowerCase()}${role === 'WARDEN' && user?.userId ? `:${user.userId}` : ''}`;
+        const cached = dashboardCache.get(cacheKey);
+        if (cached)
+            return cached;
+        const [totalStudents, totalHostels, rooms, pendingLeaves, openComplaints, pendingFees, recentAllocations, recentAnnouncements,] = await Promise.all([
             prisma.studentProfile.count(),
             prisma.hostel.count({ where: { deletedAt: null, isActive: true } }),
             prisma.room.findMany({ where: { isActive: true }, select: { capacity: true, occupiedBeds: true, status: true } }),
@@ -340,15 +550,19 @@ export class HostelService {
                     },
                 },
             }),
+            announcementService.listAnnouncements(user?.userId || "", role, { status: "PUBLISHED" }).catch(() => []),
         ]);
         const totalRooms = rooms.length;
-        const totalBeds = rooms.reduce((sum, r) => sum + r.capacity, 0);
-        const occupiedBeds = rooms.reduce((sum, r) => sum + r.occupiedBeds, 0);
+        const totalBeds = rooms.reduce((sum, r) => sum + Number(r.capacity || 0), 0);
+        const occupiedBeds = rooms.reduce((sum, r) => sum + Number(r.occupiedBeds || 0), 0);
         // Room status counts for pie chart
-        const availableRooms = rooms.filter((r) => r.occupiedBeds === 0).length;
-        const partiallyOccupiedRooms = rooms.filter((r) => r.occupiedBeds > 0 && r.occupiedBeds < r.capacity).length;
-        const fullyOccupiedRooms = rooms.filter((r) => r.occupiedBeds >= r.capacity).length;
-        return {
+        const blockedRooms = rooms.filter((r) => r.status === "BLOCKED").length;
+        const nonBlockedRooms = rooms.filter((r) => r.status !== "BLOCKED");
+        const availableRooms = nonBlockedRooms.filter((r) => (r.occupiedBeds || 0) === 0).length;
+        const partiallyOccupiedRooms = nonBlockedRooms.filter((r) => (r.occupiedBeds || 0) > 0 && (r.occupiedBeds || 0) < (r.capacity || 0)).length;
+        const fullyOccupiedRooms = nonBlockedRooms.filter((r) => (r.occupiedBeds || 0) >= (r.capacity || 0)).length;
+        const result = {
+            role,
             totalStudents,
             totalHostels,
             totalRooms,
@@ -357,12 +571,16 @@ export class HostelService {
             availableRooms,
             partiallyOccupiedRooms,
             fullyOccupiedRooms,
+            blockedRooms,
             pendingLeaves,
             openComplaints,
             pendingFees,
             recentAllocations,
             occupancyRate: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
+            recentAnnouncements: Array.isArray(recentAnnouncements) ? recentAnnouncements.slice(0, 3) : [],
         };
+        dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+        return result;
     }
 }
 export const hostelService = new HostelService();

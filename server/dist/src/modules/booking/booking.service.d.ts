@@ -2,11 +2,15 @@ import { Prisma } from "@prisma/client";
 export declare class BookingService {
     private studentId;
     private studentProfile;
-    private expireReservations;
+    expireReservations(studentId?: string): Promise<number>;
     reserve(userId: string, roomId: string): Promise<{
         room: {
             floor: {
+                name: string;
+                id: string;
                 block: {
+                    name: string;
+                    id: string;
                     hostel: {
                         name: string;
                         id: string;
@@ -14,21 +18,7 @@ export declare class BookingService {
                         type: import("@prisma/client").$Enums.HostelType;
                         allowedYears: number[];
                     };
-                } & {
-                    name: string;
-                    id: string;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    description: string | null;
-                    hostelId: string;
                 };
-            } & {
-                name: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                blockId: string;
                 floorNumber: number;
             };
         } & {
@@ -45,6 +35,9 @@ export declare class BookingService {
             feePerSemester: Prisma.Decimal;
             amenities: string | null;
             version: number;
+            blockedAt: Date | null;
+            blockedById: string | null;
+            blockedReason: string | null;
         };
     } & {
         id: string;
@@ -59,7 +52,11 @@ export declare class BookingService {
     activeReservation(userId: string): Promise<({
         room: {
             floor: {
+                name: string;
+                id: string;
                 block: {
+                    name: string;
+                    id: string;
                     hostel: {
                         name: string;
                         id: string;
@@ -67,21 +64,7 @@ export declare class BookingService {
                         type: import("@prisma/client").$Enums.HostelType;
                         allowedYears: number[];
                     };
-                } & {
-                    name: string;
-                    id: string;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    description: string | null;
-                    hostelId: string;
                 };
-            } & {
-                name: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                blockId: string;
                 floorNumber: number;
             };
         } & {
@@ -98,6 +81,9 @@ export declare class BookingService {
             feePerSemester: Prisma.Decimal;
             amenities: string | null;
             version: number;
+            blockedAt: Date | null;
+            blockedById: string | null;
+            blockedReason: string | null;
         };
     } & {
         id: string;

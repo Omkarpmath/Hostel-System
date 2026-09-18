@@ -31,7 +31,7 @@ interface VerifyData {
   };
   fees: {
     hostelFee: { status: string; paidAt: string | null; amount: string | null };
-    messFee: { status: string; paidAt: string | null; amount: string | null };
+    messFee: { status: string; paidAt: string | null; amount: string | null; mealPlan?: string | null };
   };
   verifiedAt: string;
 }
@@ -182,33 +182,140 @@ export function StudentVerifyPage() {
   const { student, hostel, fees, verifiedAt } = data;
   const initials = student.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
+  const isMessPaid = fees.messFee.status === 'PAID';
+  const mealPlan = fees.messFee.mealPlan;
+  const isVeg = isMessPaid && (mealPlan === 'VEG' || !mealPlan);
+  const isNonVeg = isMessPaid && mealPlan === 'NON_VEG';
+
+  // Dynamic header gradient depending on meal plan verification
+  const headerGradient = isNonVeg
+    ? 'linear-gradient(135deg, #9a3412, #ea580c, #f97316)' // Warm Coral/Orange for Non-Veg
+    : isVeg
+    ? 'linear-gradient(135deg, #065f46, #059669, #10b981)' // Vibrant Emerald/Green for Veg
+    : 'linear-gradient(135deg, #1e40af, #0d9488)'; // Standard Blue/Teal
+
   return (
     <div style={pageStyle}>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ ...cardStyle, maxWidth: '28rem', width: '100%' }}>
 
-        {/* Header */}
+        {/* Header Banner with Color Verification Identity */}
         <div style={{
-          background: 'linear-gradient(135deg, #1e40af, #0d9488)',
+          background: headerGradient,
           padding: '1.5rem', borderRadius: '1rem 1rem 0 0',
           margin: '-1.5rem -1.5rem 1.5rem',
           display: 'flex', alignItems: 'center', gap: '0.75rem',
         }}>
           <Shield style={{ width: '1.5rem', height: '1.5rem', color: 'white', flexShrink: 0 }} />
           <div>
-            <h1 style={{ fontSize: '1rem', fontWeight: 800, color: 'white' }}>BMSET Hostels</h1>
-            <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.8)', fontWeight: 500 }}>Student Verification</p>
+            <h1 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', margin: 0 }}>BMSET Hostels</h1>
+            <p style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.9)', fontWeight: 600, margin: 0 }}>
+              {isNonVeg ? 'Student Verified · 🍗 NON-VEG MEAL' : isVeg ? 'Student Verified · 🥬 VEG MEAL' : 'Student Verification'}
+            </p>
           </div>
-          <CheckCircle2 style={{ width: '1.25rem', height: '1.25rem', color: '#4ade80', marginLeft: 'auto', flexShrink: 0 }} />
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <span style={{
+              padding: '0.25rem 0.5rem',
+              borderRadius: '9999px',
+              backgroundColor: 'rgba(255,255,255,0.25)',
+              color: 'white',
+              fontSize: '0.625rem',
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}>
+              {isNonVeg ? '🍗 NON-VEG' : isVeg ? '🥬 VEG' : 'VERIFIED'}
+            </span>
+            <CheckCircle2 style={{ width: '1.25rem', height: '1.25rem', color: '#ffffff', flexShrink: 0 }} />
+          </div>
         </div>
+
+        {/* Meal Plan Verification Visual Highlight Banner */}
+        {isMessPaid ? (
+          <div style={{
+            backgroundColor: isNonVeg ? '#fff7ed' : '#f0fdf4',
+            border: `1.5px solid ${isNonVeg ? '#fdba74' : '#86efac'}`,
+            borderRadius: '0.75rem',
+            padding: '0.75rem 1rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+              <div style={{
+                width: '2.25rem', height: '2.25rem', borderRadius: '50%',
+                backgroundColor: isNonVeg ? '#ffedd5' : '#dcfce7',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.125rem', flexShrink: 0,
+              }}>
+                {isNonVeg ? '🍗' : '🥬'}
+              </div>
+              <div>
+                <div style={{
+                  fontSize: '0.8125rem', fontWeight: 800,
+                  color: isNonVeg ? '#c2410c' : '#15803d',
+                  letterSpacing: '-0.01em',
+                }}>
+                  {isNonVeg ? 'NON-VEGETARIAN MEAL PLAN' : 'VEGETARIAN MEAL PLAN'}
+                </div>
+                <div style={{
+                  fontSize: '0.6875rem',
+                  color: isNonVeg ? '#9a3412' : '#166534',
+                  fontWeight: 600,
+                }}>
+                  {isNonVeg ? 'Eligible for veg & non-veg dining counters' : 'Eligible for pure vegetarian dining counter'}
+                </div>
+              </div>
+            </div>
+            <span style={{
+              fontSize: '0.625rem', fontWeight: 800,
+              padding: '0.2rem 0.5rem', borderRadius: '9999px',
+              backgroundColor: isNonVeg ? '#ffedd5' : '#dcfce7',
+              color: isNonVeg ? '#c2410c' : '#15803d',
+              border: `1px solid ${isNonVeg ? '#fdba74' : '#86efac'}`,
+              letterSpacing: '0.04em',
+            }}>
+              ACTIVE
+            </span>
+          </div>
+        ) : (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1.5px solid #fca5a5',
+            borderRadius: '0.75rem',
+            padding: '0.75rem 1rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.625rem',
+          }}>
+            <div style={{
+              width: '2.25rem', height: '2.25rem', borderRadius: '50%',
+              backgroundColor: '#fee2e2',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <AlertTriangle style={{ width: '1.25rem', height: '1.25rem', color: '#dc2626' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#991b1b' }}>
+                MESS FEE UNPAID
+              </div>
+              <div style={{ fontSize: '0.6875rem', color: '#b91c1c' }}>
+                Student is not verified for mess hall dining entry.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Avatar + Name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{
             width: '3.5rem', height: '3.5rem', borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #1e40af, #0d9488)',
+            background: headerGradient,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', fontSize: '1rem', fontWeight: 800,
-            border: '3px solid #e0f2fe',
+            border: `3px solid ${isNonVeg ? '#fed7aa' : isVeg ? '#bbf7d0' : '#e0f2fe'}`,
           }}>
             {student.avatarUrl
               ? <img src={student.avatarUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -216,8 +323,8 @@ export function StudentVerifyPage() {
             }
           </div>
           <div>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#1f2937' }}>{student.name}</h2>
-            <p style={{ fontSize: '0.8125rem', color: '#6b7280', fontWeight: 600, fontFamily: 'monospace' }}>{student.usn}</p>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 800, color: '#1f2937', margin: 0 }}>{student.name}</h2>
+            <p style={{ fontSize: '0.8125rem', color: '#6b7280', fontWeight: 600, fontFamily: 'monospace', margin: '0.125rem 0 0' }}>{student.usn}</p>
           </div>
         </div>
 
@@ -248,7 +355,13 @@ export function StudentVerifyPage() {
         {/* Fee Status */}
         <Section title="Fee Status" icon={CreditCard}>
           <FeeRow label="Hostel Fee" status={fees.hostelFee.status} paidAt={fees.hostelFee.paidAt} />
-          <FeeRow label="Mess Fee" status={fees.messFee.status} paidAt={fees.messFee.paidAt} icon={UtensilsCrossed} />
+          <FeeRow
+            label={isMessPaid ? `Mess Fee (${isNonVeg ? 'Non-Veg' : 'Veg'})` : 'Mess Fee'}
+            status={fees.messFee.status}
+            paidAt={fees.messFee.paidAt}
+            mealPlan={mealPlan}
+            icon={UtensilsCrossed}
+          />
         </Section>
 
         {/* Timestamp */}
@@ -302,8 +415,14 @@ function InfoRow({ label, value, muted, icon: Icon }: { label: string; value: st
   );
 }
 
-function FeeRow({ label, status, paidAt, icon: Icon }: { label: string; status: string; paidAt: string | null; icon?: any }) {
+function FeeRow({
+  label, status, paidAt, mealPlan, icon: Icon,
+}: {
+  label: string; status: string; paidAt: string | null; mealPlan?: string | null; icon?: any;
+}) {
   const isPaid = status === 'PAID';
+  const isNonVeg = mealPlan === 'NON_VEG';
+
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <span style={{ fontSize: '0.8125rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -315,8 +434,15 @@ function FeeRow({ label, status, paidAt, icon: Icon }: { label: string; status: 
         <span style={{
           display: 'flex', alignItems: 'center', gap: '0.25rem',
           fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5rem', borderRadius: '9999px',
-          backgroundColor: isPaid ? '#dcfce7' : '#fef3c7',
-          color: isPaid ? '#15803d' : '#b45309',
+          backgroundColor: isPaid
+            ? isNonVeg ? '#ffedd5' : '#dcfce7'
+            : '#fee2e2',
+          color: isPaid
+            ? isNonVeg ? '#c2410c' : '#15803d'
+            : '#dc2626',
+          border: isPaid
+            ? `1px solid ${isNonVeg ? '#fdba74' : '#86efac'}`
+            : '1px solid #fca5a5',
         }}>
           {isPaid ? <CheckCircle2 style={{ width: '0.625rem', height: '0.625rem' }} /> : <XCircle style={{ width: '0.625rem', height: '0.625rem' }} />}
           {status}

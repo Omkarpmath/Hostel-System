@@ -97,6 +97,9 @@ export declare class UserService {
                 feePerSemester: Prisma.Decimal;
                 amenities: string | null;
                 version: number;
+                blockedAt: Date | null;
+                blockedById: string | null;
+                blockedReason: string | null;
             };
         } & {
             id: string;
@@ -252,6 +255,9 @@ export declare class UserService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -422,6 +428,9 @@ export declare class UserService {
                 feePerSemester: Prisma.Decimal;
                 amenities: string | null;
                 version: number;
+                blockedAt: Date | null;
+                blockedById: string | null;
+                blockedReason: string | null;
             };
         } & {
             id: string;
@@ -471,6 +480,7 @@ export declare class UserService {
                 createdAt: Date;
             };
             usn: string | null;
+            gender: import("@prisma/client").$Enums.Gender | null;
             department: string | null;
             year: number | null;
             semester: number | null;
@@ -512,6 +522,9 @@ export declare class UserService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;

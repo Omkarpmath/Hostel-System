@@ -3,12 +3,13 @@ import { hostelController } from "./hostel.controller.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 import { authorize } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
+import { browseRoomsRateLimiter } from "../../middleware/rate-limit.middleware.js";
 import { createHostelSchema, updateHostelSchema, createBlockSchema, createFloorSchema, createRoomSchema, updateRoomSchema, } from "./hostel.schema.js";
 const router = Router();
 // All routes require authentication
 router.use(authenticate);
-// Dashboard
-router.get("/dashboard/stats", authorize("ADMIN", "WARDEN", "ACCOUNTANT"), hostelController.getDashboardStats);
+// Dashboard (role-aware consolidated summary)
+router.get("/dashboard/stats", authorize("ADMIN", "WARDEN", "ACCOUNTANT", "STUDENT", "SECURITY"), hostelController.getDashboardStats);
 // Hostel CRUD
 router.post("/hostels", authorize("ADMIN"), validate(createHostelSchema), hostelController.createHostel);
 router.get("/hostels", hostelController.getHostels);
@@ -23,9 +24,10 @@ router.post("/blocks/:blockId/floors", authorize("ADMIN"), validate(createFloorS
 router.get("/blocks/:blockId/floors", hostelController.getFloors);
 // Room CRUD
 router.post("/floors/:floorId/rooms", authorize("ADMIN"), validate(createRoomSchema), hostelController.createRoom);
-// Detailed room lists include resident allocations and are management-only.
-router.get("/rooms", authorize("ADMIN", "WARDEN"), hostelController.getRooms);
-router.get("/rooms/available", hostelController.getAvailableRooms);
+router.get("/rooms", hostelController.getRooms);
+router.post("/rooms/:id/block", authorize("ADMIN", "WARDEN"), hostelController.blockRoom);
+router.post("/rooms/:id/unblock", authorize("ADMIN", "WARDEN"), hostelController.unblockRoom);
+router.get("/rooms/available", browseRoomsRateLimiter, hostelController.getAvailableRooms);
 router.get("/rooms/:id", authorize("ADMIN", "WARDEN"), hostelController.getRoomById);
 router.patch("/rooms/:id", authorize("ADMIN"), validate(updateRoomSchema), hostelController.updateRoom);
 export default router;

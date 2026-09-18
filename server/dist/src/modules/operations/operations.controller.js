@@ -128,6 +128,21 @@ export class OperationsController {
             next(e);
         }
     }
+    async approveOfflineFee(req, res, next) {
+        try {
+            const u = this.user(req);
+            const feeId = String(req.params.id);
+            const data = await operationsService.approveOfflinePayment(feeId, u.userId, u.role, req.body);
+            ApiResponse.success({
+                res,
+                message: "Offline payment approved and official receipt generated successfully",
+                data,
+            });
+        }
+        catch (e) {
+            next(e);
+        }
+    }
 }
 export const operationsController = new OperationsController();
 //# sourceMappingURL=operations.controller.js.map

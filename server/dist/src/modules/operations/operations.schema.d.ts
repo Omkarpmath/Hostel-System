@@ -197,4 +197,41 @@ export declare const visitorSchema: z.ZodObject<{
         idProofNumber?: string | undefined;
     };
 }>;
+export declare const offlinePaymentSchema: z.ZodObject<{
+    body: z.ZodObject<{
+        paymentMethod: z.ZodEnum<["CHALLAN", "DEMAND_DRAFT", "NEFT_RTGS", "CASH", "EDUCATION_LOAN", "OTHER"]>;
+        referenceNumber: z.ZodString;
+        bankName: z.ZodOptional<z.ZodString>;
+        paidAt: z.ZodOptional<z.ZodDate>;
+        remarks: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        paymentMethod: "OTHER" | "CHALLAN" | "DEMAND_DRAFT" | "NEFT_RTGS" | "CASH" | "EDUCATION_LOAN";
+        referenceNumber: string;
+        remarks?: string | undefined;
+        paidAt?: Date | undefined;
+        bankName?: string | undefined;
+    }, {
+        paymentMethod: "OTHER" | "CHALLAN" | "DEMAND_DRAFT" | "NEFT_RTGS" | "CASH" | "EDUCATION_LOAN";
+        referenceNumber: string;
+        remarks?: string | undefined;
+        paidAt?: Date | undefined;
+        bankName?: string | undefined;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    body: {
+        paymentMethod: "OTHER" | "CHALLAN" | "DEMAND_DRAFT" | "NEFT_RTGS" | "CASH" | "EDUCATION_LOAN";
+        referenceNumber: string;
+        remarks?: string | undefined;
+        paidAt?: Date | undefined;
+        bankName?: string | undefined;
+    };
+}, {
+    body: {
+        paymentMethod: "OTHER" | "CHALLAN" | "DEMAND_DRAFT" | "NEFT_RTGS" | "CASH" | "EDUCATION_LOAN";
+        referenceNumber: string;
+        remarks?: string | undefined;
+        paidAt?: Date | undefined;
+        bankName?: string | undefined;
+    };
+}>;
 //# sourceMappingURL=operations.schema.d.ts.map

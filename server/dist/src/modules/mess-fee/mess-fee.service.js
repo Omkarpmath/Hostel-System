@@ -4,8 +4,11 @@ import { razorpayClient } from "../../config/razorpay.js";
 import { env } from "../../config/env.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { receiptService } from "../receipt/receipt.service.js";
-const CONFIG_KEY = "annual_mess_fee";
-const DEFAULT_AMOUNT = 78000;
+const CONFIG_KEY_VEG = "mess_fee_veg";
+const CONFIG_KEY_NONVEG = "mess_fee_nonveg";
+const LEGACY_CONFIG_KEY = "annual_mess_fee";
+const DEFAULT_VEG_AMOUNT = 73000;
+const DEFAULT_NONVEG_AMOUNT = 80000;
 export class MessFeeService {
     // ─── Helpers ───
     async studentId(userId) {
@@ -15,87 +18,135 @@ export class MessFeeService {
         return student.id;
     }
     // ─── Config ───
-    async getAmount() {
-        const config = await prisma.systemConfig.findUnique({ where: { key: CONFIG_KEY } });
-        return config ? parseFloat(config.value) : DEFAULT_AMOUNT;
+    async getAmounts() {
+        const [vegConfig, nonVegConfig, legacyConfig] = await Promise.all([
+            prisma.systemConfig.findUnique({ where: { key: CONFIG_KEY_VEG } }),
+            prisma.systemConfig.findUnique({ where: { key: CONFIG_KEY_NONVEG } }),
+            prisma.systemConfig.findUnique({ where: { key: LEGACY_CONFIG_KEY } }),
+        ]);
+        const veg = vegConfig
+            ? parseFloat(vegConfig.value)
+            : legacyConfig
+                ? parseFloat(legacyConfig.value)
+                : DEFAULT_VEG_AMOUNT;
+        const nonVeg = nonVegConfig
+            ? parseFloat(nonVegConfig.value)
+            : DEFAULT_NONVEG_AMOUNT;
+        return { veg, nonVeg };
+    }
+    async getAmount(mealPlan = "VEG") {
+        const amounts = await this.getAmounts();
+        return mealPlan === "NON_VEG" ? amounts.nonVeg : amounts.veg;
+    }
+    async updateAmounts(veg, nonVeg) {
+        if (veg < 1 || nonVeg < 1)
+            throw ApiError.badRequest("Mess fee must be at least ₹1");
+        const [v, nv] = await Promise.all([
+            prisma.systemConfig.upsert({
+                where: { key: CONFIG_KEY_VEG },
+                update: { value: String(veg) },
+                create: { key: CONFIG_KEY_VEG, value: String(veg), description: "Annual Veg mess fee amount in INR" },
+            }),
+            prisma.systemConfig.upsert({
+                where: { key: CONFIG_KEY_NONVEG },
+                update: { value: String(nonVeg) },
+                create: { key: CONFIG_KEY_NONVEG, value: String(nonVeg), description: "Annual Non-Veg mess fee amount in INR" },
+            }),
+        ]);
+        return { veg: parseFloat(v.value), nonVeg: parseFloat(nv.value) };
     }
     async updateAmount(amount) {
-        if (amount < 1)
-            throw ApiError.badRequest("Mess fee must be at least ₹1");
-        return prisma.systemConfig.upsert({
-            where: { key: CONFIG_KEY },
-            update: { value: String(amount) },
-            create: { key: CONFIG_KEY, value: String(amount), description: "Annual mess fee amount in INR" },
-        });
+        return this.updateAmounts(amount, amount);
     }
     // ─── Student status ───
     async getMyStatus(userId) {
-        const studentId = await this.studentId(userId);
-        const amount = await this.getAmount();
-        // Check if a paid mess fee exists
-        const paidFee = await prisma.fee.findFirst({
-            where: { studentId, type: "MESS_FEE", status: "PAID" },
-            orderBy: { paidAt: "desc" },
-        });
-        // If paid, clean up any duplicate orphaned PENDING mess fees
-        if (paidFee) {
-            await prisma.fee.deleteMany({
-                where: { studentId, type: "MESS_FEE", status: "PENDING" },
-            });
-        }
-        // Find all MESS_FEE records for this student
+        const [studentId, amounts] = await Promise.all([
+            this.studentId(userId),
+            this.getAmounts(),
+        ]);
+        // Find all MESS_FEE records for this student in a single query
         const fees = await prisma.fee.findMany({
             where: { studentId, type: "MESS_FEE" },
             orderBy: { createdAt: "desc" },
         });
+        // Derive paidFee in-memory without extra roundtrips
+        const paidFees = fees.filter((f) => f.status === "PAID");
+        const paidFee = paidFees.length > 0
+            ? paidFees.sort((a, b) => (b.paidAt ? new Date(b.paidAt).getTime() : 0) - (a.paidAt ? new Date(a.paidAt).getTime() : 0))[0]
+            : null;
+        // If paid, clean up any duplicate orphaned PENDING mess fees non-blocking
+        if (paidFee) {
+            prisma.fee.deleteMany({
+                where: { studentId, type: "MESS_FEE", status: "PENDING" },
+            }).catch(() => { });
+        }
+        // Pending fee if any
+        const pendingFee = !paidFee ? fees.find((f) => f.status === "PENDING") : null;
         return {
-            annualAmount: amount,
+            annualAmount: amounts.veg,
+            amounts,
             isPaid: !!paidFee,
             paidAt: paidFee?.paidAt || null,
+            mealPlan: paidFee?.mealPlan || pendingFee?.mealPlan || null,
             transactionId: paidFee?.transactionId || null,
             paymentMethod: paidFee?.paymentMethod || null,
             history: fees,
         };
     }
     // ─── Create Razorpay order ───
-    async createOrder(userId) {
-        const studentId = await this.studentId(userId);
-        const amount = await this.getAmount();
+    async createOrder(userId, mealPlan = "VEG") {
+        if (mealPlan !== "VEG" && mealPlan !== "NON_VEG") {
+            throw ApiError.badRequest("Meal plan must be either 'VEG' or 'NON_VEG'");
+        }
+        const [studentId, amounts] = await Promise.all([
+            this.studentId(userId),
+            this.getAmounts(),
+        ]);
+        const amount = mealPlan === "NON_VEG" ? amounts.nonVeg : amounts.veg;
         const amountPaise = Math.round(amount * 100);
         if (amountPaise < 100)
             throw ApiError.badRequest("Mess fee must be at least ₹1.00");
-        // Check if already paid
-        const paid = await prisma.fee.findFirst({
-            where: { studentId, type: "MESS_FEE", status: "PAID" },
-        });
+        // Parallelize checking for already paid fee and active pending order
+        const [paid, pending] = await Promise.all([
+            prisma.fee.findFirst({
+                where: { studentId, type: "MESS_FEE", status: "PAID" },
+            }),
+            prisma.fee.findFirst({
+                where: { studentId, type: "MESS_FEE", status: "PENDING" },
+                orderBy: { createdAt: "desc" },
+            }),
+        ]);
         if (paid)
-            throw ApiError.conflict("Mess fee has already been paid");
-        // Check for ANY existing PENDING mess fee invoice
-        const pending = await prisma.fee.findFirst({
-            where: { studentId, type: "MESS_FEE", status: "PENDING" },
-            orderBy: { createdAt: "desc" },
-        });
-        if (pending?.razorpayOrderId) {
+            throw ApiError.conflict("Mess fee has already been paid and cannot be modified");
+        // Reuse existing razorpay order ONLY if mealPlan and exact amount match
+        if (pending?.razorpayOrderId &&
+            pending.mealPlan === mealPlan &&
+            Math.round(Number(pending.amount) * 100) === amountPaise) {
             return {
                 orderId: pending.razorpayOrderId,
                 amount: amountPaise,
                 currency: "INR",
                 keyId: env.RAZORPAY_KEY_ID,
                 reused: true,
+                mealPlan,
             };
         }
         // Create new Razorpay order
         const order = await razorpayClient().orders.create({
             amount: amountPaise,
             currency: "INR",
-            receipt: `mess_${studentId.slice(0, 20)}`,
-            notes: { studentId, type: "MESS_FEE" },
+            receipt: `mess_${mealPlan.toLowerCase()}_${studentId.slice(0, 15)}`,
+            notes: { studentId, type: "MESS_FEE", mealPlan },
         });
         // Attach order to existing PENDING fee record if one exists, or create a new one
         if (pending) {
             await prisma.fee.update({
                 where: { id: pending.id },
-                data: { razorpayOrderId: order.id, amount },
+                data: {
+                    razorpayOrderId: order.id,
+                    amount,
+                    mealPlan,
+                },
             });
         }
         else {
@@ -104,6 +155,7 @@ export class MessFeeService {
                     studentId,
                     amount,
                     type: "MESS_FEE",
+                    mealPlan,
                     status: "PENDING",
                     razorpayOrderId: order.id,
                     dueDate: new Date(new Date().getFullYear(), 11, 31), // end of current year
@@ -115,6 +167,7 @@ export class MessFeeService {
             amount: amountPaise,
             currency: "INR",
             keyId: env.RAZORPAY_KEY_ID,
+            mealPlan,
         };
     }
     // ─── Verify payment (same HMAC pattern as booking.service.ts) ───
@@ -131,53 +184,54 @@ export class MessFeeService {
         if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
             throw ApiError.badRequest("Payment signature verification failed");
         }
-        // Idempotent: if already paid with this payment ID, return success
-        const existing = await prisma.fee.findFirst({
-            where: { transactionId: paymentId, type: "MESS_FEE", status: "PAID" },
-        });
+        // Parallelize checking for existing idempotent payment, targeted pending order, and alreadyPaid guard
+        const [existing, fee, alreadyPaid] = await Promise.all([
+            prisma.fee.findFirst({
+                where: { transactionId: paymentId, type: "MESS_FEE", status: "PAID" },
+            }),
+            prisma.fee.findFirst({
+                where: { studentId, razorpayOrderId: orderId, type: "MESS_FEE", status: "PENDING" },
+            }),
+            prisma.fee.findFirst({
+                where: { studentId, type: "MESS_FEE", status: "PAID" },
+            }),
+        ]);
         if (existing) {
-            // Clean up any remaining orphaned pending mess fee records
-            await prisma.fee.deleteMany({
+            // Clean up any remaining orphaned pending mess fee records non-blocking
+            prisma.fee.deleteMany({
                 where: { studentId, type: "MESS_FEE", status: "PENDING" },
-            });
+            }).catch(() => { });
             return existing;
         }
-        // Find the pending fee with this order ID
-        const fee = await prisma.fee.findFirst({
-            where: { studentId, razorpayOrderId: orderId, type: "MESS_FEE", status: "PENDING" },
-        });
         if (!fee)
             throw ApiError.badRequest("No pending mess fee found for this order");
-        // Also check no other PAID mess fee exists (race condition guard)
-        const alreadyPaid = await prisma.fee.findFirst({
-            where: { studentId, type: "MESS_FEE", status: "PAID" },
-        });
         if (alreadyPaid) {
-            // Clean up leftover pending mess fee records
-            await prisma.fee.deleteMany({
+            prisma.fee.deleteMany({
                 where: { studentId, type: "MESS_FEE", status: "PENDING" },
-            });
+            }).catch(() => { });
             throw ApiError.conflict("Mess fee has already been paid");
         }
-        // Mark as paid
+        // Mark as paid - mealPlan was assigned during order creation, fallback to VEG if somehow null
+        const finalMealPlan = fee.mealPlan || "VEG";
         const updatedFee = await prisma.fee.update({
             where: { id: fee.id },
             data: {
                 status: "PAID",
+                mealPlan: finalMealPlan,
                 transactionId: paymentId,
                 paymentMethod: "RAZORPAY",
                 paidAt: new Date(),
             },
         });
-        // Clean up any other leftover orphaned PENDING mess fee records for this student
-        await prisma.fee.deleteMany({
+        // Clean up any other leftover orphaned PENDING mess fee records non-blocking
+        prisma.fee.deleteMany({
             where: {
                 studentId,
                 type: "MESS_FEE",
                 status: "PENDING",
                 id: { not: updatedFee.id },
             },
-        });
+        }).catch(() => { });
         // Trigger PDF generation and Resend email delivery (non-blocking, fail-safe)
         receiptService.processReceiptAndEmail(updatedFee.id, paymentId).catch((err) => {
             console.error("[MessFeeService] Failed to send receipt email:", err);

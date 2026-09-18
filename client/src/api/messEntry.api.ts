@@ -8,6 +8,7 @@ export interface MessVerificationResponse {
   hostelName?: string;
   roomNumber?: string;
   messName?: string;
+  mealPlan?: 'VEG' | 'NON_VEG';
   todayCount?: number;
   scannedAt?: string;
 }

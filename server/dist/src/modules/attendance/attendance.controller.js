@@ -100,6 +100,18 @@ export class AttendanceController {
             next(error);
         }
     }
+    async assignSecurityMess(req, res, next) {
+        try {
+            const { securityUserId, messId } = req.body;
+            if (!securityUserId || !messId)
+                return ApiResponse.error(res, 400, "securityUserId and messId are required");
+            const data = await attendanceService.assignSecurityToMess(securityUserId, messId);
+            ApiResponse.success({ res, message: "Security assigned to mess", data });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
     async unassignSecurity(req, res, next) {
         try {
             const { securityUserId } = req.body;

@@ -39,6 +39,8 @@ export declare class AuthService {
             createdAt: Date;
             updatedAt: Date;
             assignedHostelId: string | null;
+            assignedMessId: string | null;
+            assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
         };
         accessToken: string;
         refreshToken: string;
@@ -56,6 +58,8 @@ export declare class AuthService {
         createdAt: Date;
         updatedAt: Date;
         assignedHostelId: string | null;
+        assignedMessId: string | null;
+        assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
     }>;
     refreshToken(token: string): Promise<{
         accessToken: string;
@@ -115,6 +119,9 @@ export declare class AuthService {
                     feePerSemester: import("@prisma/client/runtime/library").Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -152,6 +159,10 @@ export declare class AuthService {
             name: string;
             id: string;
         } | null;
+        assignedMess: {
+            name: string;
+            id: string;
+        } | null;
         id: string;
         email: string;
         role: import("@prisma/client").$Enums.Role;
@@ -164,6 +175,8 @@ export declare class AuthService {
         createdAt: Date;
         updatedAt: Date;
         assignedHostelId: string | null;
+        assignedMessId: string | null;
+        assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
     }>;
     getDynamicQr(userId: string): Promise<{
         token: string;

@@ -66,7 +66,9 @@ export function StudentDashboard() {
   // Fee status from consolidated dashboardData or overview
   const fees: any[] = dashboardData?.fees || overview?.fees || [];
   const hostelFeePaid = dashboardData?.hostelFeePaid ?? fees.some((f: any) => f.type === 'HOSTEL_FEE' && f.status === 'PAID');
-  const messFeePaid = dashboardData?.messFeePaid ?? fees.some((f: any) => f.type === 'MESS_FEE' && f.status === 'PAID');
+  const messFeeRecord = fees.find((f: any) => f.type === 'MESS_FEE' && f.status === 'PAID');
+  const messFeePaid = dashboardData?.messFeePaid ?? !!messFeeRecord;
+  const messFeeMealPlan = messFeeRecord?.mealPlan || (dashboardData as any)?.mealPlan;
 
   const expiresAtRef = useRef<number>(0);
   const isFetchingRef = useRef<boolean>(false);
@@ -495,7 +497,13 @@ export function StudentDashboard() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             <FeeStatusRow label="Hostel Fee" paid={hostelFeePaid} isDark={isDark} />
-            <FeeStatusRow label="Mess Fee" paid={messFeePaid} isDark={isDark} icon={UtensilsCrossed} />
+            <FeeStatusRow
+              label="Mess Fee"
+              paid={messFeePaid}
+              isDark={isDark}
+              icon={UtensilsCrossed}
+              badgeText={messFeePaid ? (messFeeMealPlan === 'NON_VEG' ? '🍗 Non-Veg' : '🥬 Veg') : undefined}
+            />
           </div>
         </motion.div>
 
@@ -787,26 +795,45 @@ export function StudentDashboard() {
   );
 }
 
-function FeeStatusRow({ label, paid, isDark, icon: Icon }: { label: string; paid: boolean; isDark: boolean; icon?: any }) {
+function FeeStatusRow({
+  label, paid, isDark, icon: Icon, badgeText,
+}: {
+  label: string; paid: boolean; isDark: boolean; icon?: any; badgeText?: string;
+}) {
   const Ic = Icon || CreditCard;
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
         <Ic style={{ width: '0.75rem', height: '0.75rem' }} /> {label}
       </span>
-      <span style={{
-        display: 'flex', alignItems: 'center', gap: '0.25rem',
-        fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5rem', borderRadius: '9999px',
-        backgroundColor: paid
-          ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
-          : (isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7'),
-        color: paid
-          ? (isDark ? '#4ade80' : '#15803d')
-          : (isDark ? '#fbbf24' : '#b45309'),
-      }}>
-        {paid ? <CheckCircle2 style={{ width: '0.625rem', height: '0.625rem' }} /> : <Clock style={{ width: '0.625rem', height: '0.625rem' }} />}
-        {paid ? 'PAID' : 'UNPAID'}
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+        {badgeText && (
+          <span style={{
+            fontSize: '0.625rem', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: '4px',
+            backgroundColor: badgeText.includes('Non-Veg')
+              ? (isDark ? 'rgba(234,88,12,0.2)' : '#ffedd5')
+              : (isDark ? 'rgba(22,163,74,0.2)' : '#dcfce7'),
+            color: badgeText.includes('Non-Veg')
+              ? (isDark ? '#fdba74' : '#c2410c')
+              : (isDark ? '#86efac' : '#15803d'),
+          }}>
+            {badgeText}
+          </span>
+        )}
+        <span style={{
+          display: 'flex', alignItems: 'center', gap: '0.25rem',
+          fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.5rem', borderRadius: '9999px',
+          backgroundColor: paid
+            ? (isDark ? 'rgba(22,163,74,0.15)' : '#dcfce7')
+            : (isDark ? 'rgba(245,158,11,0.15)' : '#fef3c7'),
+          color: paid
+            ? (isDark ? '#4ade80' : '#15803d')
+            : (isDark ? '#fbbf24' : '#b45309'),
+        }}>
+          {paid ? <CheckCircle2 style={{ width: '0.625rem', height: '0.625rem' }} /> : <Clock style={{ width: '0.625rem', height: '0.625rem' }} />}
+          {paid ? 'PAID' : 'UNPAID'}
+        </span>
+      </div>
     </div>
   );
 }

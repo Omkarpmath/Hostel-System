@@ -58,7 +58,7 @@ export class VerifyService {
                 },
                 fees: {
                     where: { status: "PAID" },
-                    select: { type: true, status: true, paidAt: true, amount: true },
+                    select: { type: true, status: true, paidAt: true, amount: true, mealPlan: true },
                     orderBy: { paidAt: "desc" },
                 },
             },
@@ -101,8 +101,13 @@ export class VerifyService {
                     ? { status: "PAID", paidAt: hostelFeePaid.paidAt, amount: hostelFeePaid.amount }
                     : { status: "UNPAID", paidAt: null, amount: null },
                 messFee: messFeePaid
-                    ? { status: "PAID", paidAt: messFeePaid.paidAt, amount: messFeePaid.amount }
-                    : { status: "UNPAID", paidAt: null, amount: null },
+                    ? {
+                        status: "PAID",
+                        paidAt: messFeePaid.paidAt,
+                        amount: messFeePaid.amount,
+                        mealPlan: messFeePaid.mealPlan || "VEG",
+                    }
+                    : { status: "UNPAID", paidAt: null, amount: null, mealPlan: null },
             },
             verifiedAt: new Date().toISOString(),
         };

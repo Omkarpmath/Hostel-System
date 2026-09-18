@@ -111,8 +111,26 @@ export class HostelController {
                 limit: parseInt(String(req.query.limit)) || 20,
                 search: String(req.query.search || ""),
             };
-            const result = await hostelService.getRooms(filters);
+            const result = await hostelService.getRooms(filters, req.user?.role);
             ApiResponse.success({ res, data: result.rooms, meta: result.meta });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async blockRoom(req, res, next) {
+        try {
+            const room = await hostelService.blockRoom(String(req.params.id), req.user.userId, req.body?.reason);
+            ApiResponse.success({ res, message: "Room blocked successfully", data: room });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async unblockRoom(req, res, next) {
+        try {
+            const room = await hostelService.unblockRoom(String(req.params.id));
+            ApiResponse.success({ res, message: "Room unblocked successfully", data: room });
         }
         catch (error) {
             next(error);
@@ -154,9 +172,9 @@ export class HostelController {
         }
     }
     // ============ DASHBOARD ============
-    async getDashboardStats(_req, res, next) {
+    async getDashboardStats(req, res, next) {
         try {
-            const stats = await hostelService.getDashboardStats();
+            const stats = await hostelService.getDashboardStats(req.user);
             ApiResponse.success({ res, data: stats });
         }
         catch (error) {

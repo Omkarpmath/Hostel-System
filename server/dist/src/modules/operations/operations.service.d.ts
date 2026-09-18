@@ -15,44 +15,26 @@ export declare class OperationsService {
             };
             roomAllocations: ({
                 room: {
+                    id: string;
+                    status: import("@prisma/client").$Enums.RoomStatus;
+                    roomNumber: string;
+                    capacity: number;
+                    occupiedBeds: number;
+                    feePerSemester: Prisma.Decimal;
                     floor: {
+                        name: string;
+                        id: string;
                         block: {
+                            name: string;
+                            id: string;
                             hostel: {
                                 name: string;
                                 id: string;
                                 type: import("@prisma/client").$Enums.HostelType;
                             };
-                        } & {
-                            name: string;
-                            id: string;
-                            isActive: boolean;
-                            createdAt: Date;
-                            updatedAt: Date;
-                            description: string | null;
-                            hostelId: string;
                         };
-                    } & {
-                        name: string;
-                        id: string;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        blockId: string;
                         floorNumber: number;
                     };
-                } & {
-                    id: string;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    type: import("@prisma/client").$Enums.RoomType;
-                    status: import("@prisma/client").$Enums.RoomStatus;
-                    floorId: string;
-                    roomNumber: string;
-                    capacity: number;
-                    occupiedBeds: number;
-                    feePerSemester: Prisma.Decimal;
-                    amenities: string | null;
-                    version: number;
                 };
             } & {
                 id: string;
@@ -92,6 +74,7 @@ export declare class OperationsService {
             razorpayOrderId: string | null;
             allocationId: string | null;
             amount: Prisma.Decimal;
+            mealPlan: import("@prisma/client").$Enums.MealPlan | null;
             transactionId: string | null;
             paymentMethod: string | null;
             receiptNumber: string | null;
@@ -180,6 +163,9 @@ export declare class OperationsService {
                         feePerSemester: Prisma.Decimal;
                         amenities: string | null;
                         version: number;
+                        blockedAt: Date | null;
+                        blockedById: string | null;
+                        blockedReason: string | null;
                     };
                 } & {
                     id: string;
@@ -233,6 +219,28 @@ export declare class OperationsService {
         })[];
     }>;
     listAllocations(): Promise<({
+        room: {
+            id: string;
+            status: import("@prisma/client").$Enums.RoomStatus;
+            roomNumber: string;
+            capacity: number;
+            occupiedBeds: number;
+            feePerSemester: Prisma.Decimal;
+            floor: {
+                name: string;
+                id: string;
+                block: {
+                    name: string;
+                    id: string;
+                    hostel: {
+                        name: string;
+                        id: string;
+                        type: import("@prisma/client").$Enums.HostelType;
+                    };
+                };
+                floorNumber: number;
+            };
+        };
         student: {
             user: {
                 id: string;
@@ -282,6 +290,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -310,46 +321,6 @@ export declare class OperationsService {
             dateOfBirth: Date;
             gender: import("@prisma/client").$Enums.Gender;
             qrCodeToken: string;
-        };
-        room: {
-            floor: {
-                block: {
-                    hostel: {
-                        name: string;
-                        id: string;
-                        type: import("@prisma/client").$Enums.HostelType;
-                    };
-                } & {
-                    name: string;
-                    id: string;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    description: string | null;
-                    hostelId: string;
-                };
-            } & {
-                name: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                blockId: string;
-                floorNumber: number;
-            };
-        } & {
-            id: string;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            type: import("@prisma/client").$Enums.RoomType;
-            status: import("@prisma/client").$Enums.RoomStatus;
-            floorId: string;
-            roomNumber: string;
-            capacity: number;
-            occupiedBeds: number;
-            feePerSemester: Prisma.Decimal;
-            amenities: string | null;
-            version: number;
         };
     } & {
         id: string;
@@ -363,6 +334,28 @@ export declare class OperationsService {
         allocatedTo: Date | null;
     })[]>;
     allocate(studentId: string, roomId: string, requestedBed?: number): Promise<{
+        room: {
+            id: string;
+            status: import("@prisma/client").$Enums.RoomStatus;
+            roomNumber: string;
+            capacity: number;
+            occupiedBeds: number;
+            feePerSemester: Prisma.Decimal;
+            floor: {
+                name: string;
+                id: string;
+                block: {
+                    name: string;
+                    id: string;
+                    hostel: {
+                        name: string;
+                        id: string;
+                        type: import("@prisma/client").$Enums.HostelType;
+                    };
+                };
+                floorNumber: number;
+            };
+        };
         student: {
             user: {
                 id: string;
@@ -412,6 +405,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -440,46 +436,6 @@ export declare class OperationsService {
             dateOfBirth: Date;
             gender: import("@prisma/client").$Enums.Gender;
             qrCodeToken: string;
-        };
-        room: {
-            floor: {
-                block: {
-                    hostel: {
-                        name: string;
-                        id: string;
-                        type: import("@prisma/client").$Enums.HostelType;
-                    };
-                } & {
-                    name: string;
-                    id: string;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    description: string | null;
-                    hostelId: string;
-                };
-            } & {
-                name: string;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                blockId: string;
-                floorNumber: number;
-            };
-        } & {
-            id: string;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            type: import("@prisma/client").$Enums.RoomType;
-            status: import("@prisma/client").$Enums.RoomStatus;
-            floorId: string;
-            roomNumber: string;
-            capacity: number;
-            occupiedBeds: number;
-            feePerSemester: Prisma.Decimal;
-            amenities: string | null;
-            version: number;
         };
     } & {
         id: string;
@@ -544,6 +500,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -637,6 +596,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -730,6 +692,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -825,6 +790,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -924,6 +892,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -1023,6 +994,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -1124,6 +1098,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -1224,6 +1201,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -1323,6 +1303,9 @@ export declare class OperationsService {
                 feePerSemester: Prisma.Decimal;
                 amenities: string | null;
                 version: number;
+                blockedAt: Date | null;
+                blockedById: string | null;
+                blockedReason: string | null;
             };
         } & {
             id: string;
@@ -1404,6 +1387,9 @@ export declare class OperationsService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 };
             } & {
                 id: string;
@@ -1435,14 +1421,106 @@ export declare class OperationsService {
         };
         allocation: ({
             room: {
+                id: string;
+                status: import("@prisma/client").$Enums.RoomStatus;
+                roomNumber: string;
+                capacity: number;
+                occupiedBeds: number;
+                feePerSemester: Prisma.Decimal;
                 floor: {
+                    name: string;
+                    id: string;
                     block: {
+                        name: string;
+                        id: string;
                         hostel: {
                             name: string;
                             id: string;
                             type: import("@prisma/client").$Enums.HostelType;
                         };
-                    } & {
+                    };
+                    floorNumber: number;
+                };
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            studentId: string;
+            status: import("@prisma/client").$Enums.AllocationStatus;
+            roomId: string;
+            bedNumber: number;
+            allocatedFrom: Date;
+            allocatedTo: Date | null;
+        }) | null;
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import("@prisma/client").$Enums.FeeType;
+        studentId: string;
+        status: import("@prisma/client").$Enums.PaymentStatus;
+        razorpayOrderId: string | null;
+        allocationId: string | null;
+        amount: Prisma.Decimal;
+        mealPlan: import("@prisma/client").$Enums.MealPlan | null;
+        transactionId: string | null;
+        paymentMethod: string | null;
+        receiptNumber: string | null;
+        receiptEmail: string | null;
+        emailSent: boolean;
+        emailSentAt: Date | null;
+        emailError: string | null;
+        screenshotUrl: string | null;
+        paidAt: Date | null;
+        dueDate: Date;
+    })[]>;
+    approveOfflinePayment(feeId: string, approverUserId: string, approverRole: string, data: {
+        paymentMethod: string;
+        referenceNumber: string;
+        bankName?: string;
+        paidAt?: Date;
+        remarks?: string;
+    }): Promise<{
+        student: {
+            user: {
+                id: string;
+                email: string;
+                passwordHash: string;
+                role: import("@prisma/client").$Enums.Role;
+                firstName: string;
+                lastName: string;
+                phone: string | null;
+                avatarUrl: string | null;
+                isActive: boolean;
+                lastLoginAt: Date | null;
+                createdAt: Date;
+                updatedAt: Date;
+                assignedHostelId: string | null;
+                assignedMessId: string | null;
+                assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            userId: string;
+            usn: string;
+            department: string;
+            year: number;
+            semester: number;
+            guardianName: string | null;
+            guardianPhone: string | null;
+            permanentAddress: string;
+            bloodGroup: string | null;
+            dateOfBirth: Date;
+            gender: import("@prisma/client").$Enums.Gender;
+            qrCodeToken: string;
+        };
+        allocation: ({
+            room: {
+                floor: {
+                    block: {
                         name: string;
                         id: string;
                         isActive: boolean;
@@ -1473,6 +1551,9 @@ export declare class OperationsService {
                 feePerSemester: Prisma.Decimal;
                 amenities: string | null;
                 version: number;
+                blockedAt: Date | null;
+                blockedById: string | null;
+                blockedReason: string | null;
             };
         } & {
             id: string;
@@ -1495,6 +1576,7 @@ export declare class OperationsService {
         razorpayOrderId: string | null;
         allocationId: string | null;
         amount: Prisma.Decimal;
+        mealPlan: import("@prisma/client").$Enums.MealPlan | null;
         transactionId: string | null;
         paymentMethod: string | null;
         receiptNumber: string | null;
@@ -1505,7 +1587,7 @@ export declare class OperationsService {
         screenshotUrl: string | null;
         paidAt: Date | null;
         dueDate: Date;
-    })[]>;
+    }>;
 }
 export declare const operationsService: OperationsService;
 //# sourceMappingURL=operations.service.d.ts.map

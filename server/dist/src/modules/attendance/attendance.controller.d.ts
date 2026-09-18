@@ -8,6 +8,7 @@ export declare class AttendanceController {
     getRegister(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     exportRegisterCSV(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     assignSecurity(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
+    assignSecurityMess(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     unassignSecurity(req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     listSecurityUsers(_req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     listSessions(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;

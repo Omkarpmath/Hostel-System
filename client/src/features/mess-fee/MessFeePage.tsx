@@ -10,6 +10,7 @@ import { loadRazorpayScript } from '@/lib/razorpay';
 import {
   UtensilsCrossed, CheckCircle2, Clock, IndianRupee,
   CreditCard, Calendar, AlertCircle, Receipt, Download, Loader2,
+  ShieldAlert, Check
 } from 'lucide-react';
 
 const fmt = (d?: string | null) =>
@@ -30,6 +31,7 @@ export function MessFeePage() {
   const [orderInfo, setOrderInfo] = useState<{ orderId: string; reused?: boolean } | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'VEG' | 'NON_VEG'>('VEG');
 
   const handleDownloadReceipt = async (feeId: string, receiptNumber?: string) => {
     try {
@@ -64,21 +66,25 @@ export function MessFeePage() {
     queryKey: ['mess-fee-amount'],
     queryFn: messFeeApi.getAmount,
   });
-  const currentAmount = (amountData?.data as any)?.data?.amount || 78000;
+  const amounts = (amountData?.data as any)?.data;
+  const vegAmount = amounts?.veg ?? amounts?.amounts?.veg ?? 73000;
+  const nonVegAmount = amounts?.nonVeg ?? amounts?.amounts?.nonVeg ?? 80000;
 
-  // ─── Admin: update amount ───
-  const [editAmount, setEditAmount] = useState<string>('');
+  // ─── Admin: update amounts ───
+  const [editVegAmount, setEditVegAmount] = useState<string>('');
+  const [editNonVegAmount, setEditNonVegAmount] = useState<string>('');
   const [editing, setEditing] = useState(false);
-  const updateAmount = useMutation({
-    mutationFn: (amt: number) => messFeeApi.updateAmount(amt),
+
+  const updateAmounts = useMutation({
+    mutationFn: (params: { veg: number; nonVeg: number }) => messFeeApi.updateAmount(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mess-fee-amount'] });
       setEditing(false);
-      setMessage('Mess fee amount updated successfully.');
+      setMessage('Mess fee amounts updated successfully.');
       setMessageType('success');
     },
     onError: (error: any) => {
-      setMessage(error.response?.data?.message || 'Failed to update amount.');
+      setMessage(error.response?.data?.message || 'Failed to update amounts.');
       setMessageType('error');
     },
   });
@@ -88,7 +94,7 @@ export function MessFeePage() {
     try {
       setIsPaymentLoading(true);
       setMessage('');
-      const res = await messFeeApi.createOrder();
+      const res = await messFeeApi.createOrder(selectedPlan);
       const order = (res.data as any)?.data;
       if (!order) throw new Error('Could not create payment order.');
       setOrderInfo({ orderId: order.orderId, reused: !!order.reused });
@@ -97,12 +103,14 @@ export function MessFeePage() {
         throw new Error('Razorpay Checkout could not be loaded. Please check your internet connection and try again.');
       }
 
+      const planLabel = selectedPlan === 'NON_VEG' ? 'Non-Vegetarian' : 'Vegetarian';
+
       const checkout = new (window as any).Razorpay({
         key: order.keyId,
         amount: order.amount,
         currency: order.currency,
         name: 'BMSET Hostels',
-        description: 'Annual Mess Fee',
+        description: `Annual Mess Fee (${planLabel})`,
         order_id: order.orderId,
         prefill: {
           name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
@@ -123,7 +131,7 @@ export function MessFeePage() {
               razorpaySignature: response.razorpay_signature,
             });
             queryClient.invalidateQueries({ queryKey: ['mess-fee-status'] });
-            setMessage('Payment verified! Your mess fee has been paid.');
+            setMessage(`Payment verified! Your ${planLabel} mess fee has been paid.`);
             setMessageType('success');
             setOrderInfo(null);
           } catch (error: any) {
@@ -140,7 +148,6 @@ export function MessFeePage() {
         setMessageType('error');
       });
       checkout.open();
-      // Reset loading state once checkout window is displayed
       setIsPaymentLoading(false);
     } catch (error: any) {
       setIsPaymentLoading(false);
@@ -166,7 +173,7 @@ export function MessFeePage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         <PageHeader
           title="Mess Fee Settings"
-          description="Configure the annual mess fee amount for all students"
+          description="Configure annual mess fee amounts for Vegetarian and Non-Vegetarian meal plans"
           breadcrumbs={[{ label: 'Dashboard', href: '/admin/dashboard' }, { label: 'Mess Fee Settings' }]}
         />
 
@@ -195,84 +202,163 @@ export function MessFeePage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
             <div style={{
               width: '3rem', height: '3rem', borderRadius: '0.75rem',
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <UtensilsCrossed style={{ width: '1.5rem', height: '1.5rem', color: 'white' }} />
             </div>
             <div>
               <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Annual Mess Fee
+                Annual Meal Plan Pricing
               </h3>
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                This amount applies to all students
+                Configure separate pricing for Vegetarian and Non-Vegetarian dining options
               </p>
             </div>
           </div>
 
-          <div style={{
-            padding: '1.25rem', borderRadius: '0.75rem',
-            backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : '#fffbeb',
-            border: `1px solid ${isDark ? 'rgba(245,158,11,0.2)' : '#fde68a'}`,
-            marginBottom: '1.5rem',
-          }}>
-            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-              Current Amount
-            </p>
-            <p style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {money(currentAmount)}
-            </p>
+          {/* Pricing Cards Display */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+            {/* Veg Pricing Card */}
+            <div style={{
+              padding: '1.25rem', borderRadius: '0.875rem',
+              backgroundColor: isDark ? 'rgba(16,185,129,0.08)' : '#f0fdf4',
+              border: `1px solid ${isDark ? 'rgba(16,185,129,0.25)' : '#bbf7d0'}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>🥬</span>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: isDark ? '#34d399' : '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Vegetarian Plan
+                </span>
+              </div>
+              <p style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                {money(vegAmount)}
+              </p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: 0 }}>
+                Annual pure vegetarian mess access
+              </p>
+            </div>
+
+            {/* Non-Veg Pricing Card */}
+            <div style={{
+              padding: '1.25rem', borderRadius: '0.875rem',
+              backgroundColor: isDark ? 'rgba(249,115,22,0.08)' : '#fff7ed',
+              border: `1px solid ${isDark ? 'rgba(249,115,22,0.25)' : '#fed7aa'}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>🍗</span>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: isDark ? '#fb923c' : '#c2410c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Non-Vegetarian Plan
+                </span>
+              </div>
+              <p style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                {money(nonVegAmount)}
+              </p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: 0 }}>
+                Annual non-veg + veg dining access
+              </p>
+            </div>
           </div>
 
+          {/* Admin Edit Section */}
           {editing ? (
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <input
-                type="number"
-                value={editAmount}
-                onChange={(e) => setEditAmount(e.target.value)}
-                placeholder="Enter new amount"
-                style={{
-                  flex: 1, padding: '0.75rem 1rem', borderRadius: '0.75rem',
-                  border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)', fontSize: '1rem', fontFamily: 'inherit',
-                }}
-              />
-              <button
-                disabled={updateAmount.isPending || !editAmount || parseFloat(editAmount) < 1}
-                onClick={() => updateAmount.mutate(parseFloat(editAmount))}
-                style={{
-                  padding: '0.75rem 1.5rem', borderRadius: '0.75rem', border: 'none',
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white',
-                  fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit',
-                  opacity: updateAmount.isPending ? 0.5 : 1,
-                }}
-              >
-                {updateAmount.isPending ? 'Saving…' : 'Save'}
-              </button>
-              <button
-                onClick={() => setEditing(false)}
-                style={{
-                  padding: '0.75rem 1.5rem', borderRadius: '0.75rem',
-                  border: '1px solid var(--border-primary)', backgroundColor: 'transparent',
-                  color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.875rem',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                Cancel
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.375rem' }}>
+                    Vegetarian Fee (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={editVegAmount}
+                    onChange={(e) => setEditVegAmount(e.target.value)}
+                    placeholder="e.g. 73000"
+                    style={{
+                      width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
+                      border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)', fontSize: '1rem', fontFamily: 'inherit', boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.375rem' }}>
+                    Non-Vegetarian Fee (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={editNonVegAmount}
+                    onChange={(e) => setEditNonVegAmount(e.target.value)}
+                    placeholder="e.g. 80000"
+                    style={{
+                      width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
+                      border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)', fontSize: '1rem', fontFamily: 'inherit', boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  disabled={
+                    updateAmounts.isPending ||
+                    !editVegAmount || parseFloat(editVegAmount) < 1 ||
+                    !editNonVegAmount || parseFloat(editNonVegAmount) < 1
+                  }
+                  onClick={() =>
+                    updateAmounts.mutate({
+                      veg: parseFloat(editVegAmount),
+                      nonVeg: parseFloat(editNonVegAmount),
+                    })
+                  }
+                  style={{
+                    padding: '0.75rem 1.5rem', borderRadius: '0.75rem', border: 'none',
+                    background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white',
+                    fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit',
+                    opacity: updateAmounts.isPending ? 0.5 : 1,
+                  }}
+                >
+                  {updateAmounts.isPending ? 'Saving…' : 'Save Changes'}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  style={{
+                    padding: '0.75rem 1.5rem', borderRadius: '0.75rem',
+                    border: '1px solid var(--border-primary)', backgroundColor: 'transparent',
+                    color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.875rem',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ) : (
             <button
-              onClick={() => { setEditAmount(String(currentAmount)); setEditing(true); }}
+              onClick={() => {
+                setEditVegAmount(String(vegAmount));
+                setEditNonVegAmount(String(nonVegAmount));
+                setEditing(true);
+              }}
               style={{
                 padding: '0.75rem 1.5rem', borderRadius: '0.75rem', border: 'none',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white',
+                background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white',
                 fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              Edit Amount
+              Edit Pricing
             </button>
           )}
+
+          {/* Admin Policy Notice */}
+          <div style={{
+            marginTop: '1.5rem', padding: '0.875rem 1rem', borderRadius: '0.75rem',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+            border: '1px dashed var(--border-primary)',
+            fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5,
+          }}>
+            <strong>Policy Notice:</strong> Students choose their meal plan when paying the annual mess fee. Once paid, the plan is permanently locked. Students cannot self-switch between Veg and Non-Veg after payment.
+          </div>
         </motion.div>
       </div>
     );
@@ -291,13 +377,16 @@ export function MessFeePage() {
   }
 
   const isPaid = status?.isPaid;
+  const mealPlan = status?.mealPlan;
+  const isNonVegPaid = mealPlan === 'NON_VEG';
   const history: any[] = status?.history || [];
+  const currentPlanAmount = selectedPlan === 'NON_VEG' ? nonVegAmount : vegAmount;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       <PageHeader
         title="Mess Fees"
-        description="Annual mess fee payment"
+        description="Annual mess fee payment and meal plan status"
         breadcrumbs={[{ label: 'Dashboard', href: '/student/dashboard' }, { label: 'Mess Fees' }]}
       />
 
@@ -330,26 +419,57 @@ export function MessFeePage() {
         style={{
           ...cardStyle,
           background: isPaid
-            ? (isDark ? 'linear-gradient(135deg, rgba(22,163,74,0.1), rgba(13,148,136,0.08))' : 'linear-gradient(135deg, #f0fdf4, #f0fdfa)')
-            : (isDark ? 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(234,88,12,0.08))' : 'linear-gradient(135deg, #fffbeb, #fff7ed)'),
-          border: `1px solid ${isPaid ? (isDark ? 'rgba(22,163,74,0.3)' : '#86efac') : (isDark ? 'rgba(245,158,11,0.3)' : '#fde68a')}`,
+            ? isNonVegPaid
+              ? (isDark ? 'linear-gradient(135deg, rgba(234,88,12,0.12), rgba(180,83,9,0.08))' : 'linear-gradient(135deg, #fff7ed, #fffbeb)')
+              : (isDark ? 'linear-gradient(135deg, rgba(22,163,74,0.12), rgba(13,148,136,0.08))' : 'linear-gradient(135deg, #f0fdf4, #f0fdfa)')
+            : (isDark ? 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(234,88,12,0.06))' : 'linear-gradient(135deg, #fffbeb, #fff7ed)'),
+          border: `1px solid ${
+            isPaid
+              ? isNonVegPaid
+                ? (isDark ? 'rgba(249,115,22,0.35)' : '#fed7aa')
+                : (isDark ? 'rgba(22,163,74,0.35)' : '#86efac')
+              : (isDark ? 'rgba(245,158,11,0.3)' : '#fde68a')
+          }`,
         }}
       >
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{
-              width: '3rem', height: '3rem', borderRadius: '0.75rem',
-              background: isPaid ? 'linear-gradient(135deg, #16a34a, #0d9488)' : 'linear-gradient(135deg, #f59e0b, #ea580c)',
+              width: '3.25rem', height: '3.25rem', borderRadius: '0.875rem',
+              background: isPaid
+                ? isNonVegPaid
+                  ? 'linear-gradient(135deg, #ea580c, #c2410c)'
+                  : 'linear-gradient(135deg, #16a34a, #0d9488)'
+                : 'linear-gradient(135deg, #f59e0b, #ea580c)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <UtensilsCrossed style={{ width: '1.5rem', height: '1.5rem', color: 'white' }} />
+              <UtensilsCrossed style={{ width: '1.625rem', height: '1.625rem', color: 'white' }} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                Annual Mess Fee
-              </h3>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  Annual Mess Fee
+                </h3>
+                {isPaid && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                    padding: '0.2rem 0.625rem', borderRadius: '9999px',
+                    fontSize: '0.6875rem', fontWeight: 800,
+                    letterSpacing: '0.04em', textTransform: 'uppercase',
+                    backgroundColor: isNonVegPaid
+                      ? (isDark ? 'rgba(234,88,12,0.25)' : '#ffedd5')
+                      : (isDark ? 'rgba(22,163,74,0.25)' : '#dcfce7'),
+                    color: isNonVegPaid
+                      ? (isDark ? '#fdba74' : '#c2410c')
+                      : (isDark ? '#86efac' : '#15803d'),
+                    border: `1px solid ${isNonVegPaid ? (isDark ? 'rgba(249,115,22,0.4)' : '#fdba74') : (isDark ? 'rgba(34,197,94,0.4)' : '#86efac')}`,
+                  }}>
+                    {isNonVegPaid ? '🍗 Non-Vegetarian Plan' : '🥬 Vegetarian Plan'}
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: 0 }}>
                 Academic Year {new Date().getFullYear()}-{new Date().getFullYear() + 1}
               </p>
             </div>
@@ -372,17 +492,190 @@ export function MessFeePage() {
           </span>
         </div>
 
-        {/* Amount & Details */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
-              <IndianRupee style={{ width: '0.875rem', height: '0.875rem', color: 'var(--text-muted)' }} />
-              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Amount</span>
+        {/* ─── UNPAID: Interactive Meal Plan Selection ─── */}
+        {!isPaid && (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+              Select Your Meal Plan
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+              {/* Option 1: Vegetarian */}
+              <div
+                onClick={() => setSelectedPlan('VEG')}
+                style={{
+                  cursor: 'pointer',
+                  padding: '1.25rem',
+                  borderRadius: '0.875rem',
+                  backgroundColor: selectedPlan === 'VEG'
+                    ? (isDark ? 'rgba(16,185,129,0.12)' : '#f0fdf4')
+                    : (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)'),
+                  border: selectedPlan === 'VEG'
+                    ? `2px solid ${isDark ? '#10b981' : '#059669'}`
+                    : '1px solid var(--border-primary)',
+                  boxShadow: selectedPlan === 'VEG' ? '0 0 0 1px rgba(16,185,129,0.2)' : 'none',
+                  transition: 'all 0.15s ease-in-out',
+                  position: 'relative',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>🥬</span>
+                    <div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                        Vegetarian Plan
+                      </h4>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.125rem 0 0' }}>
+                        Pure Veg Dining Access
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{
+                    width: '1.25rem', height: '1.25rem', borderRadius: '50%',
+                    border: `2px solid ${selectedPlan === 'VEG' ? '#059669' : 'var(--border-primary)'}`,
+                    backgroundColor: selectedPlan === 'VEG' ? '#059669' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {selectedPlan === 'VEG' && <Check style={{ width: '0.75rem', height: '0.75rem', color: 'white' }} />}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1rem' }}>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {money(vegAmount)}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>/ academic year</span>
+                </div>
+
+                <ul style={{ margin: '0.75rem 0 0', paddingLeft: '1.125rem', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  <li>Daily breakfast, lunch, snacks & dinner</li>
+                  <li>Pure vegetarian dining hall access</li>
+                  <li>Special festive holiday meals</li>
+                </ul>
+              </div>
+
+              {/* Option 2: Non-Vegetarian */}
+              <div
+                onClick={() => setSelectedPlan('NON_VEG')}
+                style={{
+                  cursor: 'pointer',
+                  padding: '1.25rem',
+                  borderRadius: '0.875rem',
+                  backgroundColor: selectedPlan === 'NON_VEG'
+                    ? (isDark ? 'rgba(249,115,22,0.12)' : '#fff7ed')
+                    : (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)'),
+                  border: selectedPlan === 'NON_VEG'
+                    ? `2px solid ${isDark ? '#f97316' : '#ea580c'}`
+                    : '1px solid var(--border-primary)',
+                  boxShadow: selectedPlan === 'NON_VEG' ? '0 0 0 1px rgba(249,115,22,0.2)' : 'none',
+                  transition: 'all 0.15s ease-in-out',
+                  position: 'relative',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>🍗</span>
+                    <div>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                        Non-Vegetarian Plan
+                      </h4>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.125rem 0 0' }}>
+                        Non-Veg + Veg Dining Access
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{
+                    width: '1.25rem', height: '1.25rem', borderRadius: '50%',
+                    border: `2px solid ${selectedPlan === 'NON_VEG' ? '#ea580c' : 'var(--border-primary)'}`,
+                    backgroundColor: selectedPlan === 'NON_VEG' ? '#ea580c' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {selectedPlan === 'NON_VEG' && <Check style={{ width: '0.75rem', height: '0.75rem', color: 'white' }} />}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1rem' }}>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {money(nonVegAmount)}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>/ academic year</span>
+                </div>
+
+                <ul style={{ margin: '0.75rem 0 0', paddingLeft: '1.125rem', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  <li>All vegetarian menu items included</li>
+                  <li>Weekly non-veg dishes & specials</li>
+                  <li>Separate non-veg serving counter</li>
+                </ul>
+              </div>
             </div>
-            <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>{money(currentAmount)}</p>
+
+            {/* Pay Button */}
+            <div>
+              {orderInfo && (
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                  Order: <code style={{ fontSize: '0.75rem' }}>{orderInfo.orderId}</code>
+                  {orderInfo.reused ? ' · reopened for retry' : ''}
+                </p>
+              )}
+              <button
+                disabled={isPaymentLoading}
+                onClick={pay}
+                style={{
+                  padding: '0.875rem 2rem',
+                  borderRadius: '0.75rem',
+                  border: 'none',
+                  background: selectedPlan === 'NON_VEG'
+                    ? 'linear-gradient(135deg, #ea580c, #c2410c)'
+                    : 'linear-gradient(135deg, #059669, #047857)',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  cursor: isPaymentLoading ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: selectedPlan === 'NON_VEG'
+                    ? '0 4px 14px rgba(234,88,12,0.35)'
+                    : '0 4px 14px rgba(5,150,105,0.35)',
+                  opacity: isPaymentLoading ? 0.6 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                {isPaymentLoading ? (
+                  <>
+                    <Loader2 style={{ width: '1.125rem', height: '1.125rem' }} className="animate-spin" />
+                    <span>Opening Checkout…</span>
+                  </>
+                ) : (
+                  <>
+                    <CreditCard style={{ width: '1.125rem', height: '1.125rem' }} />
+                    <span>
+                      {orderInfo
+                        ? 'Retry Mess Fee Payment'
+                        : `Pay ${selectedPlan === 'NON_VEG' ? 'Non-Veg' : 'Veg'} Fee ${money(currentPlanAmount)}`}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          {isPaid && (
-            <>
+        )}
+
+        {/* ─── PAID: Transaction Details & Receipt ─── */}
+        {isPaid && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                  <IndianRupee style={{ width: '0.875rem', height: '0.875rem', color: 'var(--text-muted)' }} />
+                  <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Amount Paid</span>
+                </div>
+                <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {money(isNonVegPaid ? nonVegAmount : vegAmount)}
+                </p>
+              </div>
+
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
                   <Calendar style={{ width: '0.875rem', height: '0.875rem', color: 'var(--text-muted)' }} />
@@ -390,13 +683,15 @@ export function MessFeePage() {
                 </div>
                 <p style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(status?.paidAt)}</p>
               </div>
+
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
                   <CreditCard style={{ width: '0.875rem', height: '0.875rem', color: 'var(--text-muted)' }} />
                   <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Method</span>
                 </div>
-                <p style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)' }}>{status?.paymentMethod || '—'}</p>
+                <p style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--text-primary)' }}>{status?.paymentMethod || 'RAZORPAY'}</p>
               </div>
+
               {status?.transactionId && (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.25rem' }}>
@@ -406,98 +701,68 @@ export function MessFeePage() {
                   <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-all' }}>{status.transactionId}</p>
                 </div>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        {/* Pay Button (only if not paid) */}
-        {!isPaid && (
-          <div>
-            {orderInfo && (
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-                Order: <code style={{ fontSize: '0.75rem' }}>{orderInfo.orderId}</code>
-                {orderInfo.reused ? ' · reopened for retry' : ''}
-              </p>
-            )}
-            <button
-              disabled={isPaymentLoading}
-              onClick={pay}
-              style={{
-                padding: '0.875rem 2rem',
-                borderRadius: '0.75rem',
-                border: 'none',
-                background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
-                color: 'white',
-                fontSize: '1rem',
-                fontWeight: 700,
-                cursor: isPaymentLoading ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit',
-                boxShadow: '0 4px 14px rgba(245,158,11,0.3)',
-                opacity: isPaymentLoading ? 0.6 : 1,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-              }}
-            >
-              {isPaymentLoading ? (
-                <>
-                  <Loader2 style={{ width: '1.125rem', height: '1.125rem' }} className="animate-spin" />
-                  <span>Opening Checkout…</span>
-                </>
-              ) : (
-                <>
-                  <CreditCard style={{ width: '1.125rem', height: '1.125rem' }} />
-                  <span>{orderInfo ? 'Retry Mess Fee Payment' : `Pay Mess Fee ${money(currentAmount)}`}</span>
-                </>
+            {/* Policy Lock Reminder */}
+            <div style={{
+              padding: '0.75rem 1rem', borderRadius: '0.75rem',
+              backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+              border: '1px solid var(--border-primary)',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              fontSize: '0.75rem', color: 'var(--text-muted)',
+              marginBottom: '1rem',
+            }}>
+              <ShieldAlert style={{ width: '1rem', height: '1rem', flexShrink: 0, color: isDark ? '#94a3b8' : '#64748b' }} />
+              <span>Meal plan is locked for the academic year. Contact the hostel administration office for any plan adjustments.</span>
+            </div>
+
+            {/* Download Receipt Button */}
+            <div style={{
+              marginTop: '1rem',
+              paddingTop: '1rem',
+              borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+            }}>
+              <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                Official Electronic Receipt Generated & Verified
+              </span>
+              {history.find((f: any) => f.status === 'PAID') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const paidFee = history.find((f: any) => f.status === 'PAID');
+                    if (paidFee) handleDownloadReceipt(paidFee.id, paidFee.receiptNumber);
+                  }}
+                  disabled={!!downloadingId}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1.125rem',
+                    borderRadius: '0.625rem',
+                    background: isNonVegPaid
+                      ? 'linear-gradient(135deg, #ea580c, #c2410c)'
+                      : 'linear-gradient(135deg, #16a34a, #0d9488)',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '0.8125rem',
+                    border: 'none',
+                    cursor: downloadingId ? 'wait' : 'pointer',
+                    boxShadow: isNonVegPaid
+                      ? '0 2px 8px rgba(234,88,12,0.25)'
+                      : '0 2px 8px rgba(22,163,74,0.25)',
+                  }}
+                >
+                  <Download style={{ width: '0.875rem', height: '0.875rem' }} />
+                  <span>{downloadingId ? 'Generating PDF...' : 'Download Official Receipt (PDF)'}</span>
+                </button>
               )}
-            </button>
-          </div>
-        )}
-
-        {/* Download Receipt Button (when paid) */}
-        {isPaid && (
-          <div style={{
-            marginTop: '1.25rem',
-            paddingTop: '1rem',
-            borderTop: `1px solid ${isDark ? 'rgba(22,163,74,0.2)' : '#dcfce7'}`,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '0.75rem',
-          }}>
-            <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-              Official Electronic Receipt Generated & Verified
-            </span>
-            {history.find((f: any) => f.status === 'PAID') && (
-              <button
-                type="button"
-                onClick={() => {
-                  const paidFee = history.find((f: any) => f.status === 'PAID');
-                  if (paidFee) handleDownloadReceipt(paidFee.id, paidFee.receiptNumber);
-                }}
-                disabled={!!downloadingId}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 1.125rem',
-                  borderRadius: '0.625rem',
-                  background: 'linear-gradient(135deg, #16a34a, #0d9488)',
-                  color: 'white',
-                  fontWeight: 700,
-                  fontSize: '0.8125rem',
-                  border: 'none',
-                  cursor: downloadingId ? 'wait' : 'pointer',
-                  boxShadow: '0 2px 8px rgba(22,163,74,0.25)',
-                }}
-              >
-                <Download style={{ width: '0.875rem', height: '0.875rem' }} />
-                <span>{downloadingId ? 'Generating PDF...' : 'Download Official Receipt (PDF)'}</span>
-              </button>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </motion.div>
 
@@ -530,10 +795,25 @@ export function MessFeePage() {
                 }}
               >
                 <div>
-                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {money(fee.amount)}
-                  </p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                      {money(fee.amount)}
+                    </p>
+                    {fee.mealPlan && (
+                      <span style={{
+                        fontSize: '0.6875rem', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: '4px',
+                        backgroundColor: fee.mealPlan === 'NON_VEG'
+                          ? (isDark ? 'rgba(234,88,12,0.2)' : '#ffedd5')
+                          : (isDark ? 'rgba(22,163,74,0.2)' : '#dcfce7'),
+                        color: fee.mealPlan === 'NON_VEG'
+                          ? (isDark ? '#fdba74' : '#c2410c')
+                          : (isDark ? '#86efac' : '#15803d'),
+                      }}>
+                        {fee.mealPlan === 'NON_VEG' ? '🍗 Non-Veg' : '🥬 Veg'}
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: 0 }}>
                     {fmt(fee.createdAt)} {fee.transactionId ? `· ${fee.transactionId}` : ''}
                   </p>
                 </div>

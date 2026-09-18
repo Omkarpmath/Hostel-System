@@ -89,23 +89,24 @@ export class AnnouncementService {
      */
     async reconcileLifecycle() {
         const now = new Date();
-        // 1. Move scheduled announcements whose publishAt has arrived to PUBLISHED
-        await prisma.announcement.updateMany({
-            where: {
-                status: "SCHEDULED",
-                publishAt: { lte: now },
-                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-            },
-            data: { status: "PUBLISHED" },
-        });
-        // 2. Move published or scheduled announcements whose expiresAt has passed to EXPIRED
-        await prisma.announcement.updateMany({
-            where: {
-                status: { in: ["PUBLISHED", "SCHEDULED"] },
-                expiresAt: { lte: now },
-            },
-            data: { status: "EXPIRED" },
-        });
+        // Move scheduled announcements to PUBLISHED and expired announcements to EXPIRED concurrently
+        await Promise.all([
+            prisma.announcement.updateMany({
+                where: {
+                    status: "SCHEDULED",
+                    publishAt: { lte: now },
+                    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+                },
+                data: { status: "PUBLISHED" },
+            }),
+            prisma.announcement.updateMany({
+                where: {
+                    status: { in: ["PUBLISHED", "SCHEDULED"] },
+                    expiresAt: { lte: now },
+                },
+                data: { status: "EXPIRED" },
+            }),
+        ]);
     }
     /**
      * List announcements for staff (Admin / Warden) with filters & read statistics
@@ -161,9 +162,19 @@ export class AnnouncementService {
             },
             orderBy: [{ priority: "desc" }, { publishAt: "desc" }],
         });
-        // Compute analytics for each announcement
+        // Compute analytics for each announcement with memoized target counts per audience criteria
+        const countCache = new Map();
+        const getTargetCount = (target) => {
+            const cacheKey = `${target.targetAudience}:${target.targetHostelId || ""}:${target.targetYear || ""}:${target.targetDepartment || ""}`;
+            let existing = countCache.get(cacheKey);
+            if (!existing) {
+                existing = this.calculateTargetCount(target);
+                countCache.set(cacheKey, existing);
+            }
+            return existing;
+        };
         const enriched = await Promise.all(announcements.map(async (a) => {
-            const targetCount = await this.calculateTargetCount({
+            const targetCount = await getTargetCount({
                 targetAudience: a.targetAudience,
                 targetHostelId: a.targetHostelId,
                 targetYear: a.targetYear,
@@ -186,8 +197,10 @@ export class AnnouncementService {
      * List announcements eligible for the logged in student
      */
     async getMyAnnouncements(userId, filters) {
-        await this.reconcileLifecycle();
-        const ctx = await this.getStudentContext(userId);
+        const [, ctx] = await Promise.all([
+            this.reconcileLifecycle(),
+            this.getStudentContext(userId),
+        ]);
         const now = new Date();
         const orConditions = [
             { targetAudience: "ALL_HOSTELS" },

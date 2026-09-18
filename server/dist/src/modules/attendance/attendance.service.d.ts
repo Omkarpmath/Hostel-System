@@ -19,8 +19,8 @@ export declare class AttendanceService {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AttendanceSessionStatus;
         securityId: string;
-        hostelId: string;
         date: Date;
+        hostelId: string;
         startedAt: Date;
         endedAt: Date | null;
     }>;
@@ -32,8 +32,8 @@ export declare class AttendanceService {
         };
         status: import("@prisma/client").$Enums.AttendanceSessionStatus;
         securityId: string;
-        hostelId: string;
         date: Date;
+        hostelId: string;
         startedAt: Date;
         endedAt: Date | null;
         _count: {
@@ -52,8 +52,8 @@ export declare class AttendanceService {
             updatedAt: Date;
             status: import("@prisma/client").$Enums.AttendanceSessionStatus;
             securityId: string;
-            hostelId: string;
             date: Date;
+            hostelId: string;
             startedAt: Date;
             endedAt: Date | null;
         };
@@ -137,17 +137,39 @@ export declare class AttendanceService {
         email: string;
         firstName: string;
         lastName: string;
+        assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
         assignedHostel: {
             name: string;
             id: string;
         } | null;
+        assignedMess: {
+            name: string;
+            id: string;
+        } | null;
     }>;
-    /** Unassign a SECURITY user from their hostel. */
+    /** Assign a SECURITY user to a mess. */
+    assignSecurityToMess(securityUserId: string, messId: string): Promise<{
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
+        assignedHostel: {
+            name: string;
+            id: string;
+        } | null;
+        assignedMess: {
+            name: string;
+            id: string;
+        } | null;
+    }>;
+    /** Unassign a SECURITY user from their hostel or mess. */
     unassignSecurity(securityUserId: string): Promise<{
         id: string;
         email: string;
         firstName: string;
         lastName: string;
+        assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
         assignedHostel: {
             name: string;
             id: string;
@@ -161,18 +183,31 @@ export declare class AttendanceService {
             allowedYears: number[];
             deletedAt: Date | null;
         } | null;
+        assignedMess: {
+            name: string;
+            id: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            description: string | null;
+        } | null;
     }>;
-    /** List all security users with their hostel assignments. */
+    /** List all security users with their hostel and mess assignments. */
     listSecurityUsers(): Promise<{
         id: string;
         email: string;
         firstName: string;
         lastName: string;
         phone: string | null;
+        assignmentType: import("@prisma/client").$Enums.SecurityAssignmentType | null;
         assignedHostel: {
             name: string;
             id: string;
             type: import("@prisma/client").$Enums.HostelType;
+        } | null;
+        assignedMess: {
+            name: string;
+            id: string;
         } | null;
     }[]>;
     /** List all attendance sessions with filters. */
@@ -197,8 +232,8 @@ export declare class AttendanceService {
         updatedAt: Date;
         status: import("@prisma/client").$Enums.AttendanceSessionStatus;
         securityId: string;
-        hostelId: string;
         date: Date;
+        hostelId: string;
         startedAt: Date;
         endedAt: Date | null;
     })[]>;

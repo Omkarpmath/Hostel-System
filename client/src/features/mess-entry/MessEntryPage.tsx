@@ -279,16 +279,19 @@ export const MessEntryPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status?: string) => {
+  const getStatusColor = (status?: string, mealPlan?: string) => {
     switch (status) {
       case 'ENTRY_ALLOWED':
-        return 'border-emerald-500/80 bg-emerald-950/90 text-emerald-300';
+        if (mealPlan === 'NON_VEG') {
+          return 'border-orange-500/90 bg-orange-950/90 text-orange-300 shadow-[0_0_50px_rgba(249,115,22,0.35)]';
+        }
+        return 'border-emerald-500/90 bg-emerald-950/90 text-emerald-300 shadow-[0_0_50px_rgba(16,185,129,0.35)]';
       case 'NOT_ELIGIBLE':
-        return 'border-red-500/80 bg-red-950/90 text-red-300';
+        return 'border-red-500/90 bg-red-950/90 text-red-300 shadow-[0_0_50px_rgba(239,68,68,0.35)]';
       case 'EXPIRED':
-        return 'border-amber-500/80 bg-amber-950/90 text-amber-300';
+        return 'border-amber-500/90 bg-amber-950/90 text-amber-300';
       default:
-        return 'border-rose-500/80 bg-rose-950/90 text-rose-300';
+        return 'border-rose-500/90 bg-rose-950/90 text-rose-300';
     }
   };
 
@@ -403,24 +406,41 @@ export const MessEntryPage: React.FC = () => {
           {scanResult && (
             <div
               className={`absolute inset-4 rounded-2xl border-2 backdrop-blur-xl p-5 flex flex-col items-center justify-center text-center shadow-2xl transition-all duration-200 z-30 ${getStatusColor(
-                scanResult.status
+                scanResult.status,
+                scanResult.mealPlan
               )}`}
             >
               {scanResult.status === 'ENTRY_ALLOWED' ? (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center mb-3">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 ${
+                    scanResult.mealPlan === 'NON_VEG'
+                      ? 'bg-orange-500/20 border-2 border-orange-400'
+                      : 'bg-emerald-500/20 border-2 border-emerald-400'
+                  }`}>
+                    <CheckCircle2 className={`w-10 h-10 ${scanResult.mealPlan === 'NON_VEG' ? 'text-orange-400' : 'text-emerald-400'}`} />
                   </div>
-                  <div className="text-xs font-bold tracking-widest uppercase text-emerald-400">
-                    ENTRY ALLOWED
+
+                  {/* Meal Plan Identifier */}
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase mb-1 ${
+                    scanResult.mealPlan === 'NON_VEG'
+                      ? 'bg-orange-500/25 text-orange-200 border border-orange-400/50'
+                      : 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/50'
+                  }`}>
+                    <span>{scanResult.mealPlan === 'NON_VEG' ? '🍗 NON-VEGETARIAN' : '🥬 VEGETARIAN'}</span>
+                    <span>• ENTRY ALLOWED</span>
                   </div>
+
                   <h3 className="text-xl font-extrabold text-white mt-1">
                     {scanResult.studentName}
                   </h3>
-                  <p className="text-sm font-mono text-emerald-200 mt-0.5">{scanResult.usn}</p>
+                  <p className={`text-sm font-mono mt-0.5 ${scanResult.mealPlan === 'NON_VEG' ? 'text-orange-200' : 'text-emerald-200'}`}>
+                    {scanResult.usn}
+                  </p>
 
-                  <div className="mt-3 flex items-center gap-2 text-xs text-slate-300 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-emerald-500/30">
-                    <Building className="w-3.5 h-3.5 text-emerald-400" />
+                  <div className={`mt-3 flex items-center gap-2 text-xs text-slate-300 bg-slate-900/70 px-3 py-1.5 rounded-lg border ${
+                    scanResult.mealPlan === 'NON_VEG' ? 'border-orange-500/30' : 'border-emerald-500/30'
+                  }`}>
+                    <Building className={`w-3.5 h-3.5 ${scanResult.mealPlan === 'NON_VEG' ? 'text-orange-400' : 'text-emerald-400'}`} />
                     <span>{scanResult.hostelName || 'BMSET Hostel Resident'}</span>
                     {scanResult.roomNumber && <span>• Room {scanResult.roomNumber}</span>}
                   </div>

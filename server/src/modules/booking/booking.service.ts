@@ -152,11 +152,12 @@ export class BookingService {
 
       await tx.$queryRaw`SELECT id FROM rooms WHERE id = ${reservation.roomId} FOR UPDATE`;
 
-      const [room, active, beds, existingMessFee, messConfig] = await Promise.all([
+      const [room, active, beds, existingMessFee, vegConfig, legacyConfig] = await Promise.all([
         tx.room.findUnique({ where: { id: reservation.roomId } }),
         tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } }),
         tx.roomAllocation.findMany({ where: { roomId: reservation.roomId, status: "ACTIVE" }, select: { bedNumber: true } }),
         tx.fee.findFirst({ where: { studentId, type: "MESS_FEE" } }),
+        tx.systemConfig.findUnique({ where: { key: "mess_fee_veg" } }),
         tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } }),
       ]);
 
@@ -187,9 +188,13 @@ export class BookingService {
         },
       });
 
-      // Ensure PENDING mess fee invoice is created if none exists
+      // Ensure PENDING mess fee invoice is created if none exists (defaults to Veg fee until student chooses during payment)
       if (!existingMessFee) {
-        const messAmount = messConfig ? parseFloat(messConfig.value) : 78000;
+        const messAmount = vegConfig
+          ? parseFloat(vegConfig.value)
+          : legacyConfig
+          ? parseFloat(legacyConfig.value)
+          : 73000;
         const messDueDate = new Date();
         messDueDate.setDate(messDueDate.getDate() + 30);
         await tx.fee.create({

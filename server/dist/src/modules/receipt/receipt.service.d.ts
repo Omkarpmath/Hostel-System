@@ -6,10 +6,13 @@ export interface ReceiptData {
     studentEmail: string;
     receiptEmail: string;
     feeType: string;
+    mealPlan?: "VEG" | "NON_VEG" | null;
     amount: number;
     paidAt: Date;
-    razorpayOrderId: string;
-    razorpayPaymentId: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    paymentMethod?: string;
+    transactionId?: string;
     hostelName: string;
     blockName?: string;
     roomNumber?: string;

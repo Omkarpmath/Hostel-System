@@ -1,17 +1,28 @@
+import { MealPlan } from "@prisma/client";
 export declare class MessFeeService {
     private studentId;
-    getAmount(): Promise<number>;
+    getAmounts(): Promise<{
+        veg: number;
+        nonVeg: number;
+    }>;
+    getAmount(mealPlan?: MealPlan): Promise<number>;
+    updateAmounts(veg: number, nonVeg: number): Promise<{
+        veg: number;
+        nonVeg: number;
+    }>;
     updateAmount(amount: number): Promise<{
-        id: string;
-        updatedAt: Date;
-        description: string | null;
-        key: string;
-        value: string;
+        veg: number;
+        nonVeg: number;
     }>;
     getMyStatus(userId: string): Promise<{
         annualAmount: number;
+        amounts: {
+            veg: number;
+            nonVeg: number;
+        };
         isPaid: boolean;
         paidAt: Date | null;
+        mealPlan: import("@prisma/client").$Enums.MealPlan | null;
         transactionId: string | null;
         paymentMethod: string | null;
         history: {
@@ -24,6 +35,7 @@ export declare class MessFeeService {
             razorpayOrderId: string | null;
             allocationId: string | null;
             amount: import("@prisma/client/runtime/library").Decimal;
+            mealPlan: import("@prisma/client").$Enums.MealPlan | null;
             transactionId: string | null;
             paymentMethod: string | null;
             receiptNumber: string | null;
@@ -36,17 +48,19 @@ export declare class MessFeeService {
             dueDate: Date;
         }[];
     }>;
-    createOrder(userId: string): Promise<{
+    createOrder(userId: string, mealPlan?: MealPlan): Promise<{
         orderId: string;
         amount: number;
         currency: string;
         keyId: string;
         reused: boolean;
+        mealPlan: import("@prisma/client").$Enums.MealPlan;
     } | {
         orderId: string;
         amount: number;
         currency: string;
         keyId: string;
+        mealPlan: import("@prisma/client").$Enums.MealPlan;
         reused?: undefined;
     }>;
     verifyPayment(userId: string, orderId: string, paymentId: string, signature: string): Promise<{
@@ -59,6 +73,7 @@ export declare class MessFeeService {
         razorpayOrderId: string | null;
         allocationId: string | null;
         amount: import("@prisma/client/runtime/library").Decimal;
+        mealPlan: import("@prisma/client").$Enums.MealPlan | null;
         transactionId: string | null;
         paymentMethod: string | null;
         receiptNumber: string | null;

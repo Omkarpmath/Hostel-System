@@ -4,8 +4,26 @@ import { prisma } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { razorpayClient } from "../../config/razorpay.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { roomCache } from "../../config/cache.js";
 import { receiptService } from "../receipt/receipt.service.js";
-const roomInclude = { floor: { include: { block: { include: { hostel: { select: { id: true, name: true, type: true, allowedYears: true, isActive: true } } } } } } };
+const roomInclude = {
+    floor: {
+        select: {
+            id: true,
+            floorNumber: true,
+            name: true,
+            block: {
+                select: {
+                    id: true,
+                    name: true,
+                    hostel: {
+                        select: { id: true, name: true, type: true, allowedYears: true, isActive: true },
+                    },
+                },
+            },
+        },
+    },
+};
 export class BookingService {
     async studentId(userId) {
         const student = await prisma.studentProfile.findUnique({ where: { userId }, select: { id: true } });
@@ -20,17 +38,27 @@ export class BookingService {
         return student;
     }
     async expireReservations(studentId) {
-        await prisma.reservation.updateMany({ where: { status: "PENDING", expiresAt: { lte: new Date() }, ...(studentId ? { studentId } : {}) }, data: { status: "EXPIRED" } });
+        const result = await prisma.reservation.updateMany({
+            where: { status: "PENDING", expiresAt: { lte: new Date() }, ...(studentId ? { studentId } : {}) },
+            data: { status: "EXPIRED" },
+        });
+        if (result.count > 0) {
+            roomCache.invalidate();
+        }
+        return result.count;
     }
     async reserve(userId, roomId) {
         const student = await this.studentProfile(userId);
         const studentId = student.id;
         await this.expireReservations(studentId);
-        return prisma.$transaction(async (tx) => {
-            const [allocation, existing, room] = await Promise.all([
+        const reservation = await prisma.$transaction(async (tx) => {
+            // Row-level lock on the room row to prevent race conditions without locking the whole table
+            await tx.$queryRaw `SELECT id FROM rooms WHERE id = ${roomId} FOR UPDATE`;
+            const [allocation, existing, room, held] = await Promise.all([
                 tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } }),
                 tx.reservation.findFirst({ where: { studentId, status: "PENDING", expiresAt: { gt: new Date() } }, include: { room: { include: roomInclude } } }),
                 tx.room.findUnique({ where: { id: roomId }, include: roomInclude }),
+                tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } }),
             ]);
             if (allocation)
                 throw ApiError.conflict("You already have an active room allocation");
@@ -52,11 +80,12 @@ export class BookingService {
             if (hostel.allowedYears && hostel.allowedYears.length > 0 && !hostel.allowedYears.includes(student.year)) {
                 throw ApiError.badRequest(`This hostel is not open for Year ${student.year} students`);
             }
-            const held = await tx.reservation.count({ where: { roomId, status: "PENDING", expiresAt: { gt: new Date() } } });
             if (room.occupiedBeds + held >= room.capacity)
                 throw ApiError.conflict("This room has just been reserved by another student");
             return tx.reservation.create({ data: { studentId, roomId, expiresAt: new Date(Date.now() + 10 * 60 * 1000) }, include: { room: { include: roomInclude } } });
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+        roomCache.invalidate();
+        return reservation;
     }
     async activeReservation(userId) {
         const studentId = await this.studentId(userId);
@@ -111,25 +140,36 @@ export class BookingService {
     }
     async allocatePaidReservation(studentId, orderId, paymentId) {
         const result = await prisma.$transaction(async (tx) => {
-            const paid = await tx.fee.findFirst({ where: { transactionId: paymentId }, include: { allocation: true } });
+            const [paid, reservation] = await Promise.all([
+                tx.fee.findFirst({ where: { transactionId: paymentId }, include: { allocation: true } }),
+                tx.reservation.findFirst({ where: { studentId, razorpayOrderId: orderId, status: "PENDING", expiresAt: { gt: new Date() } } }),
+            ]);
             if (paid?.allocation)
                 return { allocation: paid.allocation, feeId: paid.id };
-            const reservation = await tx.reservation.findFirst({ where: { studentId, razorpayOrderId: orderId, status: "PENDING", expiresAt: { gt: new Date() } } });
             if (!reservation)
                 throw ApiError.badRequest("Reservation is invalid or expired");
             await tx.$queryRaw `SELECT id FROM rooms WHERE id = ${reservation.roomId} FOR UPDATE`;
-            const [room, active] = await Promise.all([tx.room.findUnique({ where: { id: reservation.roomId } }), tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } })]);
-            if (!room || !room.isActive || room.occupiedBeds >= room.capacity)
+            const [room, active, beds, existingMessFee, vegConfig, legacyConfig] = await Promise.all([
+                tx.room.findUnique({ where: { id: reservation.roomId } }),
+                tx.roomAllocation.findFirst({ where: { studentId, status: "ACTIVE" } }),
+                tx.roomAllocation.findMany({ where: { roomId: reservation.roomId, status: "ACTIVE" }, select: { bedNumber: true } }),
+                tx.fee.findFirst({ where: { studentId, type: "MESS_FEE" } }),
+                tx.systemConfig.findUnique({ where: { key: "mess_fee_veg" } }),
+                tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } }),
+            ]);
+            if (!room || !room.isActive || room.status === "BLOCKED" || room.occupiedBeds >= room.capacity)
                 throw ApiError.conflict("Room is no longer available");
             if (active)
                 throw ApiError.conflict("You already have an active room allocation");
-            const beds = await tx.roomAllocation.findMany({ where: { roomId: room.id, status: "ACTIVE" }, select: { bedNumber: true } });
             const bedNumber = Array.from({ length: room.capacity }, (_, index) => index + 1).find((bed) => !beds.some((entry) => entry.bedNumber === bed));
             if (!bedNumber)
                 throw ApiError.conflict("Room is no longer available");
-            const allocation = await tx.roomAllocation.create({ data: { studentId, roomId: room.id, bedNumber, allocatedFrom: new Date() } });
             const occupiedBeds = room.occupiedBeds + 1;
-            await tx.room.update({ where: { id: room.id }, data: { occupiedBeds, status: occupiedBeds >= room.capacity ? "FULL" : "PARTIALLY_OCCUPIED", version: { increment: 1 } } });
+            const [allocation] = await Promise.all([
+                tx.roomAllocation.create({ data: { studentId, roomId: room.id, bedNumber, allocatedFrom: new Date() } }),
+                tx.room.update({ where: { id: room.id }, data: { occupiedBeds, status: occupiedBeds >= room.capacity ? "FULL" : "PARTIALLY_OCCUPIED", version: { increment: 1 } } }),
+                tx.reservation.update({ where: { id: reservation.id }, data: { status: "CONVERTED" } }),
+            ]);
             const fee = await tx.fee.create({
                 data: {
                     studentId,
@@ -143,13 +183,13 @@ export class BookingService {
                     dueDate: new Date(),
                 },
             });
-            // Ensure PENDING mess fee invoice is created if none exists
-            const existingMessFee = await tx.fee.findFirst({
-                where: { studentId, type: "MESS_FEE" },
-            });
+            // Ensure PENDING mess fee invoice is created if none exists (defaults to Veg fee until student chooses during payment)
             if (!existingMessFee) {
-                const messConfig = await tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } });
-                const messAmount = messConfig ? parseFloat(messConfig.value) : 78000;
+                const messAmount = vegConfig
+                    ? parseFloat(vegConfig.value)
+                    : legacyConfig
+                        ? parseFloat(legacyConfig.value)
+                        : 73000;
                 const messDueDate = new Date();
                 messDueDate.setDate(messDueDate.getDate() + 30);
                 await tx.fee.create({
@@ -163,9 +203,9 @@ export class BookingService {
                     },
                 });
             }
-            await tx.reservation.update({ where: { id: reservation.id }, data: { status: "CONVERTED" } });
             return { allocation, feeId: fee.id };
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+        roomCache.invalidate();
         // Trigger PDF generation and Resend email delivery (non-blocking, fail-safe)
         if (result?.feeId) {
             receiptService.processReceiptAndEmail(result.feeId, paymentId).catch((err) => {
@@ -179,6 +219,7 @@ export class BookingService {
         const result = await prisma.reservation.updateMany({ where: { id: reservationId, studentId, status: "PENDING" }, data: { status: "EXPIRED" } });
         if (!result.count)
             throw ApiError.notFound("Active reservation not found");
+        roomCache.invalidate();
     }
 }
 export const bookingService = new BookingService();

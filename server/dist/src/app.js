@@ -17,6 +17,7 @@ import verifyRoutes from "./modules/verify/verify.routes.js";
 import attendanceRoutes from "./modules/attendance/attendance.routes.js";
 import announcementRoutes from "./modules/announcement/announcement.routes.js";
 import notificationRoutes from "./modules/notification/notification.routes.js";
+import messEntryRoutes from "./modules/mess-entry/mess-entry.routes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
@@ -51,12 +52,17 @@ app.use("/api/v1/uploads", express.static(uploadDir));
 app.get("/api/v1/health", (_req, res) => {
     res.json({
         success: true,
-        message: "BMSCE Hostel Management API is running",
+        message: "BMSET Hostel Management API is running",
         timestamp: new Date().toISOString(),
     });
 });
 app.get("/api/ping", (_req, res) => {
     res.json({ status: "ok", message: "Hostel-System backend is running" });
+});
+// Alias for /api/dashboard/stats -> /api/v1/dashboard/stats
+app.get("/api/dashboard/stats", (req, res, next) => {
+    req.url = "/dashboard/stats";
+    hostelRoutes(req, res, next);
 });
 app.use("/api/v1/auth", authRoutes);
 // This endpoint is intentionally public: security/warden staff scan a student's
@@ -69,6 +75,7 @@ app.use("/api/v1", operationsRoutes);
 app.use("/api/v1/booking", bookingRoutes);
 app.use("/api/v1/mess-fee", messFeeRoutes);
 app.use("/api/v1/attendance", attendanceRoutes);
+app.use("/api/v1/mess-entry", messEntryRoutes);
 app.use("/api/v1/announcements", announcementRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 // ============ ERROR HANDLING ============

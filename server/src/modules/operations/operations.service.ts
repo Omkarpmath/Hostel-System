@@ -259,9 +259,10 @@ export class OperationsService {
       ]);
 
       // Parallelize existing fee lookups and mess config query
-      const [existingHostelFee, existingMessFee, messConfig] = await Promise.all([
+      const [existingHostelFee, existingMessFee, vegConfig, legacyConfig] = await Promise.all([
         tx.fee.findFirst({ where: { studentId, allocationId: allocation.id, type: "HOSTEL_FEE" } }),
         tx.fee.findFirst({ where: { studentId, type: "MESS_FEE" } }),
+        tx.systemConfig.findUnique({ where: { key: "mess_fee_veg" } }),
         tx.systemConfig.findUnique({ where: { key: "annual_mess_fee" } }),
       ]);
 
@@ -285,9 +286,13 @@ export class OperationsService {
         );
       }
 
-      // Generate PENDING Mess Fee if not present
+      // Generate PENDING Mess Fee if not present (defaults to Veg amount until student chooses at payment)
       if (!existingMessFee) {
-        const messAmount = messConfig ? parseFloat(messConfig.value) : 78000;
+        const messAmount = vegConfig
+          ? parseFloat(vegConfig.value)
+          : legacyConfig
+          ? parseFloat(legacyConfig.value)
+          : 73000;
         feePromises.push(
           tx.fee.create({
             data: {
@@ -826,8 +831,15 @@ export class OperationsService {
 
   async listFees(userId: string, role: string, filters?: { hostelId?: string }) {
     // Reconcile: Ensure all students with active room allocations have a MESS_FEE invoice if none exists yet
-    const config = await prisma.systemConfig.findUnique({ where: { key: "annual_mess_fee" } });
-    const messAmount = config ? parseFloat(config.value) : 78000;
+    const [vegConfig, legacyConfig] = await Promise.all([
+      prisma.systemConfig.findUnique({ where: { key: "mess_fee_veg" } }),
+      prisma.systemConfig.findUnique({ where: { key: "annual_mess_fee" } }),
+    ]);
+    const messAmount = vegConfig
+      ? parseFloat(vegConfig.value)
+      : legacyConfig
+      ? parseFloat(legacyConfig.value)
+      : 73000;
 
     const allocationsWithoutMess = await prisma.roomAllocation.findMany({
       where: {

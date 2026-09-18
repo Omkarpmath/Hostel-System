@@ -12,6 +12,7 @@ export interface ReceiptData {
   studentEmail: string;
   receiptEmail: string;
   feeType: string;
+  mealPlan?: "VEG" | "NON_VEG" | null;
   amount: number;
   paidAt: Date;
   razorpayOrderId?: string;
@@ -161,19 +162,19 @@ export class ReceiptService {
         doc.fillColor("#64748b").font("Helvetica").fontSize(8)
           .text("Fee Category:", margin + 12, sec2Top + 44);
         doc.fillColor("#0f172a").font("Helvetica").fontSize(9)
-          .text(data.feeType, margin + 95, sec2Top + 44);
+          .text(data.feeType, margin + 95, sec2Top + 44, { width: 170, lineBreak: false, ellipsis: true });
 
         if (data.roomNumber) {
           doc.fillColor("#64748b").font("Helvetica").fontSize(8)
-            .text("Allocated Room:", margin + 260, sec2Top + 26);
+            .text("Allocated Room:", margin + 270, sec2Top + 26);
           doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(10)
-            .text(`Room ${data.roomNumber}${data.bedNumber ? ` (Bed #${data.bedNumber})` : ""}`, margin + 340, sec2Top + 25);
+            .text(`Room ${data.roomNumber}${data.bedNumber ? ` (Bed #${data.bedNumber})` : ""}`, margin + 350, sec2Top + 25);
         }
 
         doc.fillColor("#64748b").font("Helvetica").fontSize(8)
-          .text("Academic Year:", margin + 260, sec2Top + 44);
+          .text("Academic Year:", margin + 270, sec2Top + 44);
         doc.fillColor("#0f172a").font("Helvetica").fontSize(9)
-          .text(`${new Date().getFullYear()} - ${new Date().getFullYear() + 1}`, margin + 340, sec2Top + 44);
+          .text(`${new Date().getFullYear()} - ${new Date().getFullYear() + 1}`, margin + 350, sec2Top + 44);
 
         // ─── Section 3: Payment Breakdown Table ───
         const tableTop = sec2Top + 82;
@@ -346,7 +347,9 @@ export class ReceiptService {
 
       // 5. Build Receipt Data
       const studentName = `${fee.student.user.firstName} ${fee.student.user.lastName}`.trim();
-      const feeTypeLabel = fee.type === "MESS_FEE" ? "Annual Mess Fee" : "Hostel Accommodation Fee";
+      const feeTypeLabel = fee.type === "MESS_FEE"
+        ? (fee.mealPlan ? `Annual Mess Fee (${fee.mealPlan === "NON_VEG" ? "Non-Vegetarian" : "Vegetarian"})` : "Annual Mess Fee")
+        : "Hostel Accommodation Fee";
       const hostelName = fee.allocation?.room?.floor?.block?.hostel?.name || "BMSET Campus Hostel";
       const blockName = fee.allocation?.room?.floor?.block?.name;
       const roomNumber = fee.allocation?.room?.roomNumber;
@@ -360,6 +363,7 @@ export class ReceiptService {
         studentEmail: fee.student.user.email,
         receiptEmail: customerEmail,
         feeType: feeTypeLabel,
+        mealPlan: fee.mealPlan,
         amount: Number(fee.amount),
         paidAt: fee.paidAt || new Date(),
         razorpayOrderId: fee.razorpayOrderId || "—",
@@ -519,7 +523,9 @@ Bull Temple Road, Bengaluru - 560019`;
     }
 
     const studentName = `${fee.student.user.firstName} ${fee.student.user.lastName}`.trim();
-    const feeTypeLabel = fee.type === "MESS_FEE" ? "Annual Mess Fee" : "Hostel Accommodation Fee";
+    const feeTypeLabel = fee.type === "MESS_FEE"
+      ? (fee.mealPlan ? `Annual Mess Fee (${fee.mealPlan === "NON_VEG" ? "Non-Vegetarian" : "Vegetarian"})` : "Annual Mess Fee")
+      : "Hostel Accommodation Fee";
     const hostelName = fee.allocation?.room?.floor?.block?.hostel?.name || "BMSET Campus Hostel";
     const blockName = fee.allocation?.room?.floor?.block?.name;
     const roomNumber = fee.allocation?.room?.roomNumber;
@@ -533,6 +539,7 @@ Bull Temple Road, Bengaluru - 560019`;
       studentEmail: fee.student.user.email,
       receiptEmail: fee.receiptEmail || fee.student.user.email,
       feeType: feeTypeLabel,
+      mealPlan: fee.mealPlan,
       amount: Number(fee.amount),
       paidAt: fee.paidAt || fee.createdAt || new Date(),
       razorpayOrderId: fee.razorpayOrderId || "—",

@@ -53,6 +53,9 @@ export declare class HostelService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 }[];
             } & {
                 name: string;
@@ -107,6 +110,9 @@ export declare class HostelService {
                     feePerSemester: Prisma.Decimal;
                     amenities: string | null;
                     version: number;
+                    blockedAt: Date | null;
+                    blockedById: string | null;
+                    blockedReason: string | null;
                 }[];
             } & {
                 name: string;
@@ -207,6 +213,9 @@ export declare class HostelService {
                 feePerSemester: Prisma.Decimal;
                 amenities: string | null;
                 version: number;
+                blockedAt: Date | null;
+                blockedById: string | null;
+                blockedReason: string | null;
             }[];
         } & {
             name: string;
@@ -243,6 +252,9 @@ export declare class HostelService {
             feePerSemester: Prisma.Decimal;
             amenities: string | null;
             version: number;
+            blockedAt: Date | null;
+            blockedById: string | null;
+            blockedReason: string | null;
         }[];
     } & {
         name: string;
@@ -267,6 +279,9 @@ export declare class HostelService {
             feePerSemester: Prisma.Decimal;
             amenities: string | null;
             version: number;
+            blockedAt: Date | null;
+            blockedById: string | null;
+            blockedReason: string | null;
         }[];
     } & {
         name: string;
@@ -296,6 +311,9 @@ export declare class HostelService {
         feePerSemester: Prisma.Decimal;
         amenities: string | null;
         version: number;
+        blockedAt: Date | null;
+        blockedById: string | null;
+        blockedReason: string | null;
     }>;
     getRooms(filters?: {
         status?: string;
@@ -305,8 +323,8 @@ export declare class HostelService {
         page?: number;
         limit?: number;
         search?: string;
-    }): Promise<{
-        rooms: ({
+    }, userRole?: string): Promise<{
+        rooms: (({
             floor: {
                 block: {
                     hostel: {
@@ -331,6 +349,12 @@ export declare class HostelService {
                 blockId: string;
                 floorNumber: number;
             };
+            blockedBy: {
+                id: string;
+                email: string;
+                firstName: string;
+                lastName: string;
+            } | null;
             allocations: ({
                 student: {
                     user: {
@@ -380,6 +404,52 @@ export declare class HostelService {
             feePerSemester: Prisma.Decimal;
             amenities: string | null;
             version: number;
+            blockedAt: Date | null;
+            blockedById: string | null;
+            blockedReason: string | null;
+        }) | {
+            status: any;
+            occupiedBeds: number;
+            blockedAt: null;
+            blockedById: null;
+            blockedReason: null;
+            blockedBy: null;
+            allocations: never[];
+            floor: {
+                block: {
+                    hostel: {
+                        name: string;
+                        id: string;
+                        type: import("@prisma/client").$Enums.HostelType;
+                    };
+                } & {
+                    name: string;
+                    id: string;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    description: string | null;
+                    hostelId: string;
+                };
+            } & {
+                name: string;
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                blockId: string;
+                floorNumber: number;
+            };
+            id: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            type: import("@prisma/client").$Enums.RoomType;
+            floorId: string;
+            roomNumber: string;
+            capacity: number;
+            feePerSemester: Prisma.Decimal;
+            amenities: string | null;
+            version: number;
         })[];
         meta: {
             page: number;
@@ -391,46 +461,7 @@ export declare class HostelService {
     getAvailableRooms(hostelId?: string, eligibility?: {
         year: number;
         gender: "MALE" | "FEMALE" | "OTHER";
-    }): Promise<{
-        occupiedBeds: number;
-        floor: {
-            block: {
-                hostel: {
-                    name: string;
-                    id: string;
-                    type: import("@prisma/client").$Enums.HostelType;
-                    allowedYears: number[];
-                };
-            } & {
-                name: string;
-                id: string;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                description: string | null;
-                hostelId: string;
-            };
-        } & {
-            name: string;
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            blockId: string;
-            floorNumber: number;
-        };
-        id: string;
-        isActive: boolean;
-        createdAt: Date;
-        updatedAt: Date;
-        type: import("@prisma/client").$Enums.RoomType;
-        status: import("@prisma/client").$Enums.RoomStatus;
-        floorId: string;
-        roomNumber: string;
-        capacity: number;
-        feePerSemester: Prisma.Decimal;
-        amenities: string | null;
-        version: number;
-    }[]>;
+    }): Promise<any[]>;
     getRoomById(id: string): Promise<{
         floor: {
             block: {
@@ -515,6 +546,9 @@ export declare class HostelService {
         feePerSemester: Prisma.Decimal;
         amenities: string | null;
         version: number;
+        blockedAt: Date | null;
+        blockedById: string | null;
+        blockedReason: string | null;
     }>;
     updateRoom(id: string, data: Partial<{
         roomNumber: string;
@@ -538,93 +572,64 @@ export declare class HostelService {
         feePerSemester: Prisma.Decimal;
         amenities: string | null;
         version: number;
+        blockedAt: Date | null;
+        blockedById: string | null;
+        blockedReason: string | null;
     }>;
-    getDashboardStats(): Promise<{
-        totalStudents: number;
-        totalHostels: number;
-        totalRooms: number;
-        totalBeds: number;
-        occupiedBeds: number;
-        availableRooms: number;
-        partiallyOccupiedRooms: number;
-        fullyOccupiedRooms: number;
-        pendingLeaves: number;
-        openComplaints: number;
-        pendingFees: number;
-        recentAllocations: ({
-            student: {
-                user: {
-                    firstName: string;
-                    lastName: string;
-                };
-            } & {
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                userId: string;
-                usn: string;
-                department: string;
-                year: number;
-                semester: number;
-                guardianName: string | null;
-                guardianPhone: string | null;
-                permanentAddress: string;
-                bloodGroup: string | null;
-                dateOfBirth: Date;
-                gender: import("@prisma/client").$Enums.Gender;
-                qrCodeToken: string;
-            };
-            room: {
-                floor: {
-                    block: {
-                        hostel: {
-                            name: string;
-                        };
-                    } & {
-                        name: string;
-                        id: string;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        description: string | null;
-                        hostelId: string;
-                    };
-                } & {
-                    name: string;
-                    id: string;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    blockId: string;
-                    floorNumber: number;
-                };
-            } & {
-                id: string;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                type: import("@prisma/client").$Enums.RoomType;
-                status: import("@prisma/client").$Enums.RoomStatus;
-                floorId: string;
-                roomNumber: string;
-                capacity: number;
-                occupiedBeds: number;
-                feePerSemester: Prisma.Decimal;
-                amenities: string | null;
-                version: number;
-            };
-        } & {
+    blockRoom(id: string, adminUserId: string, reason?: string): Promise<{
+        blockedBy: {
             id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            studentId: string;
-            status: import("@prisma/client").$Enums.AllocationStatus;
-            roomId: string;
-            bedNumber: number;
-            allocatedFrom: Date;
-            allocatedTo: Date | null;
-        })[];
-        occupancyRate: number;
+            email: string;
+            firstName: string;
+            lastName: string;
+        } | null;
+    } & {
+        id: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import("@prisma/client").$Enums.RoomType;
+        status: import("@prisma/client").$Enums.RoomStatus;
+        floorId: string;
+        roomNumber: string;
+        capacity: number;
+        occupiedBeds: number;
+        feePerSemester: Prisma.Decimal;
+        amenities: string | null;
+        version: number;
+        blockedAt: Date | null;
+        blockedById: string | null;
+        blockedReason: string | null;
     }>;
+    unblockRoom(id: string): Promise<{
+        blockedBy: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+        } | null;
+    } & {
+        id: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        type: import("@prisma/client").$Enums.RoomType;
+        status: import("@prisma/client").$Enums.RoomStatus;
+        floorId: string;
+        roomNumber: string;
+        capacity: number;
+        occupiedBeds: number;
+        feePerSemester: Prisma.Decimal;
+        amenities: string | null;
+        version: number;
+        blockedAt: Date | null;
+        blockedById: string | null;
+        blockedReason: string | null;
+    }>;
+    getDashboardStats(user?: {
+        userId: string;
+        role: string;
+    }): Promise<any>;
 }
 export declare const hostelService: HostelService;
 //# sourceMappingURL=hostel.service.d.ts.map
