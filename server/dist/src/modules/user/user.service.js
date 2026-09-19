@@ -2,6 +2,8 @@ import { prisma } from "../../config/db.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { hashPassword } from "../../utils/hash.js";
 import { Prisma } from "@prisma/client";
+import { logAuditEvent } from "../../utils/audit.js";
+import { parseCsv } from "../../utils/csv.js";
 export class UserService {
     async createStudent(data) {
         const passwordHash = await hashPassword(data.password);
@@ -301,21 +303,60 @@ export class UserService {
         const page = filters?.page || 1;
         const limit = filters?.limit || 20;
         const skip = (page - 1) * limit;
-        // Query User, not StudentProfile: accounts can exist before an administrator
-        // completes their profile, and must not disappear from the admin roster.
         const where = { role: "STUDENT" };
-        if (filters?.department)
-            where.studentProfile = { department: filters.department };
-        if (filters?.year)
-            where.studentProfile = { year: filters.year };
-        if (wardenId)
-            where.studentProfile = { roomAllocations: { some: { status: "ACTIVE", room: { floor: { block: { hostel: { wardenId } } } } } } };
+        const studentProfileWhere = {};
+        if (filters?.department) {
+            studentProfileWhere.department = filters.department;
+        }
+        if (filters?.year) {
+            studentProfileWhere.year = Number(filters.year);
+        }
+        if (filters?.gender) {
+            studentProfileWhere.gender = filters.gender.toUpperCase();
+        }
+        if (filters?.allocated === "true") {
+            studentProfileWhere.roomAllocations = {
+                some: { status: "ACTIVE" },
+            };
+        }
+        else if (filters?.allocated === "false") {
+            studentProfileWhere.roomAllocations = {
+                none: { status: "ACTIVE" },
+            };
+        }
+        if (filters?.hostelId) {
+            studentProfileWhere.roomAllocations = {
+                some: {
+                    status: "ACTIVE",
+                    room: {
+                        floor: {
+                            block: {
+                                hostelId: filters.hostelId,
+                            },
+                        },
+                    },
+                },
+            };
+        }
+        if (wardenId) {
+            studentProfileWhere.roomAllocations = {
+                some: {
+                    status: "ACTIVE",
+                    room: { floor: { block: { hostel: { wardenId } } } },
+                },
+            };
+        }
+        if (Object.keys(studentProfileWhere).length > 0) {
+            where.studentProfile = studentProfileWhere;
+        }
         if (filters?.search) {
+            const s = filters.search.trim();
             where.OR = [
-                { firstName: { contains: filters.search, mode: "insensitive" } },
-                { lastName: { contains: filters.search, mode: "insensitive" } },
-                { email: { contains: filters.search, mode: "insensitive" } },
-                { studentProfile: { usn: { contains: filters.search, mode: "insensitive" } } },
+                { firstName: { contains: s, mode: "insensitive" } },
+                { lastName: { contains: s, mode: "insensitive" } },
+                { email: { contains: s, mode: "insensitive" } },
+                { studentProfile: { usn: { contains: s, mode: "insensitive" } } },
+                { studentProfile: { department: { contains: s, mode: "insensitive" } } },
             ];
         }
         const [users, total] = await Promise.all([
@@ -363,6 +404,107 @@ export class UserService {
         return {
             students,
             meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        };
+    }
+    // ============ BULK STUDENT ONBOARDING ============
+    async bulkImportStudents(csvText, actorId, actorRole = "ADMIN") {
+        const rows = parseCsv(csvText);
+        if (rows.length === 0) {
+            throw ApiError.badRequest("CSV file is empty or missing headers");
+        }
+        let created = 0;
+        let skipped = 0;
+        const errors = [];
+        const existingEmails = new Set((await prisma.user.findMany({ select: { email: true } })).map((u) => u.email.toLowerCase()));
+        const existingUsns = new Set((await prisma.studentProfile.findMany({ select: { usn: true } })).map((s) => s.usn.toLowerCase()));
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowNum = i + 2;
+            const usn = (row.usn || "").toUpperCase().trim();
+            const firstName = (row.firstname || row.first_name || row.name || "").trim();
+            const lastName = (row.lastname || row.last_name || "").trim();
+            const email = (row.email || "").toLowerCase().trim();
+            const phone = (row.phone || row.mobilenumber || "").trim();
+            const rawGender = (row.gender || "MALE").toUpperCase().trim();
+            const gender = rawGender === "FEMALE" ? "FEMALE" : rawGender === "OTHER" ? "OTHER" : "MALE";
+            const department = (row.department || row.dept || "Computer Science").trim();
+            const year = parseInt(row.year || "1", 10) || 1;
+            const semester = parseInt(row.semester || row.sem || String(year * 2 - 1), 10) || 1;
+            const guardianName = (row.guardianname || row.guardian_name || row.parentname || "").trim() || null;
+            const guardianPhone = (row.guardianphone || row.guardian_phone || row.parentphone || "").trim() || null;
+            const permanentAddress = (row.permanentaddress || row.address || "Bangalore, Karnataka").trim();
+            const rawDob = (row.dateofbirth || row.dob || "2004-01-01").trim();
+            const rawPassword = (row.password || `BMSET@${year}`).trim();
+            if (!usn || !email || !firstName) {
+                errors.push(`Row ${rowNum}: USN, Email, and First Name are required.`);
+                skipped++;
+                continue;
+            }
+            if (existingEmails.has(email)) {
+                errors.push(`Row ${rowNum}: Email '${email}' already registered.`);
+                skipped++;
+                continue;
+            }
+            if (existingUsns.has(usn.toLowerCase())) {
+                errors.push(`Row ${rowNum}: USN '${usn}' already registered.`);
+                skipped++;
+                continue;
+            }
+            try {
+                const passwordHash = await hashPassword(rawPassword);
+                const dateOfBirth = new Date(rawDob);
+                await prisma.$transaction(async (tx) => {
+                    const user = await tx.user.create({
+                        data: {
+                            email,
+                            passwordHash,
+                            firstName,
+                            lastName: lastName || "",
+                            phone: phone || null,
+                            role: "STUDENT",
+                        },
+                    });
+                    await tx.studentProfile.create({
+                        data: {
+                            userId: user.id,
+                            usn,
+                            department,
+                            year,
+                            semester,
+                            guardianName,
+                            guardianPhone,
+                            permanentAddress,
+                            dateOfBirth: isNaN(dateOfBirth.getTime()) ? new Date("2004-01-01") : dateOfBirth,
+                            gender,
+                        },
+                    });
+                });
+                existingEmails.add(email);
+                existingUsns.add(usn.toLowerCase());
+                created++;
+            }
+            catch (err) {
+                errors.push(`Row ${rowNum} (${usn}): ${err.message}`);
+                skipped++;
+            }
+        }
+        await logAuditEvent({
+            actorId,
+            actorRole,
+            action: "BULK_STUDENT_IMPORT",
+            entityType: "StudentProfile",
+            details: {
+                totalRows: rows.length,
+                created,
+                skipped,
+                errorCount: errors.length,
+            },
+        });
+        return {
+            processed: rows.length,
+            created,
+            skipped,
+            errors,
         };
     }
     async getWardens() {

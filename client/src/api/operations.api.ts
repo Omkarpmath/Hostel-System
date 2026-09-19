@@ -36,4 +36,19 @@ export const operationsApi = {
     paidAt?: string;
     remarks?: string;
   }) => api.post<ApiResponse<Fee>>(`/fees/${feeId}/approve-offline`, data),
+
+  vacate: (allocationId: string) =>
+    api.post<ApiResponse<RoomAllocation>>(`/allocations/${allocationId}/vacate`),
+
+  academicRollover: () =>
+    api.post<ApiResponse<{ graduatedCount: number; promotedCount: number }>>('/rollover'),
+
+  downloadFeeDefaultersReport: () =>
+    api.get('/reports/fee-defaulters', { responseType: 'blob' }),
+
+  downloadAttendanceShortageReport: () =>
+    api.get('/reports/attendance-shortage', { responseType: 'blob' }),
+
+  downloadMessHeadcountReport: () =>
+    api.get('/reports/mess-headcount', { responseType: 'blob' }),
 };

@@ -5,6 +5,11 @@ export declare class OperationsController {
     mine(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     allocations(_req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     allocate(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    vacate(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    academicRollover(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    reportFeeDefaulters(_req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
+    reportAttendanceShortage(_req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
+    reportMessHeadcount(_req: AuthRequest, res: Response, next: NextFunction): Promise<Response<any, Record<string, any>> | undefined>;
     leaves(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     createLeave(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     decideLeave(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;

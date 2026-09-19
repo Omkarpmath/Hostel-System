@@ -18,3 +18,11 @@ export const env = {
   RESEND_API_KEY: process.env.RESEND_API_KEY || "",
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL || "BMSET Hostels <onboarding@resend.dev>",
 } as const;
+
+if (env.NODE_ENV === "production") {
+  if (!env.JWT_ACCESS_SECRET || env.JWT_ACCESS_SECRET.includes("change_me")) {
+    throw new Error(
+      "FATAL: Insecure JWT_ACCESS_SECRET in production. Please define a high-entropy secret in your environment variables."
+    );
+  }
+}

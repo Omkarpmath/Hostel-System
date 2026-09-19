@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { messFeeApi } from '@/api/messFee.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useToast } from '@/providers/ToastProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { operationsApi } from '@/api/operations.api';
 import { loadRazorpayScript } from '@/lib/razorpay';
@@ -24,6 +25,7 @@ const money = (v?: number | string | null) => {
 export function MessFeePage() {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { toast } = useToast();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
@@ -46,7 +48,7 @@ export function MessFeePage() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch {
-      alert('Failed to download receipt PDF.');
+      toast.error('Failed to download receipt PDF. Please try again.');
     } finally {
       setDownloadingId(null);
     }

@@ -4,6 +4,8 @@ import { ApiError } from "../../utils/ApiError.js";
 import { Prisma } from "@prisma/client";
 import { operationsService } from "../operations/operations.service.js";
 import { announcementService } from "../announcement/announcement.service.js";
+import { logAuditEvent } from "../../utils/audit.js";
+import { parseCsv } from "../../utils/csv.js";
 
 export class HostelService {
   // ============ HOSTEL ============
@@ -196,6 +198,8 @@ export class HostelService {
       type?: string;
       floorId?: string;
       hostelId?: string;
+      hostelType?: string;
+      year?: number;
       page?: number;
       limit?: number;
       search?: string;
@@ -217,8 +221,54 @@ export class HostelService {
         },
       };
     }
+    if (filters?.hostelType) {
+      where.floor = {
+        ...(where.floor as any),
+        block: {
+          ...((where.floor as any)?.block || {}),
+          hostel: {
+            ...((where.floor as any)?.block?.hostel || {}),
+            type: filters.hostelType as any,
+          },
+        },
+      };
+    }
+    if (filters?.year) {
+      where.allocations = {
+        some: {
+          status: "ACTIVE",
+          student: {
+            year: Number(filters.year),
+          },
+        },
+      };
+    }
     if (filters?.search) {
-      where.roomNumber = { contains: filters.search, mode: "insensitive" };
+      const s = filters.search.trim();
+      where.OR = [
+        { roomNumber: { contains: s, mode: "insensitive" } },
+        {
+          allocations: {
+            some: {
+              status: "ACTIVE",
+              student: {
+                OR: [
+                  { usn: { contains: s, mode: "insensitive" } },
+                  {
+                    user: {
+                      OR: [
+                        { firstName: { contains: s, mode: "insensitive" } },
+                        { lastName: { contains: s, mode: "insensitive" } },
+                        { email: { contains: s, mode: "insensitive" } },
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ];
     }
 
     const [rawRooms, total] = await Promise.all([
@@ -243,7 +293,14 @@ export class HostelService {
               student: {
                 include: {
                   user: {
-                    select: { firstName: true, lastName: true, email: true },
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                      phone: true,
+                      avatarUrl: true,
+                    },
                   },
                 },
               },
@@ -449,10 +506,20 @@ export class HostelService {
       },
     });
     roomCache.invalidate();
+
+    await logAuditEvent({
+      actorId: adminUserId,
+      actorRole: "ADMIN",
+      action: "ROOM_BLOCKED",
+      entityType: "Room",
+      entityId: id,
+      details: { roomNumber: updated.roomNumber, reason: reason?.trim() || null },
+    });
+
     return updated;
   }
 
-  async unblockRoom(id: string) {
+  async unblockRoom(id: string, actorId?: string) {
     const room = await prisma.room.findUnique({
       where: { id },
     });
@@ -483,7 +550,207 @@ export class HostelService {
       },
     });
     roomCache.invalidate();
+
+    if (actorId) {
+      await logAuditEvent({
+        actorId,
+        actorRole: "ADMIN",
+        action: "ROOM_UNBLOCKED",
+        entityType: "Room",
+        entityId: id,
+        details: { roomNumber: updated.roomNumber },
+      });
+    }
+
     return updated;
+  }
+
+  // ============ BULK INFRASTRUCTURE IMPORT ============
+
+  async bulkImportRooms(
+    csvText: string,
+    actorId: string,
+    actorRole: any = "ADMIN"
+  ) {
+    const rows = parseCsv(csvText);
+    if (rows.length === 0) {
+      throw ApiError.badRequest("CSV file is empty or missing headers");
+    }
+
+    let createdRooms = 0;
+    let updatedRooms = 0;
+    const errors: string[] = [];
+
+    const hostelMap = new Map<string, string>();
+    const blockMap = new Map<string, string>();
+    const floorMap = new Map<string, string>();
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNum = i + 2;
+
+      const hostelName = (row.hostelname || row.hostel || "").trim();
+      const rawHostelType = (row.hosteltype || "BOYS").toUpperCase().trim();
+      const hostelType = rawHostelType === "GIRLS" ? "GIRLS" : "BOYS";
+      const blockName = (row.blockname || row.block || "Block A").trim();
+      const floorNumber = parseInt(row.floornumber || row.floor || "1", 10) || 1;
+      const roomNumber = (row.roomnumber || row.room || "").trim();
+      const capacity = parseInt(row.capacity || "2", 10) || 2;
+      const rawRoomType = (row.roomtype || "").toUpperCase().trim();
+      const roomType =
+        rawRoomType === "SINGLE"
+          ? "SINGLE"
+          : rawRoomType === "TRIPLE"
+          ? "TRIPLE"
+          : rawRoomType === "DORMITORY"
+          ? "DORMITORY"
+          : capacity === 1
+          ? "SINGLE"
+          : capacity === 3
+          ? "TRIPLE"
+          : capacity > 3
+          ? "DORMITORY"
+          : "DOUBLE";
+      const feePerSemester = parseFloat(row.feepersemester || row.fee || "0") || 0;
+      const amenities = row.amenities ? JSON.stringify(row.amenities.split(";").map((a) => a.trim()).filter(Boolean)) : null;
+
+      if (!hostelName || !roomNumber) {
+        errors.push(`Row ${rowNum}: Missing required HostelName or RoomNumber`);
+        continue;
+      }
+
+      try {
+        // 1. Hostel
+        let hostelId = hostelMap.get(hostelName.toLowerCase());
+        if (!hostelId) {
+          let hostel = await prisma.hostel.findUnique({
+            where: { name: hostelName },
+          });
+          if (!hostel) {
+            hostel = await prisma.hostel.create({
+              data: {
+                name: hostelName,
+                type: hostelType,
+                allowedYears: [1, 2, 3, 4],
+              },
+            });
+          }
+          hostelId = hostel.id;
+          hostelMap.set(hostelName.toLowerCase(), hostelId);
+        }
+
+        // 2. Block
+        const blockKey = `${hostelId}:${blockName.toLowerCase()}`;
+        let blockId = blockMap.get(blockKey);
+        if (!blockId) {
+          let block = await prisma.block.findUnique({
+            where: {
+              hostelId_name: {
+                hostelId,
+                name: blockName,
+              },
+            },
+          });
+          if (!block) {
+            block = await prisma.block.create({
+              data: {
+                hostelId,
+                name: blockName,
+              },
+            });
+          }
+          blockId = block.id;
+          blockMap.set(blockKey, blockId);
+        }
+
+        // 3. Floor
+        const floorKey = `${blockId}:${floorNumber}`;
+        let floorId = floorMap.get(floorKey);
+        if (!floorId) {
+          let floor = await prisma.floor.findUnique({
+            where: {
+              blockId_floorNumber: {
+                blockId,
+                floorNumber,
+              },
+            },
+          });
+          if (!floor) {
+            floor = await prisma.floor.create({
+              data: {
+                blockId,
+                floorNumber,
+                name: `Floor ${floorNumber}`,
+              },
+            });
+          }
+          floorId = floor.id;
+          floorMap.set(floorKey, floorId);
+        }
+
+        // 4. Room Upsert
+        const existingRoom = await prisma.room.findUnique({
+          where: {
+            floorId_roomNumber: {
+              floorId,
+              roomNumber,
+            },
+          },
+        });
+
+        if (existingRoom) {
+          await prisma.room.update({
+            where: { id: existingRoom.id },
+            data: {
+              capacity,
+              type: roomType as any,
+              feePerSemester,
+              amenities: amenities || existingRoom.amenities,
+            },
+          });
+          updatedRooms++;
+        } else {
+          await prisma.room.create({
+            data: {
+              floorId,
+              roomNumber,
+              capacity,
+              occupiedBeds: 0,
+              type: roomType as any,
+              status: "AVAILABLE",
+              feePerSemester,
+              amenities,
+            },
+          });
+          createdRooms++;
+        }
+      } catch (err: any) {
+        errors.push(`Row ${rowNum} (Room ${roomNumber}): ${err.message}`);
+      }
+    }
+
+    roomCache.invalidate();
+    dashboardCache.invalidate();
+
+    await logAuditEvent({
+      actorId,
+      actorRole,
+      action: "BULK_ROOM_IMPORT",
+      entityType: "Hostel",
+      details: {
+        totalRows: rows.length,
+        createdRooms,
+        updatedRooms,
+        errorCount: errors.length,
+      },
+    });
+
+    return {
+      processed: rows.length,
+      createdRooms,
+      updatedRooms,
+      errors,
+    };
   }
 
   // ============ DASHBOARD STATS ============
@@ -541,9 +808,24 @@ export class HostelService {
       const cached = dashboardCache.get<any>(cacheKey);
       if (cached) return cached;
 
-      const [fees, recentTransactions] = await Promise.all([
-        prisma.fee.findMany({
-          select: { amount: true, status: true, type: true },
+      const [paidAgg, pendingAgg, hostelPaidAgg, messPaidAgg, recentTransactions] = await Promise.all([
+        prisma.fee.aggregate({
+          where: { status: "PAID" },
+          _sum: { amount: true },
+          _count: true,
+        }),
+        prisma.fee.aggregate({
+          where: { status: "PENDING" },
+          _sum: { amount: true },
+          _count: true,
+        }),
+        prisma.fee.aggregate({
+          where: { type: "HOSTEL_FEE", status: "PAID" },
+          _sum: { amount: true },
+        }),
+        prisma.fee.aggregate({
+          where: { type: "MESS_FEE", status: "PAID" },
+          _sum: { amount: true },
         }),
         prisma.fee.findMany({
           where: { status: "PAID" },
@@ -559,22 +841,14 @@ export class HostelService {
         }),
       ]);
 
-      const totalPaid = fees
-        .filter((f) => f.status === "PAID")
-        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
-      const totalPending = fees
-        .filter((f) => f.status === "PENDING")
-        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
-      const paidCount = fees.filter((f) => f.status === "PAID").length;
-      const pendingCount = fees.filter((f) => f.status === "PENDING").length;
-      const totalRecords = fees.length;
+      const totalPaid = Number(paidAgg._sum.amount || 0);
+      const totalPending = Number(pendingAgg._sum.amount || 0);
+      const paidCount = paidAgg._count;
+      const pendingCount = pendingAgg._count;
+      const totalRecords = paidCount + pendingCount;
       const collectionRate = totalRecords > 0 ? Math.round((paidCount / totalRecords) * 100) : 0;
-      const hostelFeePaid = fees
-        .filter((f) => f.type === "HOSTEL_FEE" && f.status === "PAID")
-        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
-      const messFeePaid = fees
-        .filter((f) => f.type === "MESS_FEE" && f.status === "PAID")
-        .reduce((sum, f) => sum + Number(f.amount || 0), 0);
+      const hostelFeePaid = Number(hostelPaidAgg._sum.amount || 0);
+      const messFeePaid = Number(messPaidAgg._sum.amount || 0);
 
       const result = {
         role: "ACCOUNTANT",
@@ -589,7 +863,7 @@ export class HostelService {
         recentTransactions,
       };
 
-      dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+      dashboardCache.set(cacheKey, result, 60_000); // 60 seconds TTL
       return result;
     }
 
@@ -674,7 +948,7 @@ export class HostelService {
       recentAnnouncements: Array.isArray(recentAnnouncements) ? recentAnnouncements.slice(0, 3) : [],
     };
 
-    dashboardCache.set(cacheKey, result, 15_000); // 15 seconds TTL
+    dashboardCache.set(cacheKey, result, 60_000); // 60 seconds TTL
     return result;
   }
 }

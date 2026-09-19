@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database Service
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: hostel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
+      POSTGRES_DB: ${DB_NAME:-hostel_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-hostel_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hostel-network
+
+  # ----------------------------------------------------------------------------
+  # Backend API Server Service
+  # ----------------------------------------------------------------------------
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: hostel-api-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres123}@postgres:5432/${DB_NAME:-hostel_db}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-super-secret-refresh-key-change-in-production}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+    ports:
+      - "5001:5001"
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - hostel-network
+
+  # ----------------------------------------------------------------------------
+  # Frontend Web Client Service (Nginx)
+  # ----------------------------------------------------------------------------
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+        VITE_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+    container_name: hostel-web-client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+    networks:
+      - hostel-network
+
+volumes:
+  pgdata:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  hostel-network:
+    driver: bridge

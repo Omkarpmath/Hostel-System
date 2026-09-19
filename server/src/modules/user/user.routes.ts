@@ -3,9 +3,14 @@ import { userController } from "./user.controller.js";
 import { authenticate } from "../../middleware/auth.middleware.js";
 import { authorize } from "../../middleware/rbac.middleware.js";
 
+import { uploadCsv } from "../../middleware/upload.middleware.js";
+
 const router = Router();
 
 router.use(authenticate);
+
+router.post("/students/bulk-import", authorize("ADMIN"), uploadCsv.single("file"), userController.bulkImportStudents);
+router.post("/users/bulk-import-students", authorize("ADMIN"), uploadCsv.single("file"), userController.bulkImportStudents);
 
 router.get("/users", authorize("ADMIN", "WARDEN"), userController.getUsers);
 router.get("/users/:id", userController.getUserById);

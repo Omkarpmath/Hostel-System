@@ -4,12 +4,15 @@ import { authenticate } from "../../middleware/auth.middleware.js";
 import { authorize } from "../../middleware/rbac.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { browseRoomsRateLimiter } from "../../middleware/rate-limit.middleware.js";
+import { uploadCsv } from "../../middleware/upload.middleware.js";
 import { createHostelSchema, updateHostelSchema, createBlockSchema, createFloorSchema, createRoomSchema, updateRoomSchema, } from "./hostel.schema.js";
 const router = Router();
 // All routes require authentication
 router.use(authenticate);
 // Dashboard (role-aware consolidated summary)
 router.get("/dashboard/stats", authorize("ADMIN", "WARDEN", "ACCOUNTANT", "STUDENT", "SECURITY"), hostelController.getDashboardStats);
+// Bulk Room & Infrastructure CSV Import (ADMIN)
+router.post("/hostels/bulk-import-rooms", authorize("ADMIN"), uploadCsv.single("file"), hostelController.bulkImportRooms);
 // Hostel CRUD
 router.post("/hostels", authorize("ADMIN"), validate(createHostelSchema), hostelController.createHostel);
 router.get("/hostels", hostelController.getHostels);

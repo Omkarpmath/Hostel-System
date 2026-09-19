@@ -58,4 +58,22 @@ export const browseRoomsRateLimiter = createRateLimiter({
     max: 30,
     message: "Too many room availability requests. Please slow down.",
 });
+// 10 attempts per 15 minutes for authentication login to prevent brute force
+export const authRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: "Too many login attempts. Please wait 15 minutes before trying again.",
+});
+// 120 scans per minute for QR verification (supports continuous meal scanning while preventing denial of service)
+export const qrScanRateLimiter = createRateLimiter({
+    windowMs: 60 * 1000,
+    max: 120,
+    message: "High verification traffic detected. Please slow down scan frequency.",
+});
+// 600 requests per 15 minutes general API safety net
+export const apiGlobalRateLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 600,
+    message: "API rate limit exceeded. Please try again later.",
+});
 //# sourceMappingURL=rate-limit.middleware.js.map

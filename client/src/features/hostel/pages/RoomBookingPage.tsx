@@ -12,13 +12,19 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { bookingApi } from '@/api/booking.api';
 import { loadRazorpayScript } from '@/lib/razorpay';
+import { AdminRoomsAllocationsHub } from '../components/AdminRoomsAllocationsHub';
 
 export function RoomBookingPage() {
   const { user } = useAuth();
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'WARDEN';
+
+  if (isStaff) {
+    return <AdminRoomsAllocationsHub />;
+  }
+
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const isStudent = user?.role === 'STUDENT';
-  const isStaff = user?.role === 'ADMIN' || user?.role === 'WARDEN';
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [orderInfo, setOrderInfo] = useState<{ orderId: string; reused?: boolean } | null>(null);

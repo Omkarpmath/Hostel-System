@@ -1,5 +1,6 @@
 import { hostelService } from "./hostel.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { ApiError } from "../../utils/ApiError.js";
 import { prisma } from "../../config/db.js";
 export class HostelController {
     // ============ HOSTEL ============
@@ -107,8 +108,10 @@ export class HostelController {
                 type: String(req.query.type || ""),
                 floorId: String(req.query.floorId || ""),
                 hostelId: String(req.query.hostelId || ""),
+                hostelType: req.query.hostelType ? String(req.query.hostelType) : undefined,
+                year: req.query.year ? parseInt(String(req.query.year)) : undefined,
                 page: parseInt(String(req.query.page)) || 1,
-                limit: parseInt(String(req.query.limit)) || 20,
+                limit: parseInt(String(req.query.limit)) || 50,
                 search: String(req.query.search || ""),
             };
             const result = await hostelService.getRooms(filters, req.user?.role);
@@ -129,8 +132,25 @@ export class HostelController {
     }
     async unblockRoom(req, res, next) {
         try {
-            const room = await hostelService.unblockRoom(String(req.params.id));
+            const room = await hostelService.unblockRoom(String(req.params.id), req.user?.userId);
             ApiResponse.success({ res, message: "Room unblocked successfully", data: room });
+        }
+        catch (error) {
+            next(error);
+        }
+    }
+    async bulkImportRooms(req, res, next) {
+        try {
+            if (!req.file) {
+                throw ApiError.badRequest("Please upload a CSV file");
+            }
+            const csvContent = req.file.buffer.toString("utf-8");
+            const result = await hostelService.bulkImportRooms(csvContent, req.user.userId, req.user.role);
+            ApiResponse.success({
+                res,
+                message: `Processed ${result.processed} rows (${result.createdRooms} created, ${result.updatedRooms} updated)`,
+                data: result,
+            });
         }
         catch (error) {
             next(error);

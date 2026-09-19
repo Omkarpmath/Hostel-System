@@ -8,7 +8,15 @@ import { allocationSchema, complaintSchema, complaintStatusSchema, leaveSchema, 
 const router = Router(); router.use(authenticate);
 // Controller methods use instance helpers, so bind them before Express invokes them.
 router.get("/me/overview", authorize("STUDENT"), c.mine.bind(c));
-router.get("/allocations", authorize("ADMIN", "WARDEN"), c.allocations.bind(c)); router.post("/allocations", authorize("ADMIN", "WARDEN"), validate(allocationSchema), c.allocate.bind(c));
+router.get("/allocations", authorize("ADMIN", "WARDEN"), c.allocations.bind(c));
+router.post("/allocations", authorize("ADMIN", "WARDEN"), validate(allocationSchema), c.allocate.bind(c));
+router.post("/allocations/:id/vacate", authorize("ADMIN", "WARDEN"), c.vacate.bind(c));
+router.post("/rollover", authorize("ADMIN"), c.academicRollover.bind(c));
+
+router.get("/reports/fee-defaulters", authorize("ADMIN", "ACCOUNTANT", "WARDEN"), c.reportFeeDefaulters.bind(c));
+router.get("/reports/attendance-shortage", authorize("ADMIN", "WARDEN"), c.reportAttendanceShortage.bind(c));
+router.get("/reports/mess-headcount", authorize("ADMIN", "WARDEN", "ACCOUNTANT"), c.reportMessHeadcount.bind(c));
+
 router.get("/leaves", authorize("STUDENT", "ADMIN", "WARDEN"), c.leaves.bind(c)); router.post("/leaves", authorize("STUDENT"), validate(leaveSchema), c.createLeave.bind(c)); router.patch("/leaves/:id", authorize("ADMIN", "WARDEN"), validate(leaveStatusSchema), c.decideLeave.bind(c));
 router.get("/complaints", authorize("STUDENT", "ADMIN", "WARDEN"), c.complaints.bind(c)); router.post("/complaints", authorize("STUDENT"), upload.array("attachments", 5), c.createComplaint.bind(c)); router.patch("/complaints/:id", authorize("ADMIN", "WARDEN"), validate(complaintStatusSchema), c.updateComplaint.bind(c));
 router.get("/visitors", authorize("STUDENT", "ADMIN", "WARDEN", "SECURITY"), c.visitors.bind(c));
@@ -18,3 +26,4 @@ router.get("/fees", authorize("STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT"), c.fee
 router.get("/fees/:id/receipt", authorize("STUDENT", "ADMIN", "WARDEN", "ACCOUNTANT"), c.downloadReceipt.bind(c));
 router.post("/fees/:id/approve-offline", authorize("ADMIN", "ACCOUNTANT"), validate(offlinePaymentSchema), c.approveOfflineFee.bind(c));
 export default router;
+

@@ -11,6 +11,7 @@ export declare class UserController {
     createStudentProfile(req: Request, res: Response, next: NextFunction): Promise<void>;
     createStudent(req: Request, res: Response, next: NextFunction): Promise<void>;
     getStudents(req: Request, res: Response, next: NextFunction): Promise<void>;
+    bulkImportStudents(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     getWardens(_req: Request, res: Response, next: NextFunction): Promise<void>;
 }
 export declare const userController: UserController;

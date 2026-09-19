@@ -4,8 +4,11 @@ import cookieParser from "cookie-parser";
 import compression from "compression";
 import path from "path";
 import { fileURLToPath } from "url";
+import helmet from "helmet";
 import { env } from "./config/env.js";
+import { prisma } from "./config/db.js";
 import { errorHandler } from "./middleware/error.middleware.js";
+import { apiGlobalRateLimiter } from "./middleware/rate-limit.middleware.js";
 // Routes
 import authRoutes from "./modules/auth/auth.routes.js";
 import hostelRoutes from "./modules/hostel/hostel.routes.js";
@@ -21,6 +24,10 @@ import messEntryRoutes from "./modules/mess-entry/mess-entry.routes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
+// Trust reverse proxy for correct client IP detection behind Cloudflare / Render / Nginx
+app.set("trust proxy", 1);
+// Security HTTP headers (crossOriginResourcePolicy: false allows static asset delivery)
+app.use(helmet({ crossOriginResourcePolicy: false }));
 // ============ MIDDLEWARE ============
 const allowedOrigins = [
     env.CLIENT_URL,
@@ -44,17 +51,30 @@ app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use("/api/v1", apiGlobalRateLimiter);
 // Static files for uploads
 const uploadDir = path.resolve(env.UPLOAD_DIR);
 app.use("/uploads", express.static(uploadDir));
 app.use("/api/v1/uploads", express.static(uploadDir));
 // ============ ROUTES ============
-app.get("/api/v1/health", (_req, res) => {
-    res.json({
-        success: true,
-        message: "BMSET Hostel Management API is running",
-        timestamp: new Date().toISOString(),
-    });
+app.get("/api/v1/health", async (_req, res) => {
+    try {
+        await prisma.$queryRaw `SELECT 1`;
+        res.json({
+            success: true,
+            message: "BMSET Hostel Management API is running",
+            database: "connected",
+            timestamp: new Date().toISOString(),
+        });
+    }
+    catch (err) {
+        res.status(503).json({
+            success: false,
+            message: "BMSET Hostel API — Database unavailable",
+            database: "disconnected",
+            timestamp: new Date().toISOString(),
+        });
+    }
 });
 app.get("/api/ping", (_req, res) => {
     res.json({ status: "ok", message: "Hostel-System backend is running" });

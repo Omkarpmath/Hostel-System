@@ -448,6 +448,24 @@ export declare class OperationsService {
         allocatedFrom: Date;
         allocatedTo: Date | null;
     }>;
+    vacate(allocationId: string, actorId: string, actorRole?: any): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        studentId: string;
+        status: import("@prisma/client").$Enums.AllocationStatus;
+        roomId: string;
+        bedNumber: number;
+        allocatedFrom: Date;
+        allocatedTo: Date | null;
+    }>;
+    academicRollover(actorId: string, actorRole?: any): Promise<{
+        graduatedCount: number;
+        promotedCount: number;
+    }>;
+    exportFeeDefaultersCsv(): Promise<string>;
+    exportAttendanceShortageCsv(): Promise<string>;
+    exportMessHeadcountCsv(): Promise<string>;
     listLeaves(userId: string, role: string, filters?: {
         hostelId?: string;
     }): Promise<({

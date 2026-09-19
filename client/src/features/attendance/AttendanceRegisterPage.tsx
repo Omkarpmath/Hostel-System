@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { useToast } from '@/providers/ToastProvider';
 import {
   ClipboardCheck, Download, Search, Users, UserCheck,
   CalendarOff, UserX, Shield, Building2, CalendarDays,
@@ -24,6 +25,7 @@ export function AttendanceRegisterPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { user } = useAuth();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const isAdmin = user?.role === 'ADMIN';
   const isSecurity = user?.role === 'SECURITY';
@@ -143,8 +145,9 @@ export function AttendanceRegisterPage() {
       a.download = `attendance_${selectedDate}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success('Attendance register exported successfully!');
     } catch {
-      alert('Failed to export CSV');
+      toast.error('Failed to export CSV. Please try again.');
     }
   };
 

@@ -4,7 +4,7 @@ import type { ApiResponse, Hostel, Block, Floor, Room, DashboardStats } from '@/
 export const hostelApi = {
   // Hostels
   create: (data: Partial<Hostel>) => api.post<ApiResponse<Hostel>>('/hostels', data),
-  getAll: (params?: Record<string, string>) => api.get<ApiResponse<Hostel[]>>('/hostels', { params }),
+  getAll: (params?: Record<string, any>) => api.get<ApiResponse<Hostel[]>>('/hostels', { params }),
   getById: (id: string) => api.get<ApiResponse<Hostel>>(`/hostels/${id}`),
   update: (id: string, data: Partial<Hostel>) => api.patch<ApiResponse<Hostel>>(`/hostels/${id}`, data),
   delete: (id: string) => api.delete<ApiResponse>(`/hostels/${id}`),
@@ -22,7 +22,7 @@ export const hostelApi = {
   // Rooms
   createRoom: (floorId: string, data: Partial<Room>) =>
     api.post<ApiResponse<Room>>(`/floors/${floorId}/rooms`, data),
-  getRooms: (params?: Record<string, string>) => api.get<ApiResponse<Room[]>>('/rooms', { params }),
+  getRooms: (params?: Record<string, any>) => api.get<ApiResponse<Room[]>>('/rooms', { params }),
   getAvailableRooms: (hostelId?: string) =>
     api.get<ApiResponse<Room[]>>('/rooms/available', { params: { hostelId } }),
   getRoomById: (id: string) => api.get<ApiResponse<Room>>(`/rooms/${id}`),
@@ -31,6 +31,13 @@ export const hostelApi = {
     api.post<ApiResponse<Room>>(`/rooms/${id}/block`, { reason }),
   unblockRoom: (id: string) =>
     api.post<ApiResponse<Room>>(`/rooms/${id}/unblock`),
+
+  bulkImportRooms: (formData: FormData) =>
+    api.post<ApiResponse<{ processed: number; createdRooms: number; updatedRooms: number; errors: string[] }>>(
+      '/hostels/bulk-import-rooms',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    ),
 
   // Dashboard
   getDashboardStats: () => api.get<ApiResponse<DashboardStats>>('/dashboard/stats'),

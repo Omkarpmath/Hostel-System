@@ -24,6 +24,63 @@ export class OperationsController {
     catch (e) {
         next(e);
     } }
+    async vacate(req, res, next) {
+        try {
+            const u = this.user(req);
+            const result = await operationsService.vacate(String(req.params.id), u.userId, u.role);
+            ApiResponse.success({ res, message: "Bed vacated successfully", data: result });
+        }
+        catch (e) {
+            next(e);
+        }
+    }
+    async academicRollover(req, res, next) {
+        try {
+            const u = this.user(req);
+            const result = await operationsService.academicRollover(u.userId, u.role);
+            ApiResponse.success({
+                res,
+                message: `Rollover complete: ${result.graduatedCount} students graduated, ${result.promotedCount} students promoted.`,
+                data: result,
+            });
+        }
+        catch (e) {
+            next(e);
+        }
+    }
+    async reportFeeDefaulters(_req, res, next) {
+        try {
+            const csv = await operationsService.exportFeeDefaultersCsv();
+            res.setHeader("Content-Type", "text/csv");
+            res.setHeader("Content-Disposition", `attachment; filename="fee_defaulters_${new Date().toISOString().split("T")[0]}.csv"`);
+            return res.status(200).send(csv);
+        }
+        catch (e) {
+            next(e);
+        }
+    }
+    async reportAttendanceShortage(_req, res, next) {
+        try {
+            const csv = await operationsService.exportAttendanceShortageCsv();
+            res.setHeader("Content-Type", "text/csv");
+            res.setHeader("Content-Disposition", `attachment; filename="attendance_shortage_${new Date().toISOString().split("T")[0]}.csv"`);
+            return res.status(200).send(csv);
+        }
+        catch (e) {
+            next(e);
+        }
+    }
+    async reportMessHeadcount(_req, res, next) {
+        try {
+            const csv = await operationsService.exportMessHeadcountCsv();
+            res.setHeader("Content-Type", "text/csv");
+            res.setHeader("Content-Disposition", `attachment; filename="mess_headcount_${new Date().toISOString().split("T")[0]}.csv"`);
+            return res.status(200).send(csv);
+        }
+        catch (e) {
+            next(e);
+        }
+    }
     async leaves(req, res, next) {
         try {
             const u = this.user(req);

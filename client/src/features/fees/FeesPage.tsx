@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { operationsApi } from '@/api/operations.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useToast } from '@/providers/ToastProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -43,6 +44,7 @@ function InfoBlock({ label, value, icon: Icon }: { label: string; value: string;
 export function FeesPage() {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { toast } = useToast();
   const isDark = theme === 'dark';
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export function FeesPage() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch {
-      alert('Failed to download receipt PDF.');
+      toast.error('Failed to download receipt PDF. Please try again.');
     } finally {
       setDownloadingId(null);
     }
@@ -93,6 +95,8 @@ export function FeesPage() {
   const { data, isError, error } = useQuery<any>({
     queryKey: ['fees', selectedHostel],
     queryFn: () => operationsApi.fees({ hostelId: selectedHostel !== 'ALL' ? selectedHostel : undefined }),
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
     retry: 1,
   });
   const allFees: any[] = (data?.data as any)?.data || [];
@@ -103,8 +107,9 @@ export function FeesPage() {
       operationsApi.approveOfflinePayment(feeId, data),
     onSuccess: (res: any) => {
       queryClient.invalidateQueries({ queryKey: ['fees'] });
-      queryClient.invalidateQueries({ queryKey: ['mess-fee-status'] });
-      queryClient.invalidateQueries({ queryKey: ['my-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['accountant-dashboard-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      toast.success('Offline payment verified and approved successfully!');
       setSelectedFeeForOffline(null);
       setReferenceNumber('');
       setBankName('');

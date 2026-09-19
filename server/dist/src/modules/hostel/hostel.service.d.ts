@@ -320,6 +320,8 @@ export declare class HostelService {
         type?: string;
         floorId?: string;
         hostelId?: string;
+        hostelType?: string;
+        year?: number;
         page?: number;
         limit?: number;
         search?: string;
@@ -358,9 +360,12 @@ export declare class HostelService {
             allocations: ({
                 student: {
                     user: {
+                        id: string;
                         email: string;
                         firstName: string;
                         lastName: string;
+                        phone: string | null;
+                        avatarUrl: string | null;
                     };
                 } & {
                     id: string;
@@ -601,7 +606,7 @@ export declare class HostelService {
         blockedById: string | null;
         blockedReason: string | null;
     }>;
-    unblockRoom(id: string): Promise<{
+    unblockRoom(id: string, actorId?: string): Promise<{
         blockedBy: {
             id: string;
             email: string;
@@ -625,6 +630,12 @@ export declare class HostelService {
         blockedAt: Date | null;
         blockedById: string | null;
         blockedReason: string | null;
+    }>;
+    bulkImportRooms(csvText: string, actorId: string, actorRole?: any): Promise<{
+        processed: number;
+        createdRooms: number;
+        updatedRooms: number;
+        errors: string[];
     }>;
     getDashboardStats(user?: {
         userId: string;

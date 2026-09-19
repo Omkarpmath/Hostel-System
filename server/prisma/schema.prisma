@@ -230,6 +230,7 @@ model User {
   notifications      Notification[]
   refreshTokens      RefreshToken[]
   blockedRooms       Room[]             @relation("RoomBlockedBy")
+  auditLogs          AuditLog[]         @relation("UserAuditLogs")
 
   @@map("users")
 }
@@ -243,6 +244,7 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("refresh_tokens")
 }
 
@@ -430,6 +432,8 @@ model Fee {
   allocation RoomAllocation? @relation(fields: [allocationId], references: [id])
 
   @@index([studentId, type])
+  @@index([studentId, type, status])
+  @@index([status, dueDate])
   @@index([transactionId])
   @@map("fees")
 }
@@ -491,6 +495,8 @@ model Complaint {
   assignee User?            @relation("AssignedComplaints", fields: [assignedTo], references: [id])
   images   ComplaintImage[]
 
+  @@index([studentId, status])
+  @@index([status, createdAt])
   @@map("complaints")
 }
 
@@ -526,6 +532,8 @@ model Visitor {
   student  StudentProfile @relation(fields: [studentId], references: [id])
   approver User?          @relation("ApprovedVisitors", fields: [approvedBy], references: [id])
 
+  @@index([studentId, status])
+  @@index([status, createdAt])
   @@map("visitors")
 }
 
@@ -555,6 +563,8 @@ model SecurityLog {
   // Relations
   security User @relation("SecurityLogs", fields: [securityId], references: [id])
 
+  @@index([securityId, createdAt])
+  @@index([studentId, createdAt])
   @@map("security_logs")
 }
 
@@ -633,6 +643,8 @@ model Announcement {
   targetHostel     Hostel?              @relation("HostelAnnouncements", fields: [targetHostelId], references: [id], onDelete: Cascade)
   reads            AnnouncementRead[]
 
+  @@index([status, publishAt, expiresAt])
+  @@index([targetAudience, targetHostelId])
   @@map("announcements")
 }
 
@@ -727,3 +739,22 @@ model MessEntry {
   @@map("mess_entries")
 }
 
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String   @map("actor_id")
+  actorRole  Role     @map("actor_role")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User @relation("UserAuditLogs", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

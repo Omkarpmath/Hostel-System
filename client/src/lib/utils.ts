@@ -48,30 +48,30 @@ export function getRoleColor(role: string): string {
 
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    AVAILABLE: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    PARTIALLY_OCCUPIED: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    FULL: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    OCCUPIED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    FULLY_OCCUPIED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    BLOCKED: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-    MAINTENANCE: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-    RESERVED: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    APPROVED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    REJECTED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    PAID: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    FAILED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    OPEN: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-    IN_PROGRESS: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-    RESOLVED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    CLOSED: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
-    CHECKED_IN: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    CHECKED_OUT: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
-    VERIFIED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    DENIED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+    AVAILABLE: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    PARTIALLY_OCCUPIED: 'bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50',
+    FULL: 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50',
+    OCCUPIED: 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50',
+    FULLY_OCCUPIED: 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50',
+    BLOCKED: 'bg-purple-50 text-purple-700 border border-purple-200/80 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/50',
+    MAINTENANCE: 'bg-orange-50 text-orange-700 border border-orange-200/80 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800/50',
+    RESERVED: 'bg-blue-50 text-blue-700 border border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50',
+    PENDING: 'bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50',
+    APPROVED: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    REJECTED: 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50',
+    ACTIVE: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    PAID: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    FAILED: 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50',
+    OPEN: 'bg-blue-50 text-blue-700 border border-blue-200/80 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/50',
+    IN_PROGRESS: 'bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50',
+    RESOLVED: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    CLOSED: 'bg-gray-100 text-gray-700 border border-gray-200/80 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-700/50',
+    CHECKED_IN: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    CHECKED_OUT: 'bg-gray-100 text-gray-700 border border-gray-200/80 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-700/50',
+    VERIFIED: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    DENIED: 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50',
   };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  return colors[status] || 'bg-gray-100 text-gray-700 border border-gray-200/80';
 }
 
 export function getDashboardPath(role: string): string {

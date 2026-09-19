@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/layouts/DashboardLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { SecurityDutyRoute } from './SecurityDutyRoute';
 import { PageLoadingSpinner } from '@/components/shared/PageLoadingSpinner';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 // Helper for top-level Suspense boundaries
 const fullScreenFallback = <PageLoadingSpinner fullScreen />;
@@ -105,6 +106,7 @@ export const router = createBrowserRouter([
   // Public & Auth Routes
   {
     path: '/login',
+    errorElement: <ErrorBoundary />,
     element: (
       <Suspense fallback={fullScreenFallback}>
         <LoginPage />
@@ -131,6 +133,7 @@ export const router = createBrowserRouter([
   // Admin routes
   {
     path: '/admin',
+    errorElement: <ErrorBoundary />,
     element: (
       <ProtectedRoute allowedRoles={['ADMIN']}>
         <DashboardLayout />
@@ -157,6 +160,7 @@ export const router = createBrowserRouter([
   // Student routes
   {
     path: '/student',
+    errorElement: <ErrorBoundary />,
     element: (
       <ProtectedRoute allowedRoles={['STUDENT']}>
         <DashboardLayout />
@@ -179,6 +183,7 @@ export const router = createBrowserRouter([
   // Warden routes
   {
     path: '/warden',
+    errorElement: <ErrorBoundary />,
     element: (
       <ProtectedRoute allowedRoles={['WARDEN']}>
         <DashboardLayout />
@@ -188,6 +193,9 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="dashboard" replace /> },
       { path: 'dashboard', element: <Suspense fallback={pageFallback}><WardenDashboard /></Suspense> },
       { path: 'students', element: <Suspense fallback={pageFallback}><StudentsPage /></Suspense> },
+      { path: 'rooms', element: <Suspense fallback={pageFallback}><RoomBookingPage /></Suspense> },
+      { path: 'hostels', element: <Suspense fallback={pageFallback}><HostelListPage /></Suspense> },
+      { path: 'allocations', element: <Suspense fallback={pageFallback}><AllocationsPage /></Suspense> },
       { path: 'leaves', element: <Suspense fallback={pageFallback}><LeavesPage /></Suspense> },
       { path: 'complaints', element: <Suspense fallback={pageFallback}><ComplaintsPage /></Suspense> },
       { path: 'announcements', element: <Suspense fallback={pageFallback}><AnnouncementsPage /></Suspense> },
@@ -200,6 +208,7 @@ export const router = createBrowserRouter([
   // Accountant routes
   {
     path: '/accountant',
+    errorElement: <ErrorBoundary />,
     element: (
       <ProtectedRoute allowedRoles={['ACCOUNTANT']}>
         <DashboardLayout />
@@ -216,6 +225,7 @@ export const router = createBrowserRouter([
   // Security routes
   {
     path: '/security',
+    errorElement: <ErrorBoundary />,
     element: (
       <ProtectedRoute allowedRoles={['SECURITY']}>
         <DashboardLayout />
@@ -281,6 +291,7 @@ export const router = createBrowserRouter([
   // Public verification (QR scan — no auth required)
   {
     path: '/verify/student/:token',
+    errorElement: <ErrorBoundary />,
     element: (
       <Suspense fallback={fullScreenFallback}>
         <StudentVerifyPage />

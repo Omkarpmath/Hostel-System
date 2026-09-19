@@ -1,9 +1,15 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
-import { roomCache } from "../../config/cache.js";
+import { roomCache, dashboardCache } from "../../config/cache.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { notificationService } from "../notification/notification.service.js";
 import { receiptService } from "../receipt/receipt.service.js";
+import { saveUploadedFiles } from "../../utils/storage.js";
+import { logAuditEvent } from "../../utils/audit.js";
+import { generateCsv } from "../../utils/csv.js";
+
+let lastMessReconciliationTime = 0;
+const RECONCILIATION_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 const studentInclude = {
   student: {
@@ -169,9 +175,9 @@ export class OperationsService {
     const [profile, fees, leaves, complaints, visitors] = await Promise.all([
       prisma.studentProfile.findUniqueOrThrow({ where: { id: studentId }, include: { user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true, avatarUrl: true } }, roomAllocations: { where: { status: "ACTIVE" }, include: roomInclude() } } }),
       prisma.fee.findMany({ where: { studentId }, orderBy: { createdAt: "desc" } }),
-      prisma.leaveRequest.findMany({ where: { studentId }, orderBy: { createdAt: "desc" } }),
-      prisma.complaint.findMany({ where: { studentId }, orderBy: { createdAt: "desc" } }),
-      prisma.visitor.findMany({ where: { studentId }, include: visitorStudentInclude, orderBy: { createdAt: "desc" } }),
+      prisma.leaveRequest.findMany({ where: { studentId }, orderBy: { createdAt: "desc" }, take: 20 }),
+      prisma.complaint.findMany({ where: { studentId }, orderBy: { createdAt: "desc" }, take: 20 }),
+      prisma.visitor.findMany({ where: { studentId }, include: visitorStudentInclude, orderBy: { createdAt: "desc" }, take: 20 }),
     ]);
     return { profile, fees, leaves, complaints, visitors };
   }
@@ -315,7 +321,297 @@ export class OperationsService {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     roomCache.invalidate();
+    dashboardCache.invalidate();
+    lastMessReconciliationTime = 0;
+
+    await logAuditEvent({
+      actorId: studentId,
+      actorRole: "ADMIN",
+      action: "BED_ALLOCATED",
+      entityType: "RoomAllocation",
+      entityId: result.id,
+      details: {
+        studentId,
+        roomId,
+        bedNumber: result.bedNumber,
+      },
+    });
+
     return result;
+  }
+
+  async vacate(allocationId: string, actorId: string, actorRole: any = "ADMIN") {
+    const allocation = await prisma.roomAllocation.findUnique({
+      where: { id: allocationId },
+      include: {
+        room: true,
+        student: { include: { user: true } },
+      },
+    });
+
+    if (!allocation) {
+      throw ApiError.notFound("Allocation record not found");
+    }
+    if (allocation.status !== "ACTIVE") {
+      throw ApiError.badRequest("This allocation is not active");
+    }
+
+    const roomId = allocation.roomId;
+    const room = allocation.room;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Mark allocation as VACATED
+      const updatedAllocation = await tx.roomAllocation.update({
+        where: { id: allocationId },
+        data: {
+          status: "VACATED",
+          allocatedTo: new Date(),
+        },
+      });
+
+      // 2. Recalculate room occupancy
+      const newOccupied = Math.max(0, room.occupiedBeds - 1);
+      const newStatus =
+        room.status === "BLOCKED"
+          ? "BLOCKED"
+          : room.status === "MAINTENANCE"
+          ? "MAINTENANCE"
+          : newOccupied >= room.capacity
+          ? "FULL"
+          : newOccupied > 0
+          ? "PARTIALLY_OCCUPIED"
+          : "AVAILABLE";
+
+      await tx.room.update({
+        where: { id: roomId },
+        data: {
+          occupiedBeds: newOccupied,
+          status: newStatus,
+          version: { increment: 1 },
+        },
+      });
+
+      return updatedAllocation;
+    });
+
+    roomCache.invalidate();
+    dashboardCache.invalidate();
+
+    await logAuditEvent({
+      actorId,
+      actorRole,
+      action: "BED_VACATED",
+      entityType: "RoomAllocation",
+      entityId: allocationId,
+      details: {
+        studentName: `${allocation.student.user.firstName} ${allocation.student.user.lastName}`,
+        usn: allocation.student.usn,
+        roomNumber: room.roomNumber,
+        bedNumber: allocation.bedNumber,
+      },
+    });
+
+    return result;
+  }
+
+  async academicRollover(actorId: string, actorRole: any = "ADMIN") {
+    // 1. Find all active allocations for Year 4 students (Graduation Checkout)
+    const year4Allocations = await prisma.roomAllocation.findMany({
+      where: {
+        status: "ACTIVE",
+        student: {
+          year: 4,
+        },
+      },
+      include: {
+        room: true,
+      },
+    });
+
+    // 2. Perform checkout & promotion in a safe transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      for (const alloc of year4Allocations) {
+        await tx.roomAllocation.update({
+          where: { id: alloc.id },
+          data: {
+            status: "VACATED",
+            allocatedTo: now,
+          },
+        });
+
+        const room = await tx.room.findUnique({ where: { id: alloc.roomId } });
+        if (room) {
+          const newOccupied = Math.max(0, room.occupiedBeds - 1);
+          const newStatus =
+            room.status === "BLOCKED"
+              ? "BLOCKED"
+              : room.status === "MAINTENANCE"
+              ? "MAINTENANCE"
+              : newOccupied >= room.capacity
+              ? "FULL"
+              : newOccupied > 0
+              ? "PARTIALLY_OCCUPIED"
+              : "AVAILABLE";
+
+          await tx.room.update({
+            where: { id: room.id },
+            data: {
+              occupiedBeds: newOccupied,
+              status: newStatus,
+              version: { increment: 1 },
+            },
+          });
+        }
+      }
+
+      // Graduate Year 4 students
+      await tx.studentProfile.updateMany({
+        where: { year: 4 },
+        data: { year: 5 },
+      });
+
+      // Promote remaining years in descending order to avoid collision:
+      const p3 = await tx.studentProfile.updateMany({
+        where: { year: 3 },
+        data: { year: 4, semester: { increment: 2 } },
+      });
+
+      const p2 = await tx.studentProfile.updateMany({
+        where: { year: 2 },
+        data: { year: 3, semester: { increment: 2 } },
+      });
+
+      const p1 = await tx.studentProfile.updateMany({
+        where: { year: 1 },
+        data: { year: 2, semester: { increment: 2 } },
+      });
+
+      return {
+        graduatedCount: year4Allocations.length,
+        promotedCount: p1.count + p2.count + p3.count,
+      };
+    });
+
+    roomCache.invalidate();
+    dashboardCache.invalidate();
+
+    await logAuditEvent({
+      actorId,
+      actorRole,
+      action: "ACADEMIC_ROLLOVER",
+      entityType: "AcademicYear",
+      details: {
+        graduatedStudentsCount: result.graduatedCount,
+        promotedStudentsCount: result.promotedCount,
+      },
+    });
+
+    return result;
+  }
+
+  async exportFeeDefaultersCsv(): Promise<string> {
+    const pendingFees = await prisma.fee.findMany({
+      where: { status: "PENDING" },
+      include: {
+        student: {
+          include: {
+            user: { select: { firstName: true, lastName: true, phone: true } },
+          },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+    });
+
+    const headers = [
+      { key: "studentName", label: "Student Name" },
+      { key: "usn", label: "USN" },
+      { key: "year", label: "Year" },
+      { key: "department", label: "Department" },
+      { key: "type", label: "Fee Type" },
+      { key: "amount", label: "Pending Amount" },
+      { key: "dueDate", label: "Due Date" },
+      { key: "studentPhone", label: "Student Phone" },
+      { key: "guardianPhone", label: "Guardian Phone" },
+    ];
+
+    const data = pendingFees.map((f) => ({
+      studentName: `${f.student.user.firstName} ${f.student.user.lastName}`,
+      usn: f.student.usn,
+      year: `Year ${f.student.year}`,
+      department: f.student.department,
+      type: f.type,
+      amount: f.amount.toString(),
+      dueDate: f.dueDate ? new Date(f.dueDate).toLocaleDateString() : "N/A",
+      studentPhone: f.student.user.phone || "N/A",
+      guardianPhone: f.student.guardianPhone || "N/A",
+    }));
+
+    return generateCsv(headers, data);
+  }
+
+  async exportAttendanceShortageCsv(): Promise<string> {
+    const totalSessions = await prisma.attendanceSession.count();
+    const profiles = await prisma.studentProfile.findMany({
+      include: {
+        user: { select: { firstName: true, lastName: true } },
+        attendanceRecords: true,
+      },
+    });
+
+    const headers = [
+      { key: "studentName", label: "Student Name" },
+      { key: "usn", label: "USN" },
+      { key: "year", label: "Year" },
+      { key: "department", label: "Department" },
+      { key: "totalSessions", label: "Total Sessions" },
+      { key: "presentSessions", label: "Present Sessions" },
+      { key: "percentage", label: "Attendance %" },
+      { key: "status", label: "Status" },
+    ];
+
+    const data = profiles
+      .map((p) => {
+        const total = totalSessions > 0 ? totalSessions : (p.attendanceRecords.length || 1);
+        const present = p.attendanceRecords.length;
+        const pct = total > 0 ? Math.min(100, Math.round((present / total) * 100)) : 100;
+        return {
+          studentName: `${p.user.firstName} ${p.user.lastName}`,
+          usn: p.usn,
+          year: `Year ${p.year}`,
+          department: p.department,
+          totalSessions: total,
+          presentSessions: present,
+          percentage: `${pct}%`,
+          status: pct < 75 ? "SHORTAGE (<75%)" : "ADEQUATE",
+          pctRaw: pct,
+        };
+      })
+      .filter((p) => p.pctRaw < 75 || p.presentSessions === 0);
+
+    return generateCsv(headers, data);
+  }
+
+  async exportMessHeadcountCsv(): Promise<string> {
+    const dailyCounts = await prisma.messDailyCount.findMany({
+      include: { mess: true },
+      orderBy: { date: "desc" },
+      take: 100,
+    });
+
+    const headers = [
+      { key: "messName", label: "Mess Name" },
+      { key: "date", label: "Date" },
+      { key: "headcount", label: "Total Meals Served" },
+    ];
+
+    const data = dailyCounts.map((d) => ({
+      messName: d.mess.name,
+      date: new Date(d.date).toLocaleDateString(),
+      headcount: d.count,
+    }));
+
+    return generateCsv(headers, data);
   }
 
   async listLeaves(userId: string, role: string, filters?: { hostelId?: string }) {
@@ -488,6 +784,7 @@ export class OperationsService {
   async createComplaint(userId: string, data: any, files?: Express.Multer.File[]) {
     const studentId = await this.studentId(userId);
     const { title, description, category, priority } = data;
+    const savedImages = files && files.length > 0 ? await saveUploadedFiles(files) : [];
 
     const complaint = await prisma.$transaction(async (tx) => {
       const created = await tx.complaint.create({
@@ -495,11 +792,11 @@ export class OperationsService {
         include: { ...studentInclude, images: true },
       });
 
-      if (files && files.length > 0) {
+      if (savedImages.length > 0) {
         await tx.complaintImage.createMany({
-          data: files.map((f) => ({
+          data: savedImages.map((img) => ({
             complaintId: created.id,
-            imageUrl: `data:${f.mimetype};base64,${f.buffer.toString("base64")}`,
+            imageUrl: img.url,
           })),
         });
         // Re-fetch to include images
@@ -831,45 +1128,50 @@ export class OperationsService {
 
   async listFees(userId: string, role: string, filters?: { hostelId?: string }) {
     // Reconcile: Ensure all students with active room allocations have a MESS_FEE invoice if none exists yet
-    const [vegConfig, legacyConfig] = await Promise.all([
-      prisma.systemConfig.findUnique({ where: { key: "mess_fee_veg" } }),
-      prisma.systemConfig.findUnique({ where: { key: "annual_mess_fee" } }),
-    ]);
-    const messAmount = vegConfig
-      ? parseFloat(vegConfig.value)
-      : legacyConfig
-      ? parseFloat(legacyConfig.value)
-      : 73000;
+    // Throttled to run at most once every 15 minutes to eliminate table-scan overhead on frequent requests
+    const now = Date.now();
+    if (now - lastMessReconciliationTime > RECONCILIATION_INTERVAL_MS) {
+      lastMessReconciliationTime = now;
+      const [vegConfig, legacyConfig] = await Promise.all([
+        prisma.systemConfig.findUnique({ where: { key: "mess_fee_veg" } }),
+        prisma.systemConfig.findUnique({ where: { key: "annual_mess_fee" } }),
+      ]);
+      const messAmount = vegConfig
+        ? parseFloat(vegConfig.value)
+        : legacyConfig
+        ? parseFloat(legacyConfig.value)
+        : 73000;
 
-    const allocationsWithoutMess = await prisma.roomAllocation.findMany({
-      where: {
-        status: "ACTIVE",
-        student: {
-          fees: {
-            none: { type: "MESS_FEE" },
+      const allocationsWithoutMess = await prisma.roomAllocation.findMany({
+        where: {
+          status: "ACTIVE",
+          student: {
+            fees: {
+              none: { type: "MESS_FEE" },
+            },
           },
         },
-      },
-      select: {
-        id: true,
-        studentId: true,
-      },
-    });
-
-    if (allocationsWithoutMess.length > 0) {
-      const defaultDueDate = new Date();
-      defaultDueDate.setDate(defaultDueDate.getDate() + 30);
-      await prisma.fee.createMany({
-        data: allocationsWithoutMess.map((a) => ({
-          studentId: a.studentId,
-          allocationId: a.id,
-          amount: messAmount,
-          type: "MESS_FEE",
-          status: "PENDING",
-          dueDate: defaultDueDate,
-        })),
-        skipDuplicates: true,
+        select: {
+          id: true,
+          studentId: true,
+        },
       });
+
+      if (allocationsWithoutMess.length > 0) {
+        const defaultDueDate = new Date();
+        defaultDueDate.setDate(defaultDueDate.getDate() + 30);
+        await prisma.fee.createMany({
+          data: allocationsWithoutMess.map((a) => ({
+            studentId: a.studentId,
+            allocationId: a.id,
+            amount: messAmount,
+            type: "MESS_FEE",
+            status: "PENDING",
+            dueDate: defaultDueDate,
+          })),
+          skipDuplicates: true,
+        });
+      }
     }
 
     let where: Prisma.FeeWhereInput = {};
@@ -1025,6 +1327,7 @@ export class OperationsService {
       console.error("[OperationsService] Failed to send receipt email for offline payment:", err);
     });
 
+    dashboardCache.invalidate();
     return result;
   }
 }

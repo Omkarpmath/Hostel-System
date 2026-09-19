@@ -14,6 +14,7 @@ export declare class HostelController {
     getRooms(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     blockRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     unblockRoom(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
+    bulkImportRooms(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     getAvailableRooms(req: AuthRequest, res: Response, next: NextFunction): Promise<void>;
     getRoomById(req: Request, res: Response, next: NextFunction): Promise<void>;
     updateRoom(req: Request, res: Response, next: NextFunction): Promise<void>;

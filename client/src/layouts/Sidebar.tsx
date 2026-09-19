@@ -52,14 +52,7 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       items: [
         { label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
         { label: 'Students', icon: GraduationCap, href: '/admin/students' },
-        {
-          label: 'Rooms & Allocations',
-          icon: BedDouble,
-          subItems: [
-            { label: 'Rooms', href: '/admin/rooms' },
-            { label: 'Allocations', href: '/admin/allocations' },
-          ],
-        },
+        { label: 'Rooms & Allocations', icon: BedDouble, href: '/admin/rooms' },
         { label: 'Hostels', icon: Building2, href: '/admin/hostels' },
       ],
     },
@@ -88,6 +81,8 @@ const navSectionsByRole: Record<Role, NavSection[]> = {
       items: [
         { label: 'Dashboard', icon: LayoutDashboard, href: '/warden/dashboard' },
         { label: 'Students', icon: GraduationCap, href: '/warden/students' },
+        { label: 'Rooms & Allocations', icon: BedDouble, href: '/warden/rooms' },
+        { label: 'Hostels', icon: Building2, href: '/warden/hostels' },
       ],
     },
     {

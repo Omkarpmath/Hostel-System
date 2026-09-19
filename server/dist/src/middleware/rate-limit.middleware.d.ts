@@ -11,5 +11,8 @@ interface RateLimitOptions {
 export declare function createRateLimiter(options: RateLimitOptions): (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
 export declare const bookingActionRateLimiter: (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
 export declare const browseRoomsRateLimiter: (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
+export declare const authRateLimiter: (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
+export declare const qrScanRateLimiter: (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
+export declare const apiGlobalRateLimiter: (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>;
 export {};
 //# sourceMappingURL=rate-limit.middleware.d.ts.map

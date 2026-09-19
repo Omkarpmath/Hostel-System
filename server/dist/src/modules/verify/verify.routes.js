@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { verifyService } from "./verify.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { qrScanRateLimiter } from "../../middleware/rate-limit.middleware.js";
 const router = Router();
 // PUBLIC — no authentication required
 // This is intentional: anyone with the QR code URL can verify a student
-router.get("/student/:token", async (req, res, next) => {
+router.get("/student/:token", qrScanRateLimiter, async (req, res, next) => {
     try {
         // Explicitly prevent browser or proxy caching of verification responses
         res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");

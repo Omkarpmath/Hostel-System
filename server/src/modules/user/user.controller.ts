@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { userService } from "./user.service.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { ApiError } from "../../utils/ApiError.js";
 import { AuthRequest } from "../../middleware/auth.middleware.js";
 
 export class UserController {
@@ -97,12 +98,34 @@ export class UserController {
       const auth = req as AuthRequest;
       const result = await userService.getStudents({
         search: String(req.query.search || ""),
-        department: String(req.query.department || ""),
+        department: req.query.department ? String(req.query.department) : undefined,
         year: req.query.year ? parseInt(String(req.query.year)) : undefined,
+        gender: req.query.gender ? String(req.query.gender) : undefined,
+        allocated: req.query.allocated ? String(req.query.allocated) : undefined,
+        hostelId: req.query.hostelId ? String(req.query.hostelId) : undefined,
         page: parseInt(String(req.query.page)) || 1,
-        limit: Math.min(parseInt(String(req.query.limit)) || 20, 1000),
+        limit: Math.min(parseInt(String(req.query.limit)) || 50, 1000),
       }, auth.user?.role === "WARDEN" ? auth.user.userId : undefined);
       ApiResponse.success({ res, data: result.students, meta: result.meta });
+    } catch (error) { next(error); }
+  }
+
+  async bulkImportStudents(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      if (!req.file) {
+        throw ApiError.badRequest("Please upload a CSV file");
+      }
+      const csvContent = req.file.buffer.toString("utf-8");
+      const result = await userService.bulkImportStudents(
+        csvContent,
+        req.user!.userId,
+        req.user!.role
+      );
+      ApiResponse.success({
+        res,
+        message: `Processed ${result.processed} rows: ${result.created} created, ${result.skipped} skipped`,
+        data: result,
+      });
     } catch (error) { next(error); }
   }
 

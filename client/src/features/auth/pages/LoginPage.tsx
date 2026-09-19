@@ -18,12 +18,21 @@ import {
 } from 'lucide-react';
 
 const VIDEO_URL = 'https://res.cloudinary.com/xkjefedn/video/upload/q_auto,f_mp4,c_limit,w_1920/FINAL.mp4';
+const VIDEO_POSTER_URL = 'https://res.cloudinary.com/xkjefedn/video/upload/q_auto,f_auto,so_0/FINAL.jpg';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { user, login, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
+
+  // Pre-fetch heavy dashboard chunks in the background while user enters credentials
+  const prefetchDashboards = () => {
+    import('@/features/dashboard/student/StudentDashboard');
+    import('@/features/dashboard/admin/AdminDashboard');
+    import('@/features/dashboard/warden/WardenDashboard');
+    import('@/features/dashboard/accountant/AccountantDashboard');
+  };
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,6 +80,7 @@ export function LoginPage() {
         loop
         playsInline
         preload="metadata"
+        poster={VIDEO_POSTER_URL}
         aria-hidden="true"
         style={{
           position: 'fixed',
@@ -450,6 +460,7 @@ export function LoginPage() {
                       fontFamily: 'inherit',
                     }}
                     onFocus={(e) => {
+                      prefetchDashboards();
                       e.target.style.borderColor = '#38bdf8';
                       e.target.style.boxShadow = '0 0 0 3px rgba(56, 189, 248, 0.25)';
                     }}
@@ -503,6 +514,7 @@ export function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
+                onMouseEnter={prefetchDashboards}
                 style={{
                   width: '100%',
                   padding: '0.875rem',

@@ -464,6 +464,9 @@ export declare class UserService {
         search?: string;
         department?: string;
         year?: number;
+        gender?: string;
+        allocated?: string;
+        hostelId?: string;
         page?: number;
         limit?: number;
     }, wardenId?: string): Promise<{
@@ -545,6 +548,12 @@ export declare class UserService {
             total: number;
             totalPages: number;
         };
+    }>;
+    bulkImportStudents(csvText: string, actorId: string, actorRole?: any): Promise<{
+        processed: number;
+        created: number;
+        skipped: number;
+        errors: string[];
     }>;
     getWardens(): Promise<{
         id: string;

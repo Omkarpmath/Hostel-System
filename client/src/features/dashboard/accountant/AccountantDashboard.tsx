@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { operationsApi } from '@/api/operations.api';
+import { hostelApi } from '@/api/hostel.api';
 import { useTheme } from '@/providers/ThemeProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -20,38 +20,25 @@ export function AccountantDashboard() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  // Fetch all fees (cached for 3 minutes for 0ms perceived latency on tab switch)
-  const { data: feesData } = useQuery({
-    queryKey: ['fees'],
-    queryFn: () => operationsApi.fees(),
+  // Fetch pre-aggregated financial metrics directly from backend (0ms perceived latency on tab switch)
+  const { data: statsResponse } = useQuery({
+    queryKey: ['accountant-dashboard-stats'],
+    queryFn: async () => (await hostelApi.getDashboardStats()).data,
     staleTime: 3 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 1,
   });
 
-  const fees: any[] = (feesData?.data as any)?.data || [];
-
-  // Calculate financial statistics
-  const totalPaid = fees
-    .filter((f) => f.status === 'PAID')
-    .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
-
-  const totalPending = fees
-    .filter((f) => f.status === 'PENDING')
-    .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
-
-  const paidCount = fees.filter((f) => f.status === 'PAID').length;
-  const pendingCount = fees.filter((f) => f.status === 'PENDING').length;
-  const totalRecords = fees.length;
-  const collectionRate = totalRecords > 0 ? Math.round((paidCount / totalRecords) * 100) : 0;
-
-  const hostelFeePaid = fees
-    .filter((f) => f.type === 'HOSTEL_FEE' && f.status === 'PAID')
-    .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
-
-  const messFeePaid = fees
-    .filter((f) => f.type === 'MESS_FEE' && f.status === 'PAID')
-    .reduce((sum, f) => sum + parseFloat(f.amount || 0), 0);
+  const stats = (statsResponse as any)?.data || statsResponse || {};
+  const totalPaid = Number(stats.totalPaid || 0);
+  const totalPending = Number(stats.totalPending || 0);
+  const paidCount = Number(stats.paidCount || 0);
+  const pendingCount = Number(stats.pendingCount || 0);
+  const totalRecords = Number(stats.totalRecords || 0);
+  const collectionRate = Number(stats.collectionRate || 0);
+  const hostelFeePaid = Number(stats.hostelFeePaid || 0);
+  const messFeePaid = Number(stats.messFeePaid || 0);
+  const recentTransactions: any[] = stats.recentTransactions || [];
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: 'var(--bg-card)',
@@ -275,9 +262,9 @@ export function AccountantDashboard() {
           </Link>
         </div>
 
-        {fees.length > 0 ? (
+        {recentTransactions.length > 0 ? (
           <div style={{ padding: 0 }}>
-            {fees.slice(0, 8).map((f: any, i: number) => {
+            {recentTransactions.map((f: any, i: number) => {
               const studentName = f.student?.user ? `${f.student.user.firstName} ${f.student.user.lastName}` : 'Student';
               const usn = f.student?.usn || 'N/A';
               const isPaid = f.status === 'PAID';
@@ -288,7 +275,7 @@ export function AccountantDashboard() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '0.875rem 1.25rem', flexWrap: 'wrap', gap: '0.75rem',
-                    borderBottom: i < Math.min(fees.length, 8) - 1 ? '1px solid var(--border-primary)' : 'none',
+                    borderBottom: i < recentTransactions.length - 1 ? '1px solid var(--border-primary)' : 'none',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
