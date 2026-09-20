@@ -14,7 +14,7 @@ export interface ReceiptData {
   feeType: string;
   mealPlan?: "VEG" | "NON_VEG" | null;
   amount: number;
-  paidAt: Date;
+  paidAt: Date | string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   paymentMethod?: string;
@@ -89,21 +89,27 @@ export class ReceiptService {
         doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(11)
           .text(data.receiptNumber, margin + 12, metaTop + 24);
 
-        // Payment Date
-        const dateStr = data.paidAt.toLocaleDateString("en-IN", {
+        // Payment Date & Time (Enforce Indian Standard Time - Asia/Kolkata)
+        const rawPaidAt = data.paidAt ? new Date(data.paidAt) : new Date();
+        const validPaidAt = isNaN(rawPaidAt.getTime()) ? new Date() : rawPaidAt;
+
+        const dateStr = validPaidAt.toLocaleDateString("en-IN", {
+          timeZone: "Asia/Kolkata",
           day: "2-digit",
           month: "short",
           year: "numeric",
         });
-        const timeStr = data.paidAt.toLocaleTimeString("en-IN", {
+        const timeStr = validPaidAt.toLocaleTimeString("en-IN", {
+          timeZone: "Asia/Kolkata",
           hour: "2-digit",
           minute: "2-digit",
-        });
+          hour12: true,
+        }).toUpperCase();
 
         doc.fillColor("#64748b").font("Helvetica-Bold").fontSize(8)
-          .text("DATE & TIME", margin + 180, metaTop + 10);
+          .text("PAYMENT DATE & TIME (IST)", margin + 175, metaTop + 10);
         doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(10)
-          .text(`${dateStr}, ${timeStr}`, margin + 180, metaTop + 24);
+          .text(`${dateStr}, ${timeStr}`, margin + 175, metaTop + 24);
 
         // Status Badge
         doc.fillColor("#64748b").font("Helvetica-Bold").fontSize(8)
@@ -409,6 +415,21 @@ export class ReceiptService {
         ? `Payment Mode: Offline (${modeLabel})\nReference / Instrument / UTR: ${receiptData.transactionId || receiptData.razorpayPaymentId || "—"}`
         : `Payment Mode: Online (Razorpay Gateway)\nRazorpay Payment ID: ${receiptData.razorpayPaymentId}\nRazorpay Order ID: ${receiptData.razorpayOrderId}`;
 
+      const emailRawPaidAt = receiptData.paidAt ? new Date(receiptData.paidAt) : new Date();
+      const emailValidPaidAt = isNaN(emailRawPaidAt.getTime()) ? new Date() : emailRawPaidAt;
+      const emailDateStr = emailValidPaidAt.toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+      const emailTimeStr = emailValidPaidAt.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }).toUpperCase();
+
       const resend = new Resend(env.RESEND_API_KEY);
       const emailSubject = `Hostel Fee Payment Receipt - ${receiptNumber}`;
       const emailBody = `Dear ${studentName},
@@ -416,7 +437,7 @@ export class ReceiptService {
 Your payment of ₹${Number(fee.amount).toLocaleString("en-IN")} for ${feeTypeLabel} has been successfully received and verified.
 
 Receipt Number: ${receiptNumber}
-Payment Date: ${receiptData.paidAt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+Payment Date & Time: ${emailDateStr}, ${emailTimeStr} IST
 ${paymentDetailsText}
 
 Please find your official payment receipt attached as a PDF to this email.

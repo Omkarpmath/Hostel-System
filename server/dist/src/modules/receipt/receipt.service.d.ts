@@ -8,7 +8,7 @@ export interface ReceiptData {
     feeType: string;
     mealPlan?: "VEG" | "NON_VEG" | null;
     amount: number;
-    paidAt: Date;
+    paidAt: Date | string;
     razorpayOrderId?: string;
     razorpayPaymentId?: string;
     paymentMethod?: string;
