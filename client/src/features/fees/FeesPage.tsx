@@ -672,7 +672,7 @@ export function FeesPage() {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1.25rem',
-                maxHeight: '90vh',
+                maxHeight: '90dvh',
                 overflowY: 'auto',
               }}
             >

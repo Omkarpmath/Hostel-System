@@ -253,7 +253,7 @@ export function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border shadow-2xl z-50 overflow-hidden"
+            className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] max-w-[22rem] sm:max-w-none sm:w-96 rounded-2xl border shadow-2xl z-50 overflow-hidden flex flex-col max-h-[80dvh]"
             style={{
               backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.97)',
               borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.1)',
@@ -326,7 +326,10 @@ export function NotificationBell() {
             </div>
 
             {/* Notification Items List */}
-            <div className="max-h-[340px] overflow-y-auto divide-y divide-white/5 custom-scrollbar">
+            <div
+              className="max-h-[min(340px,50dvh)] overflow-y-auto overscroll-contain divide-y divide-white/5 custom-scrollbar"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
               {isLoading ? (
                 <div className="py-12 flex flex-col items-center justify-center text-muted-foreground gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-blue-500" />

@@ -626,7 +626,7 @@ export function AdminRoomsAllocationsHub() {
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))',
             gap: '1.25rem',
           }}>
             {filteredHostels.map((hostel: any, i: number) => {
@@ -1074,7 +1074,7 @@ export function AdminRoomsAllocationsHub() {
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
           gap: '1.25rem',
         }}>
           {rooms.map((room) => {
@@ -1349,6 +1349,7 @@ export function AdminRoomsAllocationsHub() {
                 width: '100%', maxWidth: '26rem', borderRadius: '1rem',
                 border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)',
                 boxShadow: '0 20px 25px rgba(0,0,0,0.2)', padding: '1.5rem',
+                maxHeight: '90dvh', overflowY: 'auto',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -1449,6 +1450,7 @@ function ResidentDetailsModal({
           width: '100%', maxWidth: '30rem', borderRadius: '1rem',
           border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)',
           boxShadow: '0 20px 25px rgba(0,0,0,0.2)', padding: '1.75rem',
+          maxHeight: '90dvh', overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
@@ -1618,6 +1620,7 @@ function AllocateStudentModal({
           width: '100%', maxWidth: '30rem', borderRadius: '1rem',
           border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)',
           boxShadow: '0 20px 25px rgba(0,0,0,0.2)', padding: '1.75rem',
+          maxHeight: '90dvh', overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
@@ -1774,6 +1777,7 @@ function AcademicRolloverModal({
           width: '100%', maxWidth: '32rem', borderRadius: '1rem',
           border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)',
           boxShadow: '0 20px 25px rgba(0,0,0,0.2)', padding: '1.75rem',
+          maxHeight: '90dvh', overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>

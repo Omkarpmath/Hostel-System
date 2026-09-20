@@ -61,6 +61,7 @@ export function AdminDashboard() {
     border: '1px solid var(--border-primary)',
     borderRadius: '1.25rem',
     boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    overflow: 'hidden',
   };
 
   return (
@@ -312,7 +313,7 @@ export function AdminDashboard() {
       </div>
 
       {/* ─── 3. Visual Analytics & Operational Workflow Queue Row ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '1.5rem' }}>
         {/* Room Occupancy Donut Chart (Fixed & Modernized) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -390,7 +391,7 @@ export function AdminDashboard() {
           )}
 
           {/* Clean Custom Badges Legend */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-primary)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(65px, 1fr))', gap: '0.5rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-primary)' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 <span style={{ width: '0.5rem', height: '0.5rem', borderRadius: '9999px', backgroundColor: '#10b981' }} />
@@ -573,7 +574,7 @@ export function AdminDashboard() {
       </div>
 
       {/* ─── 4. Live Activity Section (Recent Allocations & Announcements) ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '1.5rem' }}>
         {/* Recent Allocations Table Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

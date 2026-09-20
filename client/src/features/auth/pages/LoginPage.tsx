@@ -65,7 +65,7 @@ export function LoginPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         width: '100%',
         position: 'relative',
         overflow: 'hidden',
@@ -87,7 +87,7 @@ export function LoginPage() {
           top: 0,
           left: 0,
           width: '100vw',
-          height: '100vh',
+          height: '100dvh',
           objectFit: 'cover',
           pointerEvents: 'none',
           zIndex: 0,
@@ -116,7 +116,7 @@ export function LoginPage() {
         style={{
           position: 'relative',
           zIndex: 10,
-          minHeight: '100vh',
+          minHeight: '100dvh',
           width: '100%',
           display: 'flex',
         }}
@@ -253,7 +253,7 @@ export function LoginPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '2.5rem 1.5rem',
+            padding: 'clamp(1rem, 3vw, 2.5rem) clamp(0.75rem, 3vw, 1.5rem)',
           }}
         >
           <motion.div
@@ -271,7 +271,7 @@ export function LoginPage() {
               boxShadow: isDark
                 ? '0 25px 50px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.1)'
                 : '0 25px 50px -12px rgba(0, 20, 60, 0.25), inset 0 1px 0 rgba(255,255,255,0.4)',
-              padding: '2.5rem 2.25rem',
+              padding: 'clamp(1.75rem, 4vw, 2.5rem) clamp(1.25rem, 4vw, 2.25rem)',
             }}
           >
             {/* Header: Theme Toggle & Mobile Logo */}

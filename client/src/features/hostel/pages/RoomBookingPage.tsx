@@ -16,12 +16,15 @@ import { AdminRoomsAllocationsHub } from '../components/AdminRoomsAllocationsHub
 
 export function RoomBookingPage() {
   const { user } = useAuth();
-  const isStaff = user?.role === 'ADMIN' || user?.role === 'WARDEN';
-
-  if (isStaff) {
+  if (user?.role === 'ADMIN' || user?.role === 'WARDEN') {
     return <AdminRoomsAllocationsHub />;
   }
+  return <StudentRoomBookingView />;
+}
 
+function StudentRoomBookingView() {
+  const { user } = useAuth();
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'WARDEN';
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const isStudent = user?.role === 'STUDENT';
@@ -328,8 +331,8 @@ export function RoomBookingPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '1.5rem',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
+              gap: '1rem',
             }}
           >
             {[
@@ -416,7 +419,7 @@ export function RoomBookingPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
             gap: '1.5rem',
             alignItems: 'stretch',
           }}
@@ -777,7 +780,7 @@ export function RoomBookingPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
               gap: '1rem',
             }}
           >
@@ -819,7 +822,7 @@ export function RoomBookingPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
               gap: '1rem',
             }}
           >
@@ -1141,13 +1144,13 @@ export function RoomBookingPage() {
       )}
 
       {roomsLoading ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '1rem',
-          }}
-        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
+              gap: '1rem',
+            }}
+          >
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
@@ -1174,7 +1177,7 @@ export function RoomBookingPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
             gap: '1rem',
           }}
         >

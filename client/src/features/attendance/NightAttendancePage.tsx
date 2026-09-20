@@ -304,7 +304,7 @@ export function NightAttendancePage() {
             {activeSession?.hostel?.name || 'Hostel'} — {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', maxWidth: '500px', margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 75px), 1fr))', gap: '0.75rem', maxWidth: '500px', margin: '0 auto' }}>
             {[
               { label: 'Total', value: summaryData.total, color: '#3b82f6' },
               { label: 'Present', value: summaryData.present, color: '#16a34a' },

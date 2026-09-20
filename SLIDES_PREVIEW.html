@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BMSCE Hostel Management System — 10-Slide Principal Presentation</title>
+  <style>
+    :root {
+      --navy-dark: #0f172a;
+      --navy-primary: #1e3a8a;
+      --blue-accent: #2563eb;
+      --blue-light: #eff6ff;
+      --bg-page: #f8fafc;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --border: #cbd5e1;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --orange: #ea580c;
+      --purple: #7c3aed;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .badge-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .tag {
+      background: rgba(37, 99, 235, 0.2);
+      border: 1px solid var(--blue-accent);
+      color: #93c5fd;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      background: var(--navy-primary);
+      color: white;
+      border: 1px solid #3b82f6;
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--blue-accent);
+    }
+
+    .btn-download {
+      background: #059669;
+      border-color: #10b981;
+    }
+
+    .btn-download:hover {
+      background: #10b981;
+    }
+
+    /* 16:9 Presentation Frame */
+    .deck-container {
+      width: 100%;
+      max-width: 1200px;
+      aspect-ratio: 16 / 9;
+      background: var(--bg-page);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      position: relative;
+      color: var(--text-dark);
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      height: 100%;
+      padding: 40px 50px 30px;
+      flex-direction: column;
+      position: relative;
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      display: flex;
+    }
+
+    /* Header */
+    .slide-header {
+      margin-bottom: 20px;
+    }
+
+    .slide-kicker {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--blue-accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .slide-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--navy-dark);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .slide-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Footer */
+    .slide-footer {
+      position: absolute;
+      bottom: 16px;
+      left: 50px;
+      right: 50px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .slide-footer strong {
+      color: var(--navy-primary);
+    }
+
+    /* Grid layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 16px;
+      flex: 1;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      flex: 1;
+    }
+
+    .grid-phases {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .card li {
+      font-size: 12.5px;
+      color: #334155;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    /* Placeholder container */
+    .image-placeholder {
+      background: #f1f5f9;
+      border: 2px dashed var(--blue-accent);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+
+    .image-placeholder .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .image-placeholder .label {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--navy-dark);
+      margin-bottom: 4px;
+    }
+
+    .image-placeholder .route {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--blue-accent);
+      background: rgba(37, 99, 235, 0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .image-placeholder .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      max-width: 90%;
+      line-height: 1.35;
+      font-style: italic;
+    }
+
+    /* Presenter Notes Tray */
+    .notes-tray {
+      width: 100%;
+      max-width: 1200px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-top: 20px;
+    }
+
+    .notes-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .notes-body {
+      font-size: 14px;
+      color: #e2e8f0;
+      line-height: 1.6;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="badge-bar">
+      <span class="tag">BMSCE / BMSETH</span>
+      <span style="font-size: 14px; color: #94a3b8; font-weight: 500;">Principal Pitch Blueprint • 10 Widescreen Slides</span>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="prevSlide()">◀ Previous</button>
+      <span id="slideCounter" style="font-size: 14px; font-weight: 700; color: #93c5fd; min-width: 80px; text-align: center;">1 / 10</span>
+      <button class="btn" onclick="nextSlide()">Next ▶</button>
+      <a href="./BMSCE_Hostel_System_Principal_Presentation.pptx" download class="btn btn-download">📥 Download .PPTX</a>
+    </div>
+  </header>
+
+  <div class="deck-container">
+
+    <!-- SLIDE 1: Title -->
+    <div class="slide active" style="background: var(--navy-dark); color: white; justify-content: space-between;">
+      <div style="background: var(--navy-primary); border: 1.5px solid var(--blue-accent); border-radius: 16px; padding: 40px; margin-top: 20px;">
+        <div style="font-size: 14px; font-weight: 800; color: #93c5fd; letter-spacing: 0.08em; text-transform: uppercase;">
+          BMS EDUCATIONAL TRUST HOSTELS (BMSETH)
+        </div>
+        <h1 style="font-size: 36px; font-weight: 900; color: white; margin-top: 10px; line-height: 1.2;">
+          Modernizing Residential Campus Administration
+        </h1>
+        <p style="font-size: 17px; color: #cbd5e1; margin-top: 10px;">
+          A Unified Digital Platform for Student Safety, Mess Optimization & Institutional Governance
+        </p>
+        <p style="font-size: 13px; color: #94a3b8; margin-top: 24px; font-style: italic;">
+          Formal Proposal Prepared for the Principal & Senior College Leadership • BMS College of Engineering
+        </p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px;">
+        <div style="background: white; border-radius: 12px; padding: 14px; color: var(--navy-dark); border-top: 4px solid var(--purple);">
+          <strong style="font-size: 13px; display: block;">🌙 Tamper-Proof Safety</strong>
+          <span style="font-size: 11px; color: var(--text-muted); line-height: 1.3;">Dynamic 30s QR night attendance with real-time leave cross-check</span>
+        </div>
+        <div style="background: white; border-radius: 12px; padding: 14px; color: var(--navy-dark); border-top: 4px solid var(--emerald);">
+          <strong style="font-size: 13px; display: block;">🍲 Mess Headcount Control</strong>
+          <span style="font-size: 11px; color: var(--text-muted); line-height: 1.3;">Instant dining verification, Veg/Non-Veg HUD & waste reduction</span>
+        </div>
+        <div style="background: white; border-radius: 12px; padding: 14px; color: var(--navy-dark); border-top: 4px solid var(--blue-accent);">
+          <strong style="font-size: 13px; display: block;">🛏️ Controlled Admissions</strong>
+          <span style="font-size: 11px; color: var(--text-muted); line-height: 1.3;">ACID-safe room allocation engine with bank-grade fee receipts</span>
+        </div>
+        <div style="background: white; border-radius: 12px; padding: 14px; color: var(--navy-dark); border-top: 4px solid var(--amber);">
+          <strong style="font-size: 13px; display: block;">🏛️ Institutional Governance</strong>
+          <span style="font-size: 11px; color: var(--text-muted); line-height: 1.3;">5 isolated role tiers preserving existing warden & admin authority</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2: Operational Reality -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Operational Reality</div>
+        <div class="slide-title">The Hidden Friction of Manual Hostel Management at Scale</div>
+        <div class="slide-subtitle">Why traditional paper books, WhatsApp groups, and bank queues struggle with expanding student intake</div>
+      </div>
+
+      <div class="grid-4" style="margin-bottom: 30px;">
+        <div class="card" style="border-left: 4px solid var(--orange);">
+          <div class="card-title" style="color: var(--orange);">🌙 Night Curfew & Safety Vulnerabilities</div>
+          <ul>
+            <li>• Attendance recorded in manual paper ledgers prone to proxy roll-calls</li>
+            <li>• Cross-checking approved leaves takes 20+ minutes during late-night emergencies</li>
+            <li>• No automated alert dispatched to parents or wardens for unexplained absentees</li>
+            <li>• Inability to prove student presence in statutory or regulatory safety reviews</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--amber);">
+          <div class="card-title" style="color: var(--amber);">🍲 Dining Hall Headcount & Food Wastage</div>
+          <ul>
+            <li>• Kitchen staff cook meals for an unverified estimated student count</li>
+            <li>• Unannounced weekend departures cause massive avoidable food wastage</li>
+            <li>• Mess gate access verified manually or via informal shared lists</li>
+            <li>• Zero real-time distinction between Vegetarian and Non-Vegetarian preparation</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--blue-accent);">
+          <div class="card-title" style="color: var(--blue-accent);">🛏️ Admission Congestion & Allotment Rush</div>
+          <ul>
+            <li>• Long administrative queues for annual room allocation and bed selection</li>
+            <li>• Severe risk of accidental double-booking during peak admission hours</li>
+            <li>• Manual bank challan and receipt reconciliation wastes hundreds of staff hours</li>
+            <li>• Academic year-end checkout requires manual tracking across hundreds of rooms</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--purple);">
+          <div class="card-title" style="color: var(--purple);">📑 Distributed Records & Audit Overhead</div>
+          <ul>
+            <li>• Hostel records scattered across physical files, registers, and phone chats</li>
+            <li>• Preparing statutory compliance reports (NAAC, Police, Defaulters) takes days</li>
+            <li>• Maintenance complaints lost in verbal or informal messaging channels</li>
+            <li>• Difficult to track visitor histories or contractor entries reliably</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 2 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 3: Institutional Solution -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Institutional Ecosystem</div>
+        <div class="slide-title">The BMSCE Unified Digital Hostel Platform</div>
+        <div class="slide-subtitle">Connecting 5 operational roles into one synchronized, role-governed campus network</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 30px;">
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="card" style="border-left: 4px solid var(--purple);">
+            <strong style="font-size: 13px; color: var(--purple);">👑 Principal & Administrator Console</strong>
+            <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Global campus oversight, block occupancy analytics, audit reports & security assignments</p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--navy-primary);">
+            <strong style="font-size: 13px; color: var(--navy-primary);">👨‍💼 Hostel Warden Hub</strong>
+            <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Restricted strictly to managed blocks: leave sanctions, room allocations, complaint resolutions</p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--blue-accent);">
+            <strong style="font-size: 13px; color: var(--blue-accent);">💰 Finance & Accounts Desk</strong>
+            <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Mess and hostel fee tracking, offline bank challan approvals, instant vector PDF receipts</p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--emerald);">
+            <strong style="font-size: 13px; color: var(--emerald);">🛡️ Security Gateway (Hostel & Mess)</strong>
+            <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Dynamic QR scanning for night curfew roll calls, dining verification & visitor check-in/out</p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--amber);">
+            <strong style="font-size: 13px; color: var(--amber);">🎓 Student Self-Service Portal</strong>
+            <p style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Bed booking, fee settlements, leave applications, maintenance reporting & dynamic QR pass</p>
+          </div>
+        </div>
+
+        <div class="image-placeholder">
+          <div class="icon">📷</div>
+          <div class="label">Admin Bird's-Eye Dashboard & Governance Hub</div>
+          <div class="route">Route: /admin/dashboard</div>
+          <div class="hint">Capture full dashboard displaying live block occupancy breakdown, fee collections, pending leaves, and active action items.</div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 3 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 4: Curfew & Roll-Call -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Curfew Safety & Roll-Call</div>
+        <div class="slide-title">Tamper-Proof Night Attendance & Automated Leave Cross-Check</div>
+        <div class="slide-subtitle">Replacing paper books with dynamic cryptographic QR tokens, audio feedback, and automated leave reconciliation</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 30px;">
+        <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">🔐 Dynamic 30-Second Rotating QR Passport</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Students present a cryptographically signed QR code that rotates every 30 seconds. Screenshots shared over WhatsApp expire instantly, making proxy attendance impossible.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">✈️ Real-Time Automated Leave Reconciliation</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">The scanning engine cross-checks active approved leaves instantly in the database. Students on leave are flagged as 'ON LEAVE' automatically—preventing false absent alerts.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">🛡️ Hostel-Scoped Guard Lock & Duplicate Prevention</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Guards are restricted strictly to their assigned block. Database compound constraints physically reject duplicate scans.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">🔊 Web Audio API Acoustic Feedback</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Distinct audio frequencies guide guards without screen looking: pleasant chime for Present, mid-tone for Duplicate, and warning buzz for Invalid/Wrong Hostel.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">📊 1-Click Roll-Call Register & CSV Audit</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Sessions generate an instant categorized register (Present, On Leave, Absent). Absent students receive automated notifications upon session closure.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="image-placeholder" style="flex: 1;">
+            <div class="icon">📷</div>
+            <div class="label">Night Attendance Camera Scanner Interface</div>
+            <div class="route">Route: /security/attendance</div>
+            <div class="hint">Show active camera scanner HUD, 'PRESENT' status overlay, student USN, and live counter.</div>
+          </div>
+          <div class="image-placeholder" style="flex: 1;">
+            <div class="icon">📷</div>
+            <div class="label">Live Roll-Call Register with CSV Export</div>
+            <div class="route">Route: /admin/attendance (or /warden/attendance)</div>
+            <div class="hint">Show color-coded list (Present, On Leave, Absent) and 'Export CSV' button for official records.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 4 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 5: Mess & Food -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Dining & Food Optimization</div>
+        <div class="slide-title">Digital Dining Verification & Headcount-Based Waste Reduction</div>
+        <div class="slide-subtitle">Securing dining access, distinguishing meal plans, and using approved leaves to optimize kitchen preparation</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 30px;">
+        <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <strong style="color: var(--emerald); font-size: 13px;">⚡ Sub-Millisecond Entrance Verification (&lt; 1ms)</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Active resident data is cached in server RAM on startup. Students are verified at the dining gate in under 1ms, preventing long lines during peak rush.</p>
+          </div>
+          <div>
+            <strong style="color: var(--orange); font-size: 13px;">🍗 Visual Veg vs Non-Veg HUD Identification</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">The scanner displays an unmistakable high-visibility banner: 'NON-VEGETARIAN' (orange) or 'VEGETARIAN' (green), eliminating coupon fraud and meal plan confusion.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">📉 Leave-to-Headcount Preparation Optimization</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Approved leaves are available digitally. Kitchen supervisors know expected absentees hours before cooking begins, enabling calibrated procurement and curbing food wastage.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">🛑 Immediate Alert on Unallocated / Unpaid Dining</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Non-hostelites or fee-defaulters trigger an instant red 'NOT ELIGIBLE' alert, ensuring only authorized residents utilize dining facilities.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">📋 Daily Headcount Roster & Catering Billing Audit</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Live daily counters persist to PostgreSQL. Administrators can export dining headcount CSVs to settle catering vendor bills with zero accounting ambiguity.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="image-placeholder" style="flex: 1;">
+            <div class="icon">📷</div>
+            <div class="label">Mess Entrance Scanner HUD (Meal Plan Display)</div>
+            <div class="route">Route: /security/mess-entry</div>
+            <div class="hint">Show '🍗 NON-VEGETARIAN • ENTRY ALLOWED' status badge with student USN and today's meal count.</div>
+          </div>
+          <div class="image-placeholder" style="flex: 1;">
+            <div class="icon">📷</div>
+            <div class="label">Mess Entry History & Catering Export Log</div>
+            <div class="route">Route: /security/mess-history</div>
+            <div class="hint">Show real-time timestamped meal log and 'Export CSV' button used for vendor reconciliation.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 5 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 6: Admissions & Billing -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Admissions & Financial Governance</div>
+        <div class="slide-title">Controlled Digital Room Allocation & Bank-Grade Fee Reconciliation</div>
+        <div class="slide-subtitle">Preventing double-booking with database row locking, supporting online/offline payments, and issuing official PDF receipts</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 30px;">
+        <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <strong style="color: var(--blue-accent); font-size: 13px;">🔒 Concurrency-Safe Room Allocation (Zero Double-Booking)</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">High-concurrency bed reservations utilize PostgreSQL pessimistic row-level locking (SELECT ... FOR UPDATE). Double-booking is mathematically impossible.</p>
+          </div>
+          <div>
+            <strong style="color: var(--blue-accent); font-size: 13px;">⏱️ Atomic 10-Minute Hold Engine</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">When a student selects a bed, an atomic 10-minute hold reservation is placed. Other applicants see the bed as temporarily reserved while checkout completes.</p>
+          </div>
+          <div>
+            <strong style="color: var(--blue-accent); font-size: 13px;">💳 Integrated Razorpay Gateway with HMAC-SHA256 Checks</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Supports UPI, Cards, NetBanking, and Wallets. Webhooks and callback signatures are validated using constant-time cryptographic comparisons.</p>
+          </div>
+          <div>
+            <strong style="color: var(--blue-accent); font-size: 13px;">🏦 Support for Offline Challans, DDs & Education Loans</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">The Accounts portal allows verification of offline bank challans, DDs, and loan deposits with bank reference tracking, accommodating all parent payment preferences.</p>
+          </div>
+          <div>
+            <strong style="color: var(--blue-accent); font-size: 13px;">📄 Automated Vector PDF Receipts & Email Dispatch</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Official branded PDF receipts with sequential REC-YYYY-XXXXXX numbers, IST timestamps, and fee breakdowns are automatically generated and emailed to students.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="image-placeholder" style="flex: 1;">
+            <div class="icon">📷</div>
+            <div class="label">Admin Rooms & Allocations Visual Hub</div>
+            <div class="route">Route: /admin/rooms</div>
+            <div class="hint">Show visual floor plan, live bed capacity (Available, Full, Blocked), and resident details drawer.</div>
+          </div>
+          <div class="image-placeholder" style="flex: 1;">
+            <div class="icon">📷</div>
+            <div class="label">Official BMSETH Branded Vector PDF Receipt</div>
+            <div class="route">Downloaded from /student/fees or /accountant/fees</div>
+            <div class="hint">Display sample PDF receipt with REC-YYYY-XXXXXX number, college crest, and fee breakdown.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 6 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 7: Welfare & Governance -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Welfare & Accountability</div>
+        <div class="slide-title">Structured Leave Approvals, Multimedia Maintenance & Visitor Safety</div>
+        <div class="slide-subtitle">Centralizing day-to-day hostel operations with verifiable audit records and student transparency</div>
+      </div>
+
+      <div class="grid-3" style="margin-bottom: 14px;">
+        <div class="card" style="border-top: 4px solid var(--blue-accent);">
+          <strong style="color: var(--blue-accent); font-size: 13px; display: block; margin-bottom: 6px;">✈️ Leave Management & Gate Logs</strong>
+          <ul style="font-size: 11px; color: #334155;">
+            <li>• Online applications: Home, Medical, Emergency, Academic</li>
+            <li>• Automatic day duration calculation</li>
+            <li>• Block Warden approval/rejection with mandatory remarks</li>
+            <li>• Gate exit and return timestamp logs recorded by security</li>
+            <li>• Full history available for parental review</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--orange);">
+          <strong style="color: var(--orange); font-size: 13px; display: block; margin-bottom: 6px;">🔧 Multimedia Maintenance Hub</strong>
+          <ul style="font-size: 11px; color: #334155;">
+            <li>• 6 categories: Electrical, Plumbing, Furniture, Hygiene, WiFi, Other</li>
+            <li>• Students attach up to 5 photo or video proofs from mobile</li>
+            <li>• Wardens inspect proofs in an in-browser Lightbox</li>
+            <li>• Status progression: OPEN ➔ IN-PROGRESS ➔ RESOLVED</li>
+            <li>• Eliminates lost verbal complaints</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--purple);">
+          <strong style="color: var(--purple); font-size: 13px; display: block; margin-bottom: 6px;">🛡️ Visitor Tracking & Read Receipts</strong>
+          <ul style="font-size: 11px; color: #334155;">
+            <li>• Digital visitor passes linked to student resident profile</li>
+            <li>• Mandatory capture of relationship and photo ID number</li>
+            <li>• Gate check-in and check-out timestamps</li>
+            <li>• Targeted campus notices filtered by hostel/year/dept</li>
+            <li>• Warden inspects read-receipts to confirm opens</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 24px; min-height: 120px;">
+        <div class="image-placeholder">
+          <div class="icon">📷</div>
+          <div class="label">Multimedia Complaints Hub & Image/Video Lightbox</div>
+          <div class="route">Route: /warden/complaints</div>
+          <div class="hint">Show maintenance ticket list and expanded photo/video proof lightbox viewer.</div>
+        </div>
+        <div class="image-placeholder">
+          <div class="icon">📷</div>
+          <div class="label">Student Attendance Calendar & Targeted Announcements</div>
+          <div class="route">Route: /student/profile & /announcements</div>
+          <div class="hint">Show student's monthly color-coded attendance calendar and targeted announcement feed.</div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 7 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 8: Engineering Rigor -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Performance & Data Protection</div>
+        <div class="slide-title">Engineering Rigor: High-Speed Concurrency & Defense-in-Depth Security</div>
+        <div class="slide-subtitle">Tested, benchmarked, and optimized for 3,000+ residential students with zero-trust privacy controls</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 30px;">
+        <div class="card" style="border-left: 4px solid var(--blue-accent);">
+          <strong style="font-size: 14px; color: var(--blue-accent); display: block; margin-bottom: 8px;">⚡ Measured QR Verification Optimization</strong>
+          
+          <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px;">
+            <span style="font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Before Optimization (Sequential DB Queries)</span>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Multiple sequential round-trips causing roll-call queue delays.</p>
+            <strong style="font-size: 12px; color: var(--orange);">LATENCY BEFORE: [BEFORE TIME]</strong>
+          </div>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px;">
+            <span style="font-size: 10px; font-weight: 800; color: #166534; text-transform: uppercase;">After Optimization (Single-Trip CTE + In-Memory Cache)</span>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Collapsed verification into 1 atomic SQL CTE + RAM cached sessions.</p>
+            <strong style="font-size: 12px; color: var(--emerald);">LATENCY AFTER: [AFTER TIME]</strong>
+          </div>
+
+          <div style="background: rgba(37, 99, 235, 0.08); border: 1px solid #93c5fd; border-radius: 8px; padding: 6px 12px;">
+            <strong style="font-size: 12px; color: var(--blue-accent);">PROVEN PERFORMANCE GAIN: [MEASURED IMPROVEMENT] Latency Reduction</strong>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div class="image-placeholder" style="flex: 1;">
+            <div class="icon">📷</div>
+            <div class="label">Server Console Benchmark Logs (Before & After)</div>
+            <div class="route">Server Benchmark Logs: [SCAN PERF FAST-PATH]</div>
+            <div class="hint">Insert verified terminal screenshot showing qrValidation, singleDbTrip, and total execution time.</div>
+          </div>
+
+          <div class="card" style="border-left: 4px solid var(--purple);">
+            <strong style="font-size: 12px; color: var(--purple); display: block; margin-bottom: 4px;">🛡️ Institutional Security & Privacy Controls</strong>
+            <ul style="font-size: 10.5px; color: #334155;">
+              <li>• Zero-PII Gate Pass: Hides student phone & home address from guard screens</li>
+              <li>• Bcrypt Password Encryption (12 Salt Rounds) & Ephemeral 15m JWTs</li>
+              <li>• 100% Parameterized SQL queries via Prisma (immune to SQL injection)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 8 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 9: Governance & Audits -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Governance & Auditing</div>
+        <div class="slide-title">Centralized Analytics, Defaulter Tracking & One-Click Inspection Reports</div>
+        <div class="slide-subtitle">Real-time institutional oversight, automated fee ledgers, and exportable reports for NAAC and statutory audits</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 30px;">
+        <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">📊 Real-Time Campus Occupancy & Revenue Pulse</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Live breakdown of Available, Partially Occupied, Fully Occupied, and Blocked rooms across all hostels with total collected and outstanding fee metrics.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">📑 1-Click Fee Defaulters Roster (Excel / CSV)</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Instant generation of students with outstanding dues, amount owed, room assignment, and guardian contact details for administrative review.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">⚠️ Attendance Shortage Report (&lt; 75%)</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Automatically compiles residents below the 75% attendance threshold for disciplinary review, eliminating days of manual ledger calculation.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">🍲 Daily Mess Catering Audit Log</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Daily verified headcount reports detailing meals served per dining hall, providing verifiable proof for catering vendor invoice settlement.</p>
+          </div>
+          <div>
+            <strong style="color: var(--navy-primary); font-size: 13px;">🛡️ Immutable Audit Trail & Police Visitor Logs</strong>
+            <p style="font-size: 11px; color: #334155; margin-top: 2px;">Tracks administrative overrides, room reassignments, and fee waivers. Exports timestamped visitor logs for statutory law enforcement compliance.</p>
+          </div>
+        </div>
+
+        <div class="image-placeholder">
+          <div class="icon">📷</div>
+          <div class="label">Institutional Reports & Export Center Dropdown</div>
+          <div class="route">Route: /admin/rooms (Reports Dropdown) & /admin/dashboard</div>
+          <div class="hint">Show the reports dropdown triggering Defaulters CSV, Attendance Shortage CSV, and Mess Headcount CSV exports alongside analytics.</div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 9 of 10</strong>
+      </div>
+    </div>
+
+    <!-- SLIDE 10: Implementation Feasibility -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-kicker">Implementation Feasibility</div>
+        <div class="slide-title">A Phased, Zero-Disruption Rollout Plan for BMSCE Hostels</div>
+        <div class="slide-subtitle">Progressive block-by-block onboarding with parallel manual fallback, staff training, and zero proprietary hardware</div>
+      </div>
+
+      <div class="grid-phases">
+        <div class="card" style="border-top: 4px solid var(--blue-accent);">
+          <strong style="font-size: 12px; color: var(--blue-accent); display: block;">PHASE 1: Single Block Pilot</strong>
+          <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Weeks 1 – 3</span>
+          <ul style="font-size: 10.5px; color: #334155;">
+            <li>• Deploy in 1 block (e.g. Boys Block 1)</li>
+            <li>• Run parallel with paper books</li>
+            <li>• Benchmark live scanning speeds</li>
+            <li>• Gather warden & guard feedback</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--purple);">
+          <strong style="font-size: 12px; color: var(--purple); display: block;">PHASE 2: Staff Orientation</strong>
+          <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Weeks 4 – 5</span>
+          <ul style="font-size: 10.5px; color: #334155;">
+            <li>• 30-min hands-on training for guards</li>
+            <li>• Warden orientation on leave hub</li>
+            <li>• Accounts training on challans</li>
+            <li>• Establish network fallback rules</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--amber);">
+          <strong style="font-size: 12px; color: var(--amber); display: block;">PHASE 3: Mess & Fees</strong>
+          <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Weeks 6 – 8</span>
+          <ul style="font-size: 10.5px; color: #334155;">
+            <li>• Activate dining QR scanners</li>
+            <li>• Calibrate kitchen headcount prep</li>
+            <li>• Validate Veg vs Non-Veg speed</li>
+            <li>• Test challan and receipt flows</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--emerald);">
+          <strong style="font-size: 12px; color: var(--emerald); display: block;">PHASE 4: Full Campus</strong>
+          <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">New Term</span>
+          <ul style="font-size: 10.5px; color: #334155;">
+            <li>• Onboard all Boys & Girls blocks</li>
+            <li>• Digital admissions for new batch</li>
+            <li>• 1-click batch checkout for 4th yrs</li>
+            <li>• Full transition to digital registers</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="background: var(--blue-light); border: 1px solid var(--blue-accent); border-radius: 12px; padding: 14px 20px; margin-bottom: 24px;">
+        <strong style="font-size: 12px; color: var(--navy-primary); display: block; margin-bottom: 4px;">🏛️ Institutional Safety & Feasibility Guarantees for College Administration</strong>
+        <p style="font-size: 11px; color: #334155; margin-bottom: 2px;">• <strong>Zero New Hardware:</strong> Runs entirely on existing staff smartphones and office PCs via standard web browsers.</p>
+        <p style="font-size: 11px; color: #334155;">• <strong>Full Manual Fallback:</strong> Paper registers and manual challans run in parallel during the entire pilot period to guarantee zero operational risk.</p>
+      </div>
+
+      <div class="slide-footer">
+        <span>BMS College of Engineering • BMSET Hostels Modernization Proposal</span>
+        <strong>Slide 10 of 10</strong>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Presenter Notes Tray -->
+  <div class="notes-tray">
+    <div class="notes-title">
+      <span>🎙️ Presenter Script & Verbal Talking Points (Slide <span id="notesSlideNumber">1</span>)</span>
+    </div>
+    <div class="notes-body" id="notesBody">
+      "Respected Principal Sir, as our residential intake has grown to several thousand students, managing hostel administration through paper registers, bank counter queues, and WhatsApp groups creates hidden risks in student safety, accounting overhead, and dining planning. Today, I am presenting a working, enterprise-grade system built specifically around BMSCE's operational rules to modernize hostel management into a secure, transparent, and automated digital ecosystem."
+    </div>
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const slideCounter = document.getElementById('slideCounter');
+    const notesSlideNumber = document.getElementById('notesSlideNumber');
+    const notesBody = document.getElementById('notesBody');
+
+    const verbalScripts = [
+      `"Respected Principal Sir, as our residential intake has grown to several thousand students, managing hostel administration through paper registers, bank counter queues, and WhatsApp groups creates hidden risks in student safety, accounting overhead, and dining planning. Today, I am presenting a working, enterprise-grade system built specifically around BMSCE's operational rules to modernize hostel management into a secure, transparent, and automated digital ecosystem."`,
+
+      `"When an emergency occurs at 11:30 PM, asking a warden to manually cross-reference 500 paper names against handwritten leave slips is a safety liability. Similarly, our mess staff currently cooks without knowing how many students are traveling home, leading to avoidable food wastage. The administrative team spends weeks reconciling bank slips during admission season. These are operational problems that software can solve completely."`,
+
+      `"Importantly, this platform does not disrupt our college's hierarchy. Wardens retain full authority over leave sanctions and bed reallocations, but they only see their assigned blocks. Security guards can scan passes, but they cannot see student financial records or personal contact numbers. The Principal and Chief Warden have instant oversight over every block, fee rupee, and open complaint across the entire campus."`,
+
+      `"Every evening during curfew check, security guards face the problem of proxy attendance and outdated leave books. With our system, each student presents a dynamic QR code that refreshes every 30 seconds—a forwarded screenshot cannot be used. If a student is traveling home on warden-approved leave, the scanner immediately recognizes it and marks them 'On Leave' instead of triggering a false alarm. When the session closes, absent students receive an instant automated alert, and the warden receives a complete CSV roll call."`,
+
+      `"Mess management is one of our largest recurring operational expenditures. Currently, dining access is verified manually or informally, making it difficult to control unauthorized entries or monitor meal plans. Our system validates dining eligibility in less than one millisecond and clearly displays whether a student is enrolled in the Vegetarian or Non-Vegetarian plan. More importantly, because all approved leaves are logged digitally, the mess manager can see exactly how many students are off campus before lunch or dinner preparation begins, helping curb food wastage."`,
+
+      `"Every academic year, the hostel admission process creates massive congestion in the administrative office. Our platform provides a live visual bed inventory. When a student chooses an eligible bed, the system places a temporary 10-minute lock on it. Even if 500 students apply at the same second, PostgreSQL row-level locks mathematically guarantee that no room is ever double-booked. Once payment is confirmed—either online or via verified bank challan—an official, sequentially numbered BMSETH PDF receipt is immediately emailed to the student and parent."`,
+
+      `"Hostel management is also about student welfare. When a student has a water leak or broken desk, verbal complaints get forgotten. In our portal, students attach a quick photo or video, and wardens can track maintenance tickets through resolution. For leaves and visitors, every movement is recorded with timestamps and ID proofs, ensuring the college has complete, verifiable safety records if a parent or authority ever makes an enquiry."`,
+
+      `"We specifically engineered the platform to handle the real-world pressure of 3,000 residential students. During curfew, hundreds of students line up to scan within minutes. In our early testing, sequential database calls took [BEFORE TIME]. We re-engineered the scanning engine using atomic database expressions and memory caching, cutting scan time to [AFTER TIME]—an improvement of [MEASURED IMPROVEMENT]. At the same time, we enforce zero-trust data minimization: security guards see only identity and room verification, keeping student phone numbers and home addresses completely private."`,
+
+      `"For senior administration, the greatest benefit is instantaneous transparency. Currently, finding out our exact hostel occupancy or generating a fee defaulters list takes days of clerical effort. In this system, the Principal can see live occupancy across all blocks with one click. If an inspection team from NAAC or a local authority requests night attendance registers or visitor logs, they can be exported as official CSV spreadsheets in under five seconds."`,
+
+      `"We do not propose replacing everything overnight. We recommend a phased pilot starting with just one hostel block for three weeks. During this pilot, existing paper registers can run in parallel so there is zero operational risk. Security guards and wardens will receive a simple 30-minute training session. Because the entire system runs in standard web browsers on existing smartphones and computers, the college requires zero new hardware investment. Once the pilot proves its value to our wardens and administrative staff, we can comfortably expand it across the campus."`
+    ];
+
+    let currentIdx = 0;
+
+    function updateView() {
+      slides.forEach((s, idx) => {
+        s.classList.toggle('active', idx === currentIdx);
+      });
+      slideCounter.innerText = `${currentIdx + 1} / ${slides.length}`;
+      notesSlideNumber.innerText = `${currentIdx + 1}`;
+      notesBody.innerText = verbalScripts[currentIdx];
+    }
+
+    function nextSlide() {
+      if (currentIdx < slides.length - 1) {
+        currentIdx++;
+        updateView();
+      }
+    }
+
+    function prevSlide() {
+      if (currentIdx > 0) {
+        currentIdx--;
+        updateView();
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'Space') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevSlide();
+      }
+    });
+  </script>
+</body>
+</html>

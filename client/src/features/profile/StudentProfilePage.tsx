@@ -391,7 +391,7 @@ export function StudentProfilePage() {
       </motion.div>
 
       {/* ─── 2. Structured 3-Section Information Hub ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '1.5rem' }}>
         {/* Panel 1: Academic & Identification */}
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ ...cardStyle, padding: '1.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1.25rem' }}>
@@ -801,7 +801,7 @@ export function StudentProfilePage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               style={{
-                width: '100%', maxWidth: '640px', maxHeight: '90vh',
+                width: '100%', maxWidth: '640px', maxHeight: '90dvh',
                 backgroundColor: 'var(--bg-card)', borderRadius: '1.25rem',
                 border: '1px solid var(--border-primary)',
                 boxShadow: '0 20px 40px rgba(0,0,0,0.2)',

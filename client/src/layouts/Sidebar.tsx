@@ -187,6 +187,21 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
     }
   }, [location.pathname]);
 
+  // Lock background body scrolling on mobile when sidebar drawer is open
+  useEffect(() => {
+    if (isOpen && window.innerWidth < 1024) {
+      const prevBodyOverflow = document.body.style.overflow;
+      const prevBodyTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+
+      return () => {
+        document.body.style.overflow = prevBodyOverflow;
+        document.body.style.touchAction = prevBodyTouchAction;
+      };
+    }
+  }, [isOpen]);
+
   // Dynamic navigation sections based on duty assignment for SECURITY personnel
   const sections = useMemo(() => {
     if (!user) return [];
@@ -278,8 +293,9 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-40 lg:hidden"
-            style={{ backgroundColor: 'var(--overlay)' }}
+            style={{ backgroundColor: 'var(--overlay)', touchAction: 'none' }}
             onClick={() => setIsOpen(false)}
+            onTouchMove={(e) => e.preventDefault()}
           />
         )}
       </AnimatePresence>
@@ -287,11 +303,16 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
       {/* Sidebar */}
       <aside
         className={cn(
-          'sidebar-shell fixed top-0 left-0 z-50 h-screen flex flex-col border-r transition-all duration-300',
-          'lg:relative lg:translate-x-0',
+          'sidebar-shell fixed top-0 left-0 z-50 h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-contain flex flex-col border-r transition-all duration-300',
+          'lg:relative lg:translate-x-0 lg:h-screen lg:max-h-screen',
           isOpen ? 'translate-x-0' : '-translate-x-full',
-          isCollapsed ? 'w-[72px]' : 'w-64'
+          isCollapsed ? 'lg:w-[72px]' : 'lg:w-64',
+          'w-72 max-w-[85vw]'
         )}
+        style={{
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain',
+        }}
       >
         {/* Header Branding */}
         <div className={cn(
@@ -328,10 +349,11 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
               }
             }}
             className={cn(
-              'p-1.5 rounded-lg text-blue-100/70 transition-colors hover:bg-white/10 hover:text-white',
-              isCollapsed && 'hidden lg:block'
+              'p-2 rounded-xl text-blue-100/70 transition-colors hover:bg-white/10 hover:text-white flex items-center justify-center touch-manipulation',
+              isCollapsed && 'hidden lg:flex'
             )}
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={isCollapsed ? 'Expand sidebar' : 'Close or collapse navigation'}
+            aria-label={window.innerWidth < 1024 ? 'Close navigation drawer' : isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {window.innerWidth < 1024 ? (
               <X className="w-5 h-5" />
@@ -347,7 +369,13 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
         </div>
 
         {/* Scrollable Navigation Sections */}
-        <nav className="sidebar-content flex-1 overflow-y-auto py-3 px-3 space-y-4 custom-scrollbar">
+        <nav
+          className="sidebar-content flex-1 overflow-y-auto overscroll-contain touch-pan-y py-3 px-3 space-y-4 custom-scrollbar pb-10"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain',
+          }}
+        >
           {sections.map((section, sIdx) => (
             <div key={section.title || sIdx} className="space-y-1">
               {/* Section Header */}
@@ -495,7 +523,12 @@ export function Sidebar({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }: Side
         </nav>
 
         {/* Footer / Account Area */}
-        <div className="sidebar-content p-3 border-t border-white/10 space-y-1 flex-shrink-0">
+        <div
+          className="sidebar-content p-3 border-t border-white/10 space-y-1 flex-shrink-0"
+          style={{
+            paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0.75rem))',
+          }}
+        >
           {/* Dark Mode Toggle */}
           <button
             onClick={toggleTheme}

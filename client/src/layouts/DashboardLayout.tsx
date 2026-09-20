@@ -10,7 +10,7 @@ export function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="dashboard-shell flex h-screen overflow-hidden">
+    <div className="dashboard-shell flex h-[100dvh] overflow-hidden">
       <Sidebar
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
@@ -21,22 +21,22 @@ export function DashboardLayout() {
       <div className="dashboard-main flex-1 min-w-0 flex flex-col overflow-hidden">
         {/* Top bar (Desktop & Mobile) */}
         <header
-          className="flex items-center justify-between h-14 px-4 md:px-8 border-b flex-shrink-0"
+          className="flex items-center justify-between h-14 px-3 sm:px-4 md:px-8 border-b flex-shrink-0"
           style={{
             backgroundColor: 'var(--bg-primary)',
             borderColor: 'var(--border-primary)',
           }}
         >
           {/* Mobile hamburger menu + Branding */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-slate-500/10 transition-colors"
+              className="lg:hidden p-2 -ml-1 rounded-xl hover:bg-slate-500/10 transition-colors touch-manipulation active:scale-95"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
             </button>
-            <span className="lg:hidden text-sm font-bold gradient-text">BMSET Hostels</span>
+            <span className="lg:hidden text-sm font-bold gradient-text truncate">BMSET Hostels</span>
           </div>
 
           <div className="hidden lg:block">
@@ -46,14 +46,17 @@ export function DashboardLayout() {
           </div>
 
           {/* Right Action Area */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <NotificationBell />
           </div>
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1440px] p-5 md:p-8 lg:p-10">
+        <main
+          className="flex-1 min-w-0 overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="mx-auto w-full max-w-[1440px] p-3.5 sm:p-5 md:p-8 lg:p-10">
             <Suspense fallback={<PageLoadingSpinner />}>
               <Outlet />
             </Suspense>

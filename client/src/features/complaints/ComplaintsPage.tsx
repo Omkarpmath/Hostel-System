@@ -840,7 +840,7 @@ export function ComplaintsPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
             }}
           >
-            <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90dvh' }} onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setSelectedMedia(null)}
                 style={{
@@ -852,9 +852,9 @@ export function ComplaintsPage() {
                 <X style={{ width: '1.25rem', height: '1.25rem' }} /> Close
               </button>
               {selectedMedia.isVideo ? (
-                <video src={selectedMedia.url} controls autoPlay style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '0.75rem' }} />
+                <video src={selectedMedia.url} controls autoPlay style={{ maxWidth: '100%', maxHeight: '80dvh', borderRadius: '0.75rem' }} />
               ) : (
-                <img src={selectedMedia.url} alt="Proof" style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '0.75rem', objectFit: 'contain' }} />
+                <img src={selectedMedia.url} alt="Proof" style={{ maxWidth: '100%', maxHeight: '80dvh', borderRadius: '0.75rem', objectFit: 'contain' }} />
               )}
             </div>
           </motion.div>
@@ -943,6 +943,7 @@ function ResolveModal({
           width: '100%', maxWidth: '28rem', borderRadius: '1rem',
           border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-card)',
           boxShadow: '0 20px 25px rgba(0,0,0,0.25)', overflow: 'hidden',
+          maxHeight: '90dvh', display: 'flex', flexDirection: 'column',
         }}
       >
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1139,7 +1140,7 @@ function ComplaintFormModal({ onClose }: { onClose: () => void }) {
           border: '1px solid var(--border-primary)',
           backgroundColor: 'var(--bg-card)',
           boxShadow: '0 25px 35px rgba(0,0,0,0.25)',
-          maxHeight: '90vh',
+          maxHeight: '90dvh',
           overflowY: 'auto',
         }}
       >

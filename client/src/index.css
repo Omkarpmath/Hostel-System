@@ -153,10 +153,13 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 body {
@@ -165,6 +168,9 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 100vw;
+  overflow-x: hidden;
   transition: background-color 0.3s ease, color 0.3s ease;
   background-image: radial-gradient(circle at 75% -20%, rgba(45, 115, 255, 0.10), transparent 35%);
 }
@@ -271,6 +277,14 @@ body {
 
 .page-header { padding-bottom: 0.25rem; }
 .page-header h1 { letter-spacing: -0.035em; }
+
+.table-responsive-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
 
 .shimmer {
   background: linear-gradient(
