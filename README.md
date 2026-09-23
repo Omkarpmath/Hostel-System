@@ -178,32 +178,33 @@ sequenceDiagram
     participant API as Attendance Service (/api/v1/attendance)
     participant DB as PostgreSQL 16 (Prisma ORM)
 
-    Guard->>Scanner: Selects Block & Clicks "Start Session"
-    Scanner->>API: POST /api/v1/attendance/start { hostelId }
-    API->>DB: Check unique(hostelId, date) & Create AttendanceSession
+    Guard->>Scanner: Selects Block and Clicks "Start Session"
+    Scanner->>API: POST /api/v1/attendance/start
+    API->>DB: Check unique(hostelId, date) and Create AttendanceSession
     DB-->>API: Session ID Confirmed (ACTIVE)
     
     Student->>Scanner: Presents 30s Dynamic QR Passport
-    Scanner->>API: POST /api/v1/attendance/scan { token, sessionId }
+    Scanner->>API: POST /api/v1/attendance/scan
     
-    API->>API: Verify HMAC-SHA256 signature & check token expiry (<=30s)
-    API->>DB: Query Student Profile & Active Room Allocation
+    API->>API: Verify HMAC-SHA256 signature (<= 30s TTL)
+    API->>DB: Query Student Profile and Active Room Allocation
     API->>DB: Query Active Approved Leave for Current Date
     
     alt Student is on Approved Leave for Today
         DB-->>API: Approved LeaveRecord Found
-        API-->>Scanner: ✈️ Status: ON_LEAVE (Logged; false-absent prevented)
+        API-->>Scanner: Status: ON_LEAVE (Logged, false-absent prevented)
     else Belongs to Different Hostel Block
-        API-->>Scanner: ❌ Status: WRONG_HOSTEL (Access Denied to this block)
-    else Valid Hostel Block & No Leave
+        API-->>Scanner: Status: WRONG_HOSTEL (Access Denied to this block)
+    else Valid Hostel Block and No Leave
         API->>DB: INSERT into attendance_records (sessionId, studentId)
-        alt First scan today
-            DB-->>API: Record Created Successfully
-            API-->>Scanner: ✅ Status: PRESENT (Scanned & Timestamped)
-        else Duplicate scan attempt
-            DB-->>API: Unique Constraint Violation (P2002 @@unique)
-            API-->>Scanner: ⚠️ Status: ALREADY_MARKED (Duplicate Ignored)
-        end
+        DB-->>API: Record Created Successfully
+        API-->>Scanner: Status: PRESENT (Scanned and Timestamped)
+    end
+    
+    opt Duplicate Scan Attempt
+        API->>DB: Attempt Duplicate Insert
+        DB-->>API: Unique Constraint Violation (P2002)
+        API-->>Scanner: Status: ALREADY_MARKED (Duplicate Ignored)
     end
 ```
 
@@ -220,8 +221,8 @@ sequenceDiagram
     participant RZP as Razorpay Gateway
     participant DB as PostgreSQL 16 (Serializable)
 
-    Student->>UI: Selects Bed & Clicks "Reserve"
-    UI->>API: POST /api/v1/booking/reserve { roomId }
+    Student->>UI: Selects Bed and Clicks "Reserve"
+    UI->>API: POST /api/v1/booking/reserve
     API->>DB: Create Reservation (10-min countdown timer)
     DB-->>UI: Reservation Active (Lock acquired)
 
@@ -233,16 +234,16 @@ sequenceDiagram
 
     UI->>RZP: Launch Razorpay Modal (UPI / Card / NetBanking)
     Student->>RZP: Authorizes Payment
-    RZP-->>UI: Returns { razorpay_order_id, razorpay_payment_id, razorpay_signature }
+    RZP-->>UI: Returns (orderId, paymentId, signature)
 
     UI->>API: POST /api/v1/booking/verify-payment
     API->>API: Validate HMAC-SHA256 via crypto.timingSafeEqual
 
     rect rgb(238, 246, 255)
-    Note over API,DB: PostgreSQL Serializable Transaction + Pessimistic Row Lock
+    Note over API,DB: Serializable Transaction + Pessimistic Row Lock
     API->>DB: BEGIN TRANSACTION (ISOLATION LEVEL SERIALIZABLE)
     API->>DB: SELECT * FROM rooms WHERE id = ? FOR UPDATE
-    API->>DB: Verify room capacity & bed vacancy
+    API->>DB: Verify room capacity and bed vacancy
     API->>DB: INSERT INTO room_allocations (status: ACTIVE)
     API->>DB: INSERT INTO fees (status: PAID, receiptNumber: REC-YYYY-XXXXXX)
     API->>DB: UPDATE reservations SET status = 'CONVERTED'
@@ -251,7 +252,7 @@ sequenceDiagram
 
     API->>API: Generate Vector PDF Receipt (PDFKit)
     API->>API: Dispatch Receipt via Resend Transactional Email
-    API-->>UI: Allocation Confirmed ✅ Room Ready
+    API-->>UI: Allocation Confirmed (Room Ready)
 ```
 
 ---
@@ -268,17 +269,17 @@ sequenceDiagram
     participant DB as PostgreSQL 16
 
     Student->>Scanner: Presents Dynamic QR Passport
-    Scanner->>API: POST /api/v1/mess-entry/verify { token, messId }
-    API->>API: Verify HMAC-SHA256 signature (<=30s TTL)
-    API->>DB: Find StudentProfile, RoomAllocation & MessFee status
+    Scanner->>API: POST /api/v1/mess-entry/verify
+    API->>API: Verify HMAC-SHA256 signature (<= 30s TTL)
+    API->>DB: Find StudentProfile, RoomAllocation and MessFee status
     
     alt Mess Fee Unpaid
-        API-->>Scanner: ❌ DENIED: Mess Fee Pending
+        API-->>Scanner: Status: DENIED (Mess Fee Pending)
     else Mess Fee Cleared
         API->>DB: INSERT into mess_entries (studentId, messId, date, scannedAt)
         API->>DB: UPSERT mess_daily_counts (increment count for today)
         DB-->>API: Entry Logged
-        API-->>Scanner: ✅ VERIFIED: Student Name, USN, Meal Plan (Veg/Non-Veg)
+        API-->>Scanner: Status: VERIFIED (Student Name, USN, Meal Plan)
     end
 ```
 
